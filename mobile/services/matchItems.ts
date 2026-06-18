@@ -79,7 +79,7 @@ function estimatedBox(yPct: number): BoundingBox {
  * @param totalLines  Total number of OCR lines (for fallback position calc)
  */
 export function matchItemsToBlocks(
-  items: Array<Omit<BillItem, "id" | "confidence" | "isLowConfidence" | "boundingBox">>,
+  items: Array<Omit<BillItem, "id" | "isLowConfidence" | "boundingBox">>,
   blocks: OcrBlock[],
   totalLines: number
 ): BillItem[] {
@@ -118,7 +118,8 @@ export function matchItemsToBlocks(
             15 + (itemIdx / Math.max(items.length - 1, 1)) * 65
           );
 
-    const confidence = matched ? (bestBlock!.confidence ?? 0.9) : 0.7;
+    const blockConf = matched ? (bestBlock!.confidence ?? 0.9) : 0.7;
+    const confidence = raw.confidence !== undefined ? Math.min(raw.confidence, blockConf) : blockConf;
 
     return {
       ...raw,

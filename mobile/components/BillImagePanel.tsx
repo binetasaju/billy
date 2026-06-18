@@ -5,8 +5,8 @@
 // No bounding boxes. No gestures. Tap to open full-screen viewer.
 // ---------------------------------------------------------------------------
 
-import React from "react";
-import { View, Image, Pressable, Text, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, Pressable, Image } from "react-native";
 
 interface BillImagePanelProps {
   uri: string;
@@ -15,6 +15,20 @@ interface BillImagePanelProps {
 }
 
 export default function BillImagePanel({ uri, height, onTap }: BillImagePanelProps) {
+  const [hasError, setHasError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
+  if (hasError) {
+    return (
+      <View style={[styles.container, { height, justifyContent: "center", alignItems: "center" }]}>
+        <Text style={{ color: "#9CA3AF", marginBottom: 10 }}>Unable to load bill image</Text>
+        <Pressable onPress={() => { setHasError(false); setRetryKey(k => k + 1); }} style={{ padding: 10, backgroundColor: "#374151", borderRadius: 8 }}>
+          <Text style={{ color: "white" }}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <Pressable
       onPress={onTap}
@@ -23,9 +37,15 @@ export default function BillImagePanel({ uri, height, onTap }: BillImagePanelPro
       accessibilityLabel="Bill image — tap to expand"
     >
       <Image
+        key={retryKey}
         source={{ uri }}
         style={styles.image}
         resizeMode="contain"
+        onLoad={() => console.log("[BillImage] Loaded")}
+        onError={(e) => {
+          console.log("[BillImage] Error:", e.nativeEvent);
+          setHasError(true);
+        }}
       />
 
       {/* Tap hint badge */}

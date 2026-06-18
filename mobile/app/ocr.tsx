@@ -29,6 +29,12 @@ type OcrState =
   | "success"
   | "error";
 
+const BASE_MESSAGES = [
+  "Extracting bill information...",
+  "Reviewing receipt details...",
+  "Preparing your bill summary...",
+];
+
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -37,14 +43,20 @@ export default function OcrScreen() {
   const uri = rawUri ? decodeURIComponent(rawUri) : undefined;
   const router = useRouter();
 
+  useEffect(() => {
+    if (uri) console.log("[OCR] URI:", uri);
+  }, [uri]);
+
   const [state, setState] = useState<OcrState>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [parsedBill, setParsedBill] = useState<ParsedBill | null>(null);
   const [isSlow, setIsSlow] = useState(false);
+  const [messages, setMessages] = useState<string[]>(BASE_MESSAGES);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
@@ -52,6 +64,13 @@ export default function OcrScreen() {
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, []);
+
+  // Auto-navigate on success — no success popup
+  useEffect(() => {
+    if (state === "success") {
+      router.push("/review-items");
+    }
+  }, [state]);
 
   // -------------------------------------------------------------------------
   // Main pipeline
@@ -79,6 +98,11 @@ export default function OcrScreen() {
     setState("compressing");
     setParsedBill(null);
     setErrorMessage("");
+
+    // Randomize messages for this run
+    const shuffled = [...BASE_MESSAGES].sort(() => Math.random() - 0.5);
+    setMessages(shuffled);
+    setLoadingMsgIdx(0);
 
     try {
       console.time("[PIPELINE] Total");
@@ -119,15 +143,15 @@ export default function OcrScreen() {
 
       // ── Step 4 (parallel): Gemini OCR text + Vision API bounding boxes ─────
       setState("ocr");
-      setStatusMessage("Extracting text...");
 
-      // Vision API and Gemini OCR run in parallel to save time.
-      // Vision API is optional — if no key is set, it returns null.
+      const ocrStart = Date.now();
       const [rawText, visionResult] = await Promise.all([
         extractTextFromImage(base64, compressed.uri, setStatusMessage, abortControllerRef.current.signal),
         extractBlocksWithVision(base64, abortControllerRef.current.signal),
       ]);
+      const ocrDuration = Date.now() - ocrStart;
 
+      console.log(`[PIPELINE] OCR duration: ${ocrDuration}ms`);
       console.log("[PIPELINE] OCR text length:", rawText.length);
       if (visionResult) {
         console.log("[PIPELINE] Vision API blocks:", visionResult.blocks.length);
@@ -137,7 +161,9 @@ export default function OcrScreen() {
 
       // ── Step 5: Parse raw text into structured JSON ────────────────────────
       setState("parsing");
-      setStatusMessage("Analyzing items...");
+      setMessages(["Receipt extracted successfully.\nBuilding bill details..."]);
+      setLoadingMsgIdx(0);
+      
       const parsed = await parseBill(rawText);
       console.log("[PIPELINE] Parsed:", parsed.items.length, "items");
 
@@ -211,24 +237,43 @@ export default function OcrScreen() {
     state === "matching";
 
   const stepLabel: Record<OcrState, string> = {
-    idle: "Tap the button to scan your bill",
-    compressing: "Scanning receipt...",
-    ocr: "Extracting text...",
-    parsing: "Analyzing items...",
-    matching: "Analyzing items...",
+    idle: "Review the receipt below and extract items from the bill.",
+    compressing: "Extracting Bill...",
+    ocr: "Extracting Bill...",
+    parsing: "Extracting Bill...",
+    matching: "Extracting Bill...",
     success: "Bill scanned successfully",
     error: "",
   };
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isLoading && !isSlow && messages.length > 0) {
+      interval = setInterval(() => {
+        setLoadingMsgIdx((prev) => {
+          if (prev >= messages.length - 1) {
+            clearInterval(interval);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 5000);
+    } else {
+      setLoadingMsgIdx(0);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading, isSlow, messages]);
 
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Scan Bill</Text>
-      <Text style={styles.subtitle}>{stepLabel[state]}</Text>
+      {/* Title — always "Extract Bill" */}
+      <Text style={styles.title}>Extract Bill</Text>
+      <Text style={styles.subtitle}>{stepLabel["idle"]}</Text>
 
-      {/* Bill image — plain thumbnail, no overlays */}
+      {/* Bill image — always visible */}
       <View style={styles.imageContainer}>
         {uri ? (
           <Image source={{ uri }} style={styles.image} resizeMode="contain" />
@@ -239,29 +284,7 @@ export default function OcrScreen() {
         )}
       </View>
 
-      {/* ── Idle / Loading ── */}
-      {(state === "idle" || (isLoading && !isSlow)) && (
-        <Pressable
-          onPress={handleRunOcr}
-          disabled={isLoading}
-          style={({ pressed }) => [
-            styles.button,
-            isLoading && styles.buttonDisabled,
-            pressed && !isLoading && styles.buttonPressed,
-          ]}
-        >
-          {isLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color="#FFFFFF" size="small" />
-              <Text style={[styles.buttonText, { marginLeft: 10, textAlign: "center" }]}>
-                {statusMessage || "Working..."}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.buttonText}>Run OCR</Text>
-          )}
-        </Pressable>
-      )}
+
 
       {/* ── Slow Connection Timeout ── */}
       {isLoading && isSlow && (
@@ -332,62 +355,28 @@ export default function OcrScreen() {
         </View>
       )}
 
-      {/* ── Success ── */}
-      {state === "success" && parsedBill && (
-        <View style={styles.successContainer}>
-          <Text style={styles.successLabel}>✓ Bill scanned successfully</Text>
-
-          <ScrollView
-            style={styles.debugBox}
-            contentContainerStyle={{ padding: 12 }}
-          >
-            <Text style={styles.debugLabel}>Scan Summary</Text>
-            {parsedBill.restaurant ? (
-              <Text style={styles.debugText}>🏪 {parsedBill.restaurant}</Text>
-            ) : null}
-            {parsedBill.billNumber ? (
-              <Text style={styles.debugText}>📄 Bill #{parsedBill.billNumber}</Text>
-            ) : null}
-            {parsedBill.date ? (
-              <Text style={styles.debugText}>📅 {parsedBill.date}</Text>
-            ) : null}
-            <Text style={[styles.debugText, { marginTop: 8, fontWeight: "600", marginBottom: 6 }]}>
-              {parsedBill.items.length} items found (tap to verify):
-            </Text>
-            {parsedBill.items.map((item: any, i: number) => (
-              <View key={i} style={styles.debugItemRow}>
-                <Text style={styles.debugText}>
-                  {"• "}
-                  {item.name}
-                  {item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : ""}{" "}
-                  — ₹{item.amount ?? item.price}
-                  {(item.confidence ?? 1) < 0.8 ? " ⚠️" : ""}
-                </Text>
-              </View>
-            ))}
-            {parsedBill.gst ? (
-              <Text style={styles.debugText}>GST: ₹{parsedBill.gst}</Text>
-            ) : null}
-            {parsedBill.serviceCharge ? (
-              <Text style={styles.debugText}>
-                Service charge: ₹{parsedBill.serviceCharge}
+      {/* ── Extract Bill button — becomes the loading indicator ── */}
+      {state !== "success" && (
+        <Pressable
+          onPress={handleRunOcr}
+          disabled={isLoading}
+          style={({ pressed }) => [
+            styles.button,
+            isLoading && styles.buttonLoading,
+            pressed && !isLoading && styles.buttonPressed,
+          ]}
+        >
+          {isLoading && !isSlow ? (
+            <View style={styles.buttonInner}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.buttonLoadingText}>
+                {messages[loadingMsgIdx]}
               </Text>
-            ) : null}
-            <Text style={[styles.debugText, { fontWeight: "700", marginTop: 4 }]}>
-              Total: ₹{parsedBill.total}
-            </Text>
-          </ScrollView>
-
-          <Pressable
-            onPress={handleContinue}
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.buttonText}>Review Items →</Text>
-          </Pressable>
-        </View>
+            </View>
+          ) : (
+            <Text style={styles.buttonText}>Extract Bill</Text>
+          )}
+        </Pressable>
       )}
     </View>
   );
@@ -429,9 +418,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonDisabled: { backgroundColor: "#374151" },
+  buttonLoading: { backgroundColor: "#374151" },
   buttonPressed: { opacity: 0.75 },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  loadingRow: { flexDirection: "row", alignItems: "center" },
+  buttonInner: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+    paddingHorizontal: 8,
+  },
+  buttonLoadingText: {
+    color: "#fff",
+    fontWeight: "600" as const,
+    fontSize: 15,
+    textAlign: "center" as const,
+    flex: 1,
+  },
   errorBox: {
     backgroundColor: "#FEF2F2",
     borderRadius: 12,
@@ -473,7 +475,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#15803D",
-    marginBottom: 12,
+    marginBottom: 4,
+  },
+  successHelper: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 16,
   },
   debugBox: {
     flex: 1,

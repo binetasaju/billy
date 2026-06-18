@@ -105,7 +105,7 @@ function ItemRow({
       {/* Name + meta */}
       <View style={styles.itemInfo}>
         <View style={styles.itemNameRow}>
-          <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.itemName}>{item.name}</Text>
           {lowConf && (
             <View style={styles.confBadge}>
               <Text style={styles.confBadgeText}>⚠ {Math.round(confidence * 100)}%</Text>
@@ -116,6 +116,16 @@ function ItemRow({
           {item.quantity && item.quantity !== 1 ? `×${item.quantity}  ` : ""}
           ₹{item.price.toFixed(2)}
         </Text>
+        {item.modifiers && item.modifiers.length > 0 && (
+          <View style={styles.modifiersContainer}>
+            {item.modifiers.map((mod, i) => (
+              <View key={i} style={styles.modifierRow}>
+                <Text style={styles.modifierItem}>• {mod.name}</Text>
+                <Text style={styles.modifierPrice}>₹{mod.amount.toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Actions */}
@@ -150,6 +160,7 @@ export default function ReviewItemsScreen() {
     setBill(stored.bill);
     setImageUri(stored.imageUri ?? "");
     setItems(stored.bill.items as BillItem[]);
+    console.log("[Review] bill.imageUri:", stored.imageUri);
   }, []);
 
   // ── Edit ──────────────────────────────────────────────────────────────────
@@ -194,7 +205,13 @@ export default function ReviewItemsScreen() {
   const gstTotal: number    = bill?.gst      ?? 0;
   const sc: number          = bill?.serviceCharge ?? 0;
   const tip: number         = bill?.tip      ?? 0;
+  const discount: number    = bill?.discount ?? 0;
   const grandTotal: number  = bill?.total    ?? 0;
+
+  const expectedTotal = itemsTotal + gstTotal + sc + tip - discount;
+  if (bill && Math.abs(expectedTotal - grandTotal) > 1) {
+    console.warn("[Summary] Total mismatch");
+  }
 
   const lowConfCount = items.filter((it) => (it.confidence ?? 1) < 0.8).length;
 
@@ -224,7 +241,11 @@ export default function ReviewItemsScreen() {
             height={IMAGE_PANEL_H}
             onTap={() => setViewerOpen(true)}
           />
-        ) : null}
+        ) : (
+          <View style={{ height: IMAGE_PANEL_H, justifyContent: "center", alignItems: "center", backgroundColor: "#E5E7EB" }}>
+            <Text style={{ color: "#9CA3AF" }}>No bill image available</Text>
+          </View>
+        )}
 
         {/* ── Header ── */}
         <View style={styles.headerRow}>
@@ -270,10 +291,12 @@ export default function ReviewItemsScreen() {
 
         {/* ── Totals ── */}
         <View style={styles.totalsBox}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Items</Text>
-            <Text style={styles.totalValue}>₹{itemsTotal.toFixed(2)}</Text>
-          </View>
+          {itemsTotal > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Items</Text>
+              <Text style={styles.totalValue}>₹{itemsTotal.toFixed(2)}</Text>
+            </View>
+          )}
           {gstTotal > 0 && (
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>GST / Tax</Text>
@@ -290,6 +313,12 @@ export default function ReviewItemsScreen() {
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Tip</Text>
               <Text style={styles.totalValue}>₹{tip.toFixed(2)}</Text>
+            </View>
+          )}
+          {discount > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Discount</Text>
+              <Text style={styles.totalValue}>-₹{discount.toFixed(2)}</Text>
             </View>
           )}
           <View style={[styles.totalRow, styles.grandRow]}>
@@ -355,14 +384,19 @@ const styles = StyleSheet.create({
   itemRowLowConf: { borderColor: "#FECACA" },
 
   itemInfo: { flex: 1 },
-  itemNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  itemNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   itemName: { fontSize: 14, fontWeight: "500", color: "#111827", flex: 1 },
   confBadge: {
     backgroundColor: "#FEE2E2", borderRadius: 4,
     paddingHorizontal: 5, paddingVertical: 1,
+    marginTop: 2,
   },
   confBadgeText: { fontSize: 10, color: "#991B1B", fontWeight: "600" },
   itemMeta: { fontSize: 12, color: "#6B7280", marginTop: 2 },
+  modifiersContainer: { marginTop: 6, marginLeft: 2, gap: 2 },
+  modifierRow: { flexDirection: "row", justifyContent: "space-between" },
+  modifierItem: { fontSize: 11, color: "#6B7280", flex: 1, paddingRight: 8 },
+  modifierPrice: { fontSize: 11, color: "#6B7280" },
 
   itemActions: { flexDirection: "row", gap: 6 },
   actionBtn: {

@@ -27,6 +27,7 @@ export const billStore = {
     imageUri: string,
     ocrBlocks: OcrBlock[] | null = null
   ) {
+    console.log("[Store] Saving image URI:", imageUri);
     _state = {
       bill,
       imageUri,

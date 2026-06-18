@@ -6,17 +6,16 @@
 // No bounding boxes. No item overlays. Just the image.
 // ---------------------------------------------------------------------------
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  View, Text, Pressable, StyleSheet, Modal, Dimensions, SafeAreaView,
+  View, Text, Pressable, StyleSheet, Modal, SafeAreaView, Image
 } from "react-native";
-import { Image } from "react-native";
-import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, clamp, runOnJS,
-} from "react-native-reanimated";
-
-const { width: SW, height: SH } = Dimensions.get("window");
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 
 interface FullScreenViewerProps {
   uri: string;
@@ -25,84 +24,85 @@ interface FullScreenViewerProps {
 }
 
 export default function FullScreenViewer({ uri, visible, onClose }: FullScreenViewerProps) {
-  const scale      = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const tx         = useSharedValue(0);
-  const ty         = useSharedValue(0);
-  const savedTx    = useSharedValue(0);
-  const savedTy    = useSharedValue(0);
+  const [hasError, setHasError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
-  // Reset zoom whenever the modal opens
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
   useEffect(() => {
     if (visible) {
-      scale.value      = 1;
+      console.log("[FullScreen] URI:", uri);
+      setHasError(false);
+      scale.value = 1;
       savedScale.value = 1;
-      tx.value         = 0;
-      ty.value         = 0;
-      savedTx.value    = 0;
-      savedTy.value    = 0;
+      translateX.value = 0;
+      translateY.value = 0;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
     }
-  }, [visible]);
+  }, [uri, visible, retryKey]);
 
-  function resetZoom() {
-    scale.value      = withSpring(1, { damping: 20 });
-    savedScale.value = 1;
-    tx.value         = withSpring(0, { damping: 20 });
-    ty.value         = withSpring(0, { damping: 20 });
-    savedTx.value    = 0;
-    savedTy.value    = 0;
-  }
-
-  // ── Gestures ──────────────────────────────────────────────────────────────
-
-  const doubleTap = Gesture.Tap()
-    .numberOfTaps(2)
-    .onEnd((e) => {
-      if (scale.value > 1.5) {
-        runOnJS(resetZoom)();
-      } else {
-        const targetScale = 3;
-        const targetTx    = (SW / 2 - e.x) * (targetScale - 1);
-        const targetTy    = (SH / 2 - e.y) * (targetScale - 1);
-        scale.value      = withSpring(targetScale);
-        tx.value         = withSpring(targetTx);
-        ty.value         = withSpring(targetTy);
-        savedScale.value = targetScale;
-        savedTx.value    = targetTx;
-        savedTy.value    = targetTy;
-      }
-    });
-
-  const pinch = Gesture.Pinch()
+  const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
-      scale.value = clamp(savedScale.value * e.scale, 1, 6);
+      scale.value = Math.max(1, Math.min(savedScale.value * e.scale, 5));
     })
     .onEnd(() => {
+      if (scale.value <= 1) {
+        translateX.value = withTiming(0);
+        translateY.value = withTiming(0);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      }
       savedScale.value = scale.value;
-      if (scale.value < 1.05) { runOnJS(resetZoom)(); }
     });
 
-  const pan = Gesture.Pan()
+  const panGesture = Gesture.Pan()
+    .averageTouches(true)
     .onUpdate((e) => {
-      if (savedScale.value > 1) {
-        const mx = (SW * (savedScale.value - 1)) / 2;
-        const my = (SH * (savedScale.value - 1)) / 2;
-        tx.value = clamp(savedTx.value + e.translationX, -mx, mx);
-        ty.value = clamp(savedTy.value + e.translationY, -my, my);
+      if (scale.value > 1) {
+        translateX.value = savedTranslateX.value + e.translationX;
+        translateY.value = savedTranslateY.value + e.translationY;
       }
     })
     .onEnd(() => {
-      savedTx.value = tx.value;
-      savedTy.value = ty.value;
+      if (scale.value <= 1) {
+        translateX.value = withTiming(0);
+        translateY.value = withTiming(0);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        savedTranslateX.value = translateX.value;
+        savedTranslateY.value = translateY.value;
+      }
     });
 
-  const composed = Gesture.Simultaneous(pinch, pan);
-  const gestures = Gesture.Exclusive(doubleTap, composed);
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onStart(() => {
+      if (scale.value > 1) {
+        scale.value = withTiming(1);
+        savedScale.value = 1;
+        translateX.value = withTiming(0);
+        translateY.value = withTiming(0);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        scale.value = withTiming(2.5);
+        savedScale.value = 2.5;
+      }
+    });
 
-  const imgStyle = useAnimatedStyle(() => ({
+  const composed = Gesture.Simultaneous(pinchGesture, panGesture, doubleTapGesture);
+
+  const animatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: tx.value },
-      { translateY: ty.value },
+      { translateX: translateX.value },
+      { translateY: translateY.value },
       { scale: scale.value },
     ],
   }));
@@ -114,7 +114,7 @@ export default function FullScreenViewer({ uri, visible, onClose }: FullScreenVi
       animationType="fade"
       onRequestClose={onClose}
     >
-      <GestureHandlerRootView style={styles.root}>
+      <View style={styles.root}>
         <SafeAreaView style={styles.safeArea}>
 
           {/* Header */}
@@ -131,23 +131,40 @@ export default function FullScreenViewer({ uri, visible, onClose }: FullScreenVi
           </View>
 
           {/* Image canvas */}
-          <GestureDetector gesture={gestures}>
-            <Animated.View style={[styles.imageContainer, imgStyle]}>
-              <Image
-                source={{ uri }}
-                style={styles.image}
-                resizeMode="contain"
-              />
-            </Animated.View>
-          </GestureDetector>
+          <View style={styles.imageContainer}>
+            {hasError ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>Could not load image.</Text>
+                <Pressable onPress={() => setRetryKey(k => k + 1)} style={styles.retryBtn}>
+                  <Text style={styles.retryBtnText}>Retry</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <GestureDetector gesture={composed}>
+                <Animated.View style={[styles.canvas, animatedStyle]}>
+                  <Image
+                    key={retryKey}
+                    source={{ uri }}
+                    style={styles.image}
+                    resizeMode="contain"
+                    onLoad={() => console.log("[FullScreen] Image loaded")}
+                    onError={(e) => {
+                      console.log("[FullScreen] Image error", e.nativeEvent);
+                      setHasError(true);
+                    }}
+                  />
+                </Animated.View>
+              </GestureDetector>
+            )}
+          </View>
 
-          {/* Zoom hint — disappears on first zoom */}
+          {/* Zoom hint */}
           <View style={styles.footer} pointerEvents="none">
             <Text style={styles.footerText}>Pinch to zoom  ·  Double-tap to zoom  ·  Drag to pan</Text>
           </View>
 
         </SafeAreaView>
-      </GestureHandlerRootView>
+      </View>
     </Modal>
   );
 }
@@ -178,8 +195,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
-  image: { width: SW, height: SH - 120, resizeMode: "contain" },
+  canvas: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  image: { width: "100%", height: "100%" },
 
   footer: {
     paddingVertical: 12,
@@ -187,4 +212,24 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   footerText: { color: "rgba(255,255,255,0.6)", fontSize: 12 },
+
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  retryBtn: {
+    backgroundColor: '#374151',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
 });

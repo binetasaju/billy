@@ -44,6 +44,7 @@ export interface BillItem {
   unitPrice?: number;
   amount: number;
   price: number;            // alias for amount — kept for backward compat
+  modifiers?: { name: string; amount: number }[]; // child items/add-ons with prices
 
   // OCR verification data
   confidence: number;       // 0–1  (< 0.8 → flagged as low confidence)
@@ -72,6 +73,7 @@ export interface ParsedBill {
   gst?: number | null;
   serviceCharge?: number | null;
   tip?: number | null;
+  discount?: number | null;
   total: number;
 
   // Source image natural dimensions (needed to scale bounding boxes)

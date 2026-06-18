@@ -12,6 +12,7 @@
 // latest (possibly edited) image.
 // ---------------------------------------------------------------------------
 
+import { useEffect } from "react";
 import { View, Text, Image, Pressable, StyleSheet, SafeAreaView, Dimensions } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,6 +23,10 @@ const IMAGE_MAX_H = Math.round(SCREEN_H * 0.55);
 export default function PreviewScreen() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
   const router  = useRouter();
+
+  useEffect(() => {
+    if (uri) console.log("[Preview] URI:", uri);
+  }, [uri]);
 
   const handleRetake = () => {
     // Dismiss the entire stack — return to Home to start over.
@@ -40,10 +45,7 @@ export default function PreviewScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
-      <Text style={styles.title}>Scanned Bill</Text>
-      <Text style={styles.subtitle}>
-        Make sure the bill is clear and fully visible
-      </Text>
+      <Text style={styles.title}>Preview</Text>
 
       {/* Image */}
       <View style={styles.imageContainer}>
@@ -55,11 +57,6 @@ export default function PreviewScreen() {
           </View>
         )}
       </View>
-
-      {/* Helper text */}
-      <Text style={styles.helperText}>
-        You can edit items and make corrections on the review page after scanning.
-      </Text>
 
       {/* Actions */}
       <View style={styles.actions}>
@@ -134,13 +131,6 @@ const styles = StyleSheet.create({
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
   imagePlaceholderText: { color: "#9CA3AF", fontSize: 16 },
 
-  helperText: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    textAlign: "center",
-    lineHeight: 18,
-    marginBottom: 12,
-  },
   actions: { gap: 10 },
   retakeBtn: { alignItems: "center", paddingVertical: 6 },
   retakeBtnText: { fontSize: 14, color: "#6B7280", fontWeight: "500" },
