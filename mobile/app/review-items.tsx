@@ -97,20 +97,12 @@ function ItemRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const confidence = item.confidence ?? 1;
-  const lowConf = confidence < 0.8;
-
   return (
-    <View style={[styles.itemRow, lowConf && styles.itemRowLowConf]}>
+    <View style={styles.itemRow}>
       {/* Name + meta */}
       <View style={styles.itemInfo}>
         <View style={styles.itemNameRow}>
           <Text style={styles.itemName}>{item.name}</Text>
-          {lowConf && (
-            <View style={styles.confBadge}>
-              <Text style={styles.confBadgeText}>⚠ {Math.round(confidence * 100)}%</Text>
-            </View>
-          )}
         </View>
         <Text style={styles.itemMeta}>
           {item.quantity && item.quantity !== 1 ? `×${item.quantity}  ` : ""}
@@ -213,7 +205,8 @@ export default function ReviewItemsScreen() {
     console.warn("[Summary] Total mismatch");
   }
 
-  const lowConfCount = items.filter((it) => (it.confidence ?? 1) < 0.8).length;
+  // Keep internally for conditional hint — never shown as a number
+  const hasSuspiciousItems = items.some((it) => (it.confidence ?? 1) < 0.8);
 
   if (parseError) {
     return (
@@ -249,21 +242,19 @@ export default function ReviewItemsScreen() {
 
         {/* ── Header ── */}
         <View style={styles.headerRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.title}>Review Items</Text>
             {bill?.restaurant ? <Text style={styles.restaurantName}>{bill.restaurant}</Text> : null}
-            {bill?.date || bill?.billNumber ? (
-              <Text style={styles.subtitle}>
-                {[bill.billNumber && `#${bill.billNumber}`, bill.date].filter(Boolean).join("  ·  ")}
-              </Text>
-            ) : null}
+            <Text style={styles.subtitle}>Tap any item to edit if needed.</Text>
           </View>
-          {lowConfCount > 0 && (
-            <View style={styles.warningBadge}>
-              <Text style={styles.warningBadgeText}>⚠ {lowConfCount} low confidence</Text>
-            </View>
-          )}
         </View>
+
+        {/* ── Verification hint (no counts or percentages) ── */}
+        {hasSuspiciousItems && (
+          <View style={styles.verificationHint}>
+            <Text style={styles.verificationHintText}>Some items may need verification.</Text>
+          </View>
+        )}
 
         {/* ── Item list ── */}
         <FlatList
@@ -368,11 +359,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
   restaurantName: { fontSize: 15, fontWeight: "600", color: "#1D4ED8", marginTop: 1 },
   subtitle: { fontSize: 12, color: "#9CA3AF", marginTop: 1 },
-  warningBadge: {
-    backgroundColor: "#FEF3C7", borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "#FDE68A",
+  verificationHint: {
+    marginHorizontal: 16, marginBottom: 8,
+    backgroundColor: "#FFFBEB", borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: "#FDE68A",
   },
-  warningBadgeText: { fontSize: 11, color: "#92400E", fontWeight: "600" },
+  verificationHintText: { fontSize: 13, color: "#92400E", fontWeight: "500" },
 
   list: { flex: 1, paddingHorizontal: 16 },
 
@@ -381,17 +374,10 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 12, marginBottom: 6,
     borderWidth: 1, borderColor: "#E5E7EB",
   },
-  itemRowLowConf: { borderColor: "#FECACA" },
 
   itemInfo: { flex: 1 },
   itemNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   itemName: { fontSize: 14, fontWeight: "500", color: "#111827", flex: 1 },
-  confBadge: {
-    backgroundColor: "#FEE2E2", borderRadius: 4,
-    paddingHorizontal: 5, paddingVertical: 1,
-    marginTop: 2,
-  },
-  confBadgeText: { fontSize: 10, color: "#991B1B", fontWeight: "600" },
   itemMeta: { fontSize: 12, color: "#6B7280", marginTop: 2 },
   modifiersContainer: { marginTop: 6, marginLeft: 2, gap: 2 },
   modifierRow: { flexDirection: "row", justifyContent: "space-between" },
