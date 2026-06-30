@@ -12,7 +12,7 @@ import type { ParsedBill } from "../types/bill";
 
 export type { ParsedBill };
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_MODEL = "gemini-flash-lite-latest";
 const GEMINI_BASE_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -21,15 +21,15 @@ const GEMINI_BASE_URL =
 // ---------------------------------------------------------------------------
 
 const PARSE_PROMPT = (ocrText: string) => `
-You are a bill parsing engine for an Indian restaurant bill splitter app.
+You are a restaurant bill parser for an Indian bill-splitter app.
 
-Analyze the following OCR text from a restaurant bill.
-
-Return ONLY valid JSON. No markdown. No explanations. No comments.
+Analyze the OCR text below and return ONLY valid JSON. No markdown, no explanations.
 
 JSON schema:
 {
+  "isBill": true,
   "restaurant": "",
+  "legalName": "",
   "billNumber": "",
   "date": "",
   "items": [
@@ -38,57 +38,103 @@ JSON schema:
       "quantity": 1,
       "unitPrice": 0,
       "amount": 0,
-      "modifiers": [
-        {
-          "name": "",
-          "amount": 0
-        }
-      ],
+      "children": [],
+      "modifiers": [{"name": "", "amount": 0}],
       "lineIndex": 0
     }
   ],
   "subtotal": null,
-  "taxes": [
-    {
-      "name": "",
-      "amount": 0
-    }
-  ],
-  "gst": null,
-  "serviceCharge": null,
-  "tip": null,
+  "charges": [{"name": "", "amount": 0}],
   "total": 0
 }
 
-Field definitions:
-- "restaurant": restaurant name string (or "" if not visible)
-- "billNumber": bill/invoice number (or "" if not visible)
-- "date": date as printed (or "" if not visible)
-- "items": ALL ordered food/drink line items. For each:
-    - "name": item name exactly as printed. If the name spans multiple lines without prices, join them with a space (e.g., "Stuffed Chicken Breast, Mushroom Sauce").
-    - "quantity": numeric quantity (default 1)
-    - "unitPrice": price per unit (numeric)
-    - "amount": line total = quantity × unitPrice (numeric)
-    - "modifiers": Array of objects. If an item has priced child items/add-ons listed below it (e.g. starting with "-"), add them here. Each modifier must have a "name" and "amount" (numeric). Do NOT create separate top-level items for modifiers. (e.g. [{"name": "Chicken", "amount": 50}]).
-    - "lineIndex": the 0-based line number in the OCR text below where this item appears
-- "subtotal": sum before taxes (numeric or null)
-- "taxes": ALL non-zero tax rows. Exclude 0% taxes, subtotal, and total rows.
-- "gst": combined GST/CGST+SGST/IGST/VAT total (numeric or null)
-- "serviceCharge": service charge (numeric or null)
-- "tip": tip amount (numeric or null)
-- "total": grand total / amount payable (numeric)
+FIELD DEFINITIONS:
+
+"isBill": true if the text clearly represents a restaurant bill, cafe receipt, grocery receipt, or similar invoice. false if it is a random photo, screenshot, selfie, or completely unrelated text.
+"restaurant": The customer-facing brand name of the restaurant.
+  - Look at the first 10-15 lines of the receipt header only.
+  - Prefer a short, prominent name like "PLAN B", "BARBEQUE NATION", "KFC".
+  - If a line contains "PVT LTD", "LLP", "Ltd", "HOSPITALITY", "ENTERPRISES", it is the legal entity name — store that in "legalName" instead, not here.
+  - If the brand name appears twice (e.g. "PLAN B PLAN B"), use it once.
+  - Ignore: GSTIN, address lines, Bill No, Table No, Date, Steward name.
+  - Use "" if no brand name is found.
+
+"legalName": The registered legal company name (e.g. "V&RO HOSPITALITY PVT LTD").
+  - Only set if a legal entity name appears in the receipt header.
+  - Use "" otherwise.
+
+"billNumber": Bill/invoice number (or "" if not visible).
+"date": Date as printed (or "" if not visible).
+
+"items": ALL food and drink line items on the receipt. CRITICAL RULES:
+  - Scan the ENTIRE receipt from top to bottom without stopping early.
+  - Continue collecting items until you hit a tax/charges section (GST, subtotal, service charge).
+  - Do NOT stop after a few items. A long receipt may have 20+ items.
+  - "name": The exact item name from the line that has a price.
+  - "quantity": Numeric quantity (default 1).
+  - "unitPrice": Price per unit (numeric, no Rs symbol).
+  - "amount": quantity x unitPrice (numeric).
+  - "children": Names of sub-items that follow this item WITHOUT their own price.
+    (See PARENT-CHILD RULES below.)
+  - "modifiers": Sub-lines that have their OWN price [{name, amount}].
+  - "lineIndex": 0-based line number of the parent item in the OCR text.
+
+"subtotal": Pre-tax sum of all items (numeric or null).
+"charges": All non-item lines in order — taxes, fees, discounts, round-off.
+  - Keep each tax line separate: CGST, SGST, IGST, GST, VAT, SERC, Cess, etc.
+  - Include Service Charge, Packaging Charge, Convenience Fee, Tip.
+  - Discounts/Round Off: use NEGATIVE amounts (e.g. -0.48 for Round Off).
+  - Do NOT include Subtotal or Total rows. Do NOT include 0.00 rows.
+"total": Grand total / amount payable (numeric).
+
+PARENT-CHILD RULES:
+
+A PARENT is a line with a price. A CHILD is a line immediately below with NO price.
+
+  <Item Name>   <Qty>   <Price>    <- PARENT -> create item
+  <Child Name>                     <- CHILD  -> add to parent.children[]
+  <Child Name>                     <- CHILD  -> add to parent.children[]
+  <Next Item>   <Qty>   <Price>    <- next PARENT
 
 Rules:
-1. Include ALL food/drink items. Do NOT skip any.
-2. Preserve item names exactly as printed. Detect continuation lines if a line has only text and no price, and append it to the previous item.
-3. All prices must be numeric (no ₹ symbol).
-4. If a field is missing, use null.
-5. If an item has priced child items (e.g. starts with "-"), add them to its "modifiers" array. Do NOT create separate top-level bill items for modifiers.
-6. Ignore: address, phone, FSSAI, GSTIN, separator lines (---/===), QR codes, thank-you messages.
-7. Verify: sum(items.amount) + sum(taxes.amount) + serviceCharge ≈ total
-8. Exclude 0.00 taxes from the taxes array. Do NOT include Subtotal or Total rows as taxes.
+A. Do NOT create a separate item for a child line.
+B. Do NOT merge child names into the parent name — "Tuesday 1 Dozer NAKED PERI PERI" is WRONG.
+C. Parent keeps its own name only. Children go in children[].
+D. ALL consecutive no-price lines below a parent are its children.
+E. A new parent begins when a priced line is found.
+F. Include "ABS" and other placeholder tokens in children[] as-is.
+G. children[] = unpricey sub-items. modifiers[] = priced add-ons.
 
-OCR TEXT (line numbers shown for your reference):
+Example:
+  Input:
+    Tuesday 1 Dozer      1    2250.00
+    NAKED PERI PERI
+    SPICY GARLIC
+    ABS
+    Coke                 2    180.00
+
+  Output:
+    [
+      {"name":"Tuesday 1 Dozer","quantity":1,"unitPrice":2250,"amount":2250,
+       "children":["NAKED PERI PERI","SPICY GARLIC","ABS"],"modifiers":[],"lineIndex":0},
+      {"name":"Coke","quantity":2,"unitPrice":90,"amount":180,
+       "children":[],"modifiers":[],"lineIndex":4}
+    ]
+
+WHAT TO IGNORE (do not add as items or children):
+  - Table header rows: "Item", "Description", "Qty", "Quantity", "Rate", "Amount", "Sl.No", "#"
+  - Separator lines: ---, ===, ***, ____
+  - Receipt footer: "Thank You", "Visit Again", "FSSAI No", "GSTIN", "PAN No", CIN, website URLs
+  - GST breakdown section: "Taxable Amount", "GST @", "CGST @", "SGST @" (as standalone header rows)
+  - Phone numbers, email addresses, social media handles, QR code labels
+  - App UI text: "Pinch to zoom", "Tap to expand", "Review Items", "Continue to Split"
+
+COMPLETENESS CHECK (do before returning):
+  - Count items in output. If receipt clearly shows more items, go back and find them.
+  - Every line with a price in the items section MUST appear in the output.
+  - Verify: subtotal + sum(charges[].amount) ~ total.
+
+OCR TEXT (line numbers for reference):
 ${ocrText
   .split("\n")
   .map((line, i) => `${i}: ${line}`)
@@ -115,9 +161,10 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
     let response: Response | null = null;
     let attempt = 1;
     const maxRetries = 3;
+    const RETRY_DELAYS = [2000, 4000, 8000]; // progressive backoff
 
     while (attempt <= maxRetries) {
-      console.log(`[parseBill] Gemini call (Attempt ${attempt})`);
+      console.log(`[parseBill] Gemini call (Attempt ${attempt}/${maxRetries})`);
       response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,19 +173,23 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
           generationConfig: {
             temperature: 0,
             response_mime_type: "application/json",
+            // Raise token ceiling so long receipts don't truncate silently
+            maxOutputTokens: 8192,
           },
         }),
       });
 
       if (!response.ok) {
-        if ([503, 429, 500].includes(response.status) && attempt < maxRetries) {
-          const delayMs = attempt === 1 ? 2000 : 4000;
-          console.warn(`[parseBill] Gemini API error ${response.status}. Retrying in ${delayMs}ms...`);
+        const isRetryable = [503, 429, 500].includes(response.status);
+        if (isRetryable && attempt < maxRetries) {
+          const delayMs = RETRY_DELAYS[attempt - 1];
+          console.warn(`[parseBill] Gemini ${response.status}. Retrying in ${delayMs}ms... (${attempt}/${maxRetries})`);
           await new Promise(res => setTimeout(res, delayMs));
           retryCount++;
           attempt++;
           continue;
         }
+        // All retries exhausted or non-retryable error
         const body = await response.text();
         throw new Error(`Parse API error (${response.status}): ${body}`);
       }
@@ -149,6 +200,11 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
       throw new Error("Failed to get response from Gemini.");
     }
     const json = await response.json();
+  const finishReason = json?.candidates?.[0]?.finishReason;
+  console.log("[parseBill] finishReason:", finishReason);
+  if (finishReason === "MAX_TOKENS") {
+    console.warn("[parseBill] ⚠ Output was TRUNCATED (MAX_TOKENS). Some items may be missing.");
+  }
   const text: string | undefined =
     json?.candidates?.[0]?.content?.parts?.[0]?.text;
 
@@ -180,43 +236,88 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
     throw new Error("Parser returned malformed data (missing total).");
   }
 
-  // Normalise: ensure both `amount` and `price` are set
+  // Normalise item fields
   parsed.items = (parsed.items as any[]).map((item) => ({
     ...item,
-    amount: item.amount ?? item.price ?? 0,
-    price: item.amount ?? item.price ?? 0,
+    amount:   item.amount   ?? item.price ?? 0,
+    price:    item.amount   ?? item.price ?? 0,
     quantity: item.quantity ?? 1,
+    // Ensure children is always a string array
+    children: Array.isArray(item.children)
+      ? (item.children as any[]).map(String).filter(Boolean)
+      : [],
   }));
 
-  if (parsed.taxes && Array.isArray(parsed.taxes)) {
-    const gstSum = parsed.taxes.reduce((sum, t) => sum + (t.amount || 0), 0);
-    parsed.taxes.forEach(t => console.log("[Tax] Found:", t.name, t.amount));
-    console.log("[Tax] Total GST:", gstSum);
-    parsed.gst = gstSum;
+  // Normalise restaurant / legalName
+  // Deduplicate repeated brand names ("PLAN B PLAN B" -> "PLAN B")
+  if (parsed.restaurant) {
+    const parts = parsed.restaurant.trim().split(/\s+/);
+    const half = Math.floor(parts.length / 2);
+    if (half > 0 && parts.slice(0, half).join(" ") === parts.slice(half).join(" ")) {
+      parsed.restaurant = parts.slice(0, half).join(" ");
+    }
   }
+  // legalName from model (may be set or empty)
+  const legalName = (parsed as any).legalName?.trim() ?? "";
+  if (legalName && legalName !== parsed.restaurant) {
+    parsed.legalName = legalName;
+  }
+  console.log("[parseBill] restaurant:", parsed.restaurant, "| legalName:", parsed.legalName ?? "(none)");
 
-  // Validate total
-  let itemsSum = 0;
-  parsed.items.forEach((item: any) => {
-    itemsSum += (item.amount || 0);
-    if (item.modifiers && Array.isArray(item.modifiers)) {
-      item.modifiers.forEach((mod: any) => {
-        itemsSum += (mod.amount || 0);
+
+
+  // ── Build charges[] — the canonical array of individual charge lines ——————
+  //
+  // The model now returns charges[] directly.  If it fell back to the old
+  // taxes[]/serviceCharge/tip schema, synthesise charges[] from those fields
+  // so the UI always has a single source of truth.
+
+  const rawCharges: { name: string; amount: number }[] = Array.isArray((parsed as any).charges)
+    ? (parsed as any).charges
+    : [];
+
+  if (rawCharges.length === 0) {
+    // Fallback: build from legacy taxes / serviceCharge / tip
+    if (parsed.taxes && Array.isArray(parsed.taxes)) {
+      parsed.taxes.forEach((t) => {
+        if (t.amount && t.amount !== 0) rawCharges.push({ name: t.name, amount: t.amount });
       });
     }
-  });
-  const taxSum = parsed.taxes ? parsed.taxes.reduce((sum, tax) => sum + (tax.amount || 0), 0) : 0;
-  const sc = parsed.serviceCharge || 0;
-  const tip = parsed.tip || 0;
-  const computedTotal = itemsSum + taxSum + sc + tip;
-
-  if (Math.abs(computedTotal - parsed.total) > 1) {
-    console.warn(`[Validation] Price mismatch: computed ₹${computedTotal} vs total ₹${parsed.total}`);
-    parsed.items = parsed.items.map(item => ({
-      ...item,
-      confidence: 0.5
-    }));
+    if (parsed.serviceCharge && parsed.serviceCharge !== 0)
+      rawCharges.push({ name: "Service Charge", amount: parsed.serviceCharge });
+    if (parsed.tip && parsed.tip !== 0)
+      rawCharges.push({ name: "Tip", amount: parsed.tip });
+    if (parsed.discount && parsed.discount !== 0)
+      rawCharges.push({ name: "Discount", amount: -Math.abs(parsed.discount) });
   }
+
+  parsed.charges = rawCharges.filter((c) => c.amount !== 0);
+
+  // Back-fill legacy scalar fields from charges[] so split.tsx / any
+  // downstream code that reads gst/serviceCharge still works.
+  const TAX_NAMES = /cgst|sgst|igst|gst|vat|cess/i;
+  const SC_NAMES  = /service.?charge|packaging|delivery|convenience/i;
+  const DISC_NAMES = /discount|round.?off|rounding/i;
+
+  parsed.gst = parsed.charges
+    .filter((c) => TAX_NAMES.test(c.name))
+    .reduce((s, c) => s + c.amount, 0) || null;
+
+  parsed.serviceCharge = parsed.charges
+    .filter((c) => SC_NAMES.test(c.name))
+    .reduce((s, c) => s + c.amount, 0) || null;
+
+  parsed.tip = parsed.charges
+    .filter((c) => /tip/i.test(c.name))
+    .reduce((s, c) => s + c.amount, 0) || null;
+
+  parsed.discount = parsed.charges
+    .filter((c) => DISC_NAMES.test(c.name))
+    .reduce((s, c) => s + c.amount, 0) || null;
+
+  parsed.charges.forEach((c) =>
+    console.log(`[Charge] ${c.name}: ${c.amount}`)
+  );
 
     console.log(`[parseBill] ✓ ${parsed.items.length} items, total ₹${parsed.total}`);
     console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
@@ -237,79 +338,150 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
 }
 
 // ---------------------------------------------------------------------------
-// Local Fallback Parser
+// Local Fallback Parser  (used when Gemini is unavailable)
 // ---------------------------------------------------------------------------
 function localFallbackParser(ocrText: string): ParsedBill {
   const lines = ocrText.split("\n");
   const items: any[] = [];
-  let total = 0;
 
-  // Extremely basic heuristic matching "NAME  PRICE  QTY  AMOUNT"
-  // e.g. "FLAVOURED MOJITO 330.00 1.000 330.00"
-  const itemRegex = /^([A-Za-z&\s\-\/]+?)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)$/;
-  // Alternative fallback for "NAME QTY AMOUNT"
-  const itemRegex2 = /^([A-Za-z&\s\-\/]+?)\s+([\d.]+)\s+([\d.]+)$/;
+  // ── Exclusion guard ────────────────────────────────────────────────────────
+  // Returns true for lines that are obviously NOT food items
+  const EXCLUDE = /\b(total|sub.?total|subtotal|grand|bill|amount|tax|gst|cgst|sgst|igst|vat|cess|service|charge|surcharge|delivery|packing|packaging|tip|discount|round|rounding|table|cover|date|time|no\.|#|invoice|receipt|order|item|description|qty|quantity|rate|price|thank|visit|fssai|gstin|pan|cin|www|http|@|coupon|offer|promo)\b/i;
+  const SEPARATOR = /^[-=*_\s]{3,}$/;
 
-  lines.forEach((line, index) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
+  // ── Currency / number helpers ──────────────────────────────────────────────
+  // Strip ₹, Rs, INR, commas from a numeric token
+  const parseNum = (s: string) =>
+    parseFloat(s.replace(/[₹\u20b9,RsINR\s]/gi, "")) || 0;
 
-    let match = trimmed.match(itemRegex);
-    if (match) {
-      const name = match[1].trim();
-      const unitPrice = parseFloat(match[2]);
-      const quantity = parseFloat(match[3]);
-      const amount = parseFloat(match[4]);
+  // ── 4 patterns, tried in order ────────────────────────────────────────────
+  //
+  // P1: NAME  QTY  UNITPRICE  AMOUNT   e.g. "Butter Chicken  2  250.00  500.00"
+  // P2: NAME  QTY  AMOUNT              e.g. "Butter Chicken  2  500.00"
+  // P3: NAME  ₹AMOUNT  (or NAME  AMOUNT at line end)
+  //        e.g. "Butter Chicken  500.00"  /  "Butter Chicken ₹500"
+  // P4: NAME XQTY × RATE              e.g. "Butter Chicken 2x250"
+  //
+  // All patterns require the name to start with a letter and be ≥2 chars.
 
-      if (isMetadataOrTax(name)) return;
+  const P1 = /^([A-Za-z][A-Za-z0-9 &()\-\/'.]{1,}?)\s{2,}(\d[\d.,]*)\s{2,}(\d[\d.,]*)\s{2,}(\d[\d.,]*)$/;
+  const P2 = /^([A-Za-z][A-Za-z0-9 &()\-\/'.]{1,}?)\s{2,}(\d[\d.,]*)\s{2,}(\d[\d.,]*)$/;
+  const P3 = /^([A-Za-z][A-Za-z0-9 &()\-\/'.]{1,}?)\s+[₹\u20b9]?\s*(\d[\d.,]+)$/;
+  const P4 = /^([A-Za-z][A-Za-z0-9 &()\-\/'.]{1,}?)\s+(\d+)\s*[xX×]\s*(\d[\d.,]*)$/;
 
-      items.push(createItem(name, unitPrice, quantity, amount, index));
-      total += amount;
+  // Minimum amount threshold — ignore anything < ₹1 (likely a quantity or code)
+  const MIN_AMOUNT = 1;
+  // Maximum plausible single-item amount — ignore absurdly large numbers
+  const MAX_AMOUNT = 50000;
+
+  lines.forEach((rawLine, index) => {
+    const line = rawLine.trim();
+    if (!line || SEPARATOR.test(line)) return;
+    if (EXCLUDE.test(line)) return;
+
+    // Pattern 1 — NAME  QTY  UNIT  AMOUNT
+    let m = line.match(P1);
+    if (m) {
+      const name   = m[1].trim();
+      const qty    = parseNum(m[2]);
+      // Could be (qty, unitPrice, amount) or (unitPrice, qty, amount)
+      // Pick interpretation where qty×unit ≈ amount
+      const a      = parseNum(m[3]);
+      const b      = parseNum(m[4]);
+      let unitPrice = a, quantity = qty, amount = b;
+      if (Math.abs(qty * a - b) > 1 && Math.abs(a - b) < 1) {
+        // m[2] is actually unit price and m[3] is qty
+        unitPrice = qty; quantity = a; amount = b;
+      }
+      if (isMetadataOrTax(name) || amount < MIN_AMOUNT || amount > MAX_AMOUNT) return;
+      items.push(createItem(name, unitPrice, quantity || 1, amount, index));
       return;
     }
 
-    match = trimmed.match(itemRegex2);
-    if (match) {
-      const name = match[1].trim();
-      const quantity = parseFloat(match[2]);
-      const amount = parseFloat(match[3]);
+    // Pattern 2 — NAME  QTY  AMOUNT
+    m = line.match(P2);
+    if (m) {
+      const name   = m[1].trim();
+      const qty    = parseNum(m[2]);
+      const amount = parseNum(m[3]);
+      if (isMetadataOrTax(name) || amount < MIN_AMOUNT || amount > MAX_AMOUNT) return;
+      const unitPrice = qty > 0 ? amount / qty : amount;
+      items.push(createItem(name, unitPrice, qty || 1, amount, index));
+      return;
+    }
 
-      if (isMetadataOrTax(name)) return;
+    // Pattern 3 — NAME  ₹?AMOUNT
+    m = line.match(P3);
+    if (m) {
+      const name   = m[1].trim();
+      const amount = parseNum(m[2]);
+      if (isMetadataOrTax(name) || amount < MIN_AMOUNT || amount > MAX_AMOUNT) return;
+      items.push(createItem(name, amount, 1, amount, index));
+      return;
+    }
 
-      items.push(createItem(name, amount / (quantity || 1), quantity, amount, index));
-      total += amount;
+    // Pattern 4 — NAME  QTY × RATE
+    m = line.match(P4);
+    if (m) {
+      const name     = m[1].trim();
+      const qty      = parseNum(m[2]);
+      const unitPrice = parseNum(m[3]);
+      const amount   = qty * unitPrice;
+      if (isMetadataOrTax(name) || amount < MIN_AMOUNT || amount > MAX_AMOUNT) return;
+      items.push(createItem(name, unitPrice, qty, amount, index));
     }
   });
 
+  // De-duplicate by (name, amount) — OCR sometimes repeats lines
+  const seen = new Set<string>();
+  const deduped = items.filter((it) => {
+    const key = `${it.name.toLowerCase()}|${it.price}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const total = deduped.reduce((s, it) => s + it.price, 0);
+
+  console.log(`[localFallback] Matched ${deduped.length} items from ${lines.length} lines`);
+
   return {
     restaurant: "Extracted Locally",
+    legalName:  "",
     billNumber: "",
-    date: "",
-    items,
-    subtotal: total,
-    taxes: [],
-    gst: 0,
+    date:       "",
+    items:      deduped,
+    subtotal:   total,
+    charges:    [],
+    taxes:      [],
+    gst:        0,
     serviceCharge: 0,
-    tip: 0,
-    total: total,
+    tip:        0,
+    total,
   };
 }
 
-function isMetadataOrTax(name: string) {
-  const lower = name.toLowerCase();
-  return lower.includes("total") || lower.includes("vat") || lower.includes("tax") || lower.includes("amount");
+function isMetadataOrTax(name: string): boolean {
+  return /\b(total|sub.?total|amount|tax|gst|cgst|sgst|igst|vat|cess|service|charge|discount|round|table|cover|tip|delivery|packing)\b/i.test(name);
 }
 
-function createItem(name: string, unitPrice: number, quantity: number, amount: number, lineIndex: number) {
+function createItem(
+  name: string,
+  unitPrice: number,
+  quantity: number,
+  amount: number,
+  lineIndex: number
+) {
   return {
-    id: "", // Assigned later
+    id: "",
     name,
     quantity: quantity || 1,
     unitPrice,
     amount,
     price: amount,
+    children: [],
     modifiers: [],
     lineIndex,
-    confidence: 0.6 // Flag as low confidence so user reviews it carefully
+    confidence: 0.5, // Low — user should review
   };
 }

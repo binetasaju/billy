@@ -44,7 +44,14 @@ export interface BillItem {
   unitPrice?: number;
   amount: number;
   price: number;            // alias for amount — kept for backward compat
-  modifiers?: { name: string; amount: number }[]; // child items/add-ons with prices
+  modifiers?: { name: string; amount: number }[]; // priced add-ons/child items
+
+  /**
+   * Unprice child items that belong to this parent (combo meals, platters, etc.).
+   * Example: a wings platter parent lists individual flavours as children.
+   * These are display-only — they carry no price of their own.
+   */
+  children?: string[];
 
   // OCR verification data
   confidence: number;       // 0–1  (< 0.8 → flagged as low confidence)
@@ -61,19 +68,43 @@ export interface TaxInfo {
   amount: number;
 }
 
+/**
+ * A single charge / tax / fee line exactly as it appears on the receipt.
+ * Examples: CGST, SGST, Service Charge, Packaging Charge, Discount, Round Off.
+ */
+export interface ChargeInfo {
+  name: string;
+  /** Positive = added to total. Negative = discount/round-off deduction. */
+  amount: number;
+}
+
 // ── Full parsed bill ─────────────────────────────────────────────────────────
 
 export interface ParsedBill {
+  /** True if the provided image was detected as a valid receipt/bill. False otherwise. */
+  isBill: boolean;
+  /** Customer-facing brand name shown in the UI (e.g. "PLAN B") */
   restaurant: string;
+  /** Legal entity name from the header (e.g. "V&RO HOSPITALITY PVT LTD") — optional */
+  legalName?: string;
   billNumber: string;
   date: string;
   items: BillItem[];
   subtotal?: number | null;
+
+  /**
+   * All non-item charge lines in receipt order: taxes, fees, discounts, round-off.
+   * This is the canonical field — UI renders directly from this array.
+   */
+  charges?: ChargeInfo[];
+
+  // Legacy fields kept for backward compat — derived from charges[] by parseBill
   taxes?: TaxInfo[];
   gst?: number | null;
   serviceCharge?: number | null;
   tip?: number | null;
   discount?: number | null;
+
   total: number;
 
   // Source image natural dimensions (needed to scale bounding boxes)
@@ -86,9 +117,25 @@ export interface ParsedBill {
 export interface Person {
   id: string;
   name: string;
-  color: string;
+  /** Avatar color */
+  color?: string;
+
+  /**
+   * Phone number (from device contacts).
+   * Stored for display purposes — used to identify participants in the UI.
+   */
+  phone?: string;
+
+  /**
+   * UPI ID for payment integrations.
+   * Supports both registered Billy users and friends not on the app.
+   * Example: "john@okaxis"
+   */
+  upiId?: string;
   /** Item IDs this person consumed */
   itemIds: string[];
+  /** Flag identifying the user running the app */
+  isCurrentUser?: boolean;
 }
 
 export interface SplitResult {

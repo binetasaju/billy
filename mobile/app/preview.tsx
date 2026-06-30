@@ -79,7 +79,7 @@ export default function PreviewScreen() {
           >
             <View style={styles.btnInner}>
               <Ionicons name="crop-outline" size={18} color="#111827" />
-              <Text style={styles.buttonTextSecondary}>Crop & Edit</Text>
+              <Text style={styles.buttonTextSecondary}>Adjust Crop</Text>
             </View>
           </Pressable>
 

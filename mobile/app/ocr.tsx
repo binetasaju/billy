@@ -11,10 +11,12 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import { compressImage, extractTextFromImage } from "../services/ocr";
+import { extractTextWithMLKit } from "../services/mlkitOcr";
 import { parseBill } from "../services/parseBill";
 import { extractBlocksWithVision } from "../services/visionOcr";
 import { matchItemsToBlocks, buildBlocksFromRawText } from "../services/matchItems";
 import { billStore } from "../services/billStore";
+import { authStore } from "../services/authStore";
 import type { ParsedBill } from "../services/parseBill";
 
 // ---------------------------------------------------------------------------
@@ -50,6 +52,7 @@ export default function OcrScreen() {
   const [state, setState] = useState<OcrState>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isBillError, setIsBillError] = useState(false);
   const [parsedBill, setParsedBill] = useState<ParsedBill | null>(null);
   const [isSlow, setIsSlow] = useState(false);
   const [messages, setMessages] = useState<string[]>(BASE_MESSAGES);
@@ -98,6 +101,7 @@ export default function OcrScreen() {
     setState("compressing");
     setParsedBill(null);
     setErrorMessage("");
+    setIsBillError(false);
 
     // Randomize messages for this run
     const shuffled = [...BASE_MESSAGES].sort(() => Math.random() - 0.5);
@@ -141,12 +145,17 @@ export default function OcrScreen() {
         throw new Error("Image read failed. File may be corrupt.");
       }
 
-      // ── Step 4 (parallel): Gemini OCR text + Vision API bounding boxes ─────
+      // ── Step 4 (parallel): ML Kit OCR text + Vision API bounding boxes ─────
       setState("ocr");
 
       const ocrStart = Date.now();
+
+      // Gemini OCR disabled.
+      // ML Kit OCR is now the primary OCR engine.
+      // TODO: If OCR quality is poor -> Optional Gemini Enhancement
       const [rawText, visionResult] = await Promise.all([
-        extractTextFromImage(base64, compressed.uri, setStatusMessage, abortControllerRef.current.signal),
+        // extractTextFromImage(base64, compressed.uri, setStatusMessage, abortControllerRef.current.signal),
+        extractTextWithMLKit(compressed.uri),
         extractBlocksWithVision(base64, abortControllerRef.current.signal),
       ]);
       const ocrDuration = Date.now() - ocrStart;
@@ -163,9 +172,13 @@ export default function OcrScreen() {
       setState("parsing");
       setMessages(["Receipt extracted successfully.\nBuilding bill details..."]);
       setLoadingMsgIdx(0);
-      
+
       const parsed = await parseBill(rawText);
       console.log("[PIPELINE] Parsed:", parsed.items.length, "items");
+
+      if (parsed.isBill === false) {
+        throw new Error("BILL_NOT_DETECTED");
+      }
 
       // ── Step 6: Match items to OCR blocks (attach bounding boxes) ──────────
       setState("matching");
@@ -189,7 +202,7 @@ export default function OcrScreen() {
       console.log("[PIPELINE] Parsed bill:", JSON.stringify(enrichedBill, null, 2));
       console.timeEnd("[PIPELINE] Total");
 
-      billStore.set(enrichedBill, uri, visionResult?.blocks ?? null);
+      billStore.set(enrichedBill, uri, visionResult?.blocks ?? null, authStore.get().user);
       setParsedBill(enrichedBill);
       setState("success");
     } catch (err: any) {
@@ -200,9 +213,14 @@ export default function OcrScreen() {
 
       let message =
         err instanceof Error ? err.message : "Unable to process the receipt right now.\nPlease try again in a few moments.";
-      
+
       const lowerMsg = message.toLowerCase();
-      if (
+      if (message === "BILL_NOT_DETECTED") {
+        setIsBillError(true);
+        setState("error");
+        console.error("[PIPELINE] Non-bill image detected.");
+        return;
+      } else if (
         lowerMsg.includes("503") ||
         lowerMsg.includes("504") ||
         lowerMsg.includes("429") ||
@@ -315,8 +333,28 @@ export default function OcrScreen() {
         </View>
       )}
 
-      {/* ── Error ── */}
-      {state === "error" && (
+      {/* ── Non-bill detected — upload bill prompt ── */}
+      {state === "error" && isBillError && (
+        <View style={styles.notBillBox}>
+          <Text style={styles.notBillIcon}>🧾</Text>
+          <Text style={styles.notBillTitle}>Not a Bill</Text>
+          <Text style={styles.notBillMessage}>
+            The image you uploaded doesn't look like a bill.{"\n"}Please upload a clear photo of your bill or receipt.
+          </Text>
+          <Pressable
+            onPress={handleRetake}
+            style={({ pressed }) => [
+              styles.notBillButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.notBillButtonText}>Upload a Bill</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* ── Generic Error ── */}
+      {state === "error" && !isBillError && (
         <View style={styles.errorBox}>
           <Text style={styles.errorTitle}>Failed</Text>
           <Text style={styles.errorMessage}>{errorMessage}</Text>
@@ -355,8 +393,8 @@ export default function OcrScreen() {
         </View>
       )}
 
-      {/* ── Extract Bill button — becomes the loading indicator ── */}
-      {state !== "success" && (
+      {/* ── Extract Bill button — hidden when non-bill error is shown ── */}
+      {state !== "success" && !isBillError && (
         <Pressable
           onPress={handleRunOcr}
           disabled={isLoading}
@@ -469,6 +507,47 @@ const styles = StyleSheet.create({
     color: "#991B1B",
     fontWeight: "600" as const,
     fontSize: 14,
+  },
+  // ── Not-a-bill card ────────────────────────────────────────────────────────
+  notBillBox: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    alignItems: "center" as const,
+    gap: 8,
+  },
+  notBillIcon: {
+    fontSize: 48,
+    marginBottom: 4,
+  },
+  notBillTitle: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: "#92400E",
+    textAlign: "center" as const,
+  },
+  notBillMessage: {
+    fontSize: 14,
+    color: "#78350F",
+    lineHeight: 22,
+    textAlign: "center" as const,
+    marginBottom: 8,
+  },
+  notBillButton: {
+    backgroundColor: "#D97706",
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignItems: "center" as const,
+    width: "100%" as any,
+  },
+  notBillButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700" as const,
+    fontSize: 16,
+    letterSpacing: 0.3,
   },
   successContainer: { flex: 1 },
   successLabel: {
