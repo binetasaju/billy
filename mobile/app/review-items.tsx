@@ -457,7 +457,7 @@ export default function ReviewItemsScreen() {
 
         {/* ── Continue ── */}
         <Pressable
-          onPress={() => router.push("/who-paid")}
+          onPress={() => router.push("/participants")}
           style={({ pressed }) => [
             styles.continueBtn, 
             (pressed || items.length === 0) && { opacity: 0.8 },

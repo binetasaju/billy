@@ -1,23 +1,42 @@
-import { useState, useEffect } from "react";
+// ---------------------------------------------------------------------------
+// app/participants.tsx
+//
+// Combined "Participants" screen — single payer selection + sharing toggle.
+//
+// Section 1: "Who paid the bill?" — Radio cards, single selection only.
+// Section 2: "Who is sharing this bill?" — Checkboxes per participant.
+// Section 3: Live summary with validation status.
+//
+// Architecture: UI-only — delegates to billStore / existing services.
+// ---------------------------------------------------------------------------
+
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   SafeAreaView,
-  FlatList,
+  ScrollView,
+  Pressable,
   Alert,
-  Modal,
-  TextInput,
   LayoutAnimation,
   Platform,
   UIManager,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
-import type { Person } from "../types/bill";
 import ContactPickerModal, { ContactData } from "../components/ContactPickerModal";
+import type { Person } from "../types/bill";
+import { nanoid } from "../utils/nanoid";
+
+// Reusable components
+import SectionHeader from "../components/bill-split/SectionHeader";
+import PrimaryButton from "../components/bill-split/PrimaryButton";
+import ParticipantCard from "../components/bill-split/ParticipantCard";
+import ParticipantCheckbox from "../components/bill-split/ParticipantCheckbox";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -30,31 +49,92 @@ const COLORS = [
 
 export default function ParticipantsScreen() {
   const router = useRouter();
+
+  // ── State ─────────────────────────────────────────────────────────────────
   const [participants, setParticipants] = useState<Person[]>([]);
   const [payerId, setPayerId] = useState<string | null>(null);
-  const [isModalVisible, setModalVisible] = useState(false);
+  const [sharingIds, setSharingIds] = useState<Set<string>>(new Set());
+  const [billTotal, setBillTotal] = useState(0);
+
+  // Modals
+  const [isContactPickerVisible, setContactPickerVisible] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState<Person | null>(null);
   const [editName, setEditName] = useState("");
-  const [removeState, setRemoveState] = useState<{
-    visible: boolean;
-    person: Person | null;
-    title: string;
-    message: string;
-    isPayer: boolean;
-    items: any[];
-  }>({ visible: false, person: null, title: "", message: "", isPayer: false, items: [] });
 
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const store = billStore.get();
     if (!store) {
       router.replace("/");
       return;
     }
-    setParticipants(store.participants);
-    setPayerId(store.payerId);
+
+    // Ensure "Me" participant exists
+    let meParticipant = store.participants.find((p) => p.isCurrentUser === true);
+    if (!meParticipant) {
+      meParticipant = {
+        id: nanoid(),
+        name: "Me",
+        color: COLORS[store.participants.length % COLORS.length],
+        itemIds: [],
+        isCurrentUser: true,
+      };
+      billStore.addParticipant(meParticipant);
+    }
+
+    const latestStore = billStore.get()!;
+    const parts = latestStore.participants;
+    setParticipants(parts);
+    setBillTotal(latestStore.bill.total || 0);
+
+    // Initialize payer — default to Me
+    if (latestStore.payerId) {
+      setPayerId(latestStore.payerId);
+    } else {
+      const me = parts.find((p) => p.isCurrentUser);
+      if (me) {
+        setPayerId(me.id);
+        billStore.updatePayer(me.id);
+      }
+    }
+
+    // Initialize all participants as sharing by default
+    setSharingIds(new Set(parts.map((p) => p.id)));
   }, []);
 
-  const handleAddContacts = (newContacts: ContactData[]) => {
+  // ── Derived values ────────────────────────────────────────────────────────
+  const hasPayerSelected = !!payerId;
+  const hasAtLeastOneSharer = sharingIds.size > 0;
+  const canContinue = hasPayerSelected && hasAtLeastOneSharer;
+  const sharerCount = sharingIds.size;
+
+  // ── Validation status label ───────────────────────────────────────────────
+  const validationStatus = useMemo(() => {
+    if (!hasPayerSelected) return { icon: "alert-circle" as const, text: "Select who paid", color: "#EF4444" };
+    if (!hasAtLeastOneSharer) return { icon: "alert-circle" as const, text: "Select who's sharing", color: "#EF4444" };
+    return { icon: "checkmark-circle" as const, text: "Ready to split", color: "#059669" };
+  }, [hasPayerSelected, hasAtLeastOneSharer]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handlePayerSelect = useCallback((id: string) => {
+    setPayerId(id);
+    billStore.updatePayer(id);
+  }, []);
+
+  const handleToggleSharing = useCallback((id: string) => {
+    setSharingIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleAddContacts = useCallback((newContacts: ContactData[]) => {
     const updatedParticipants = [...participants];
 
     newContacts.forEach((c) => {
@@ -69,92 +149,58 @@ export default function ParticipantsScreen() {
       updatedParticipants.push(newPerson);
     });
 
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setParticipants(updatedParticipants);
-    setModalVisible(false);
-  };
 
-  const handleRemoveParticipant = (person: Person) => {
-    const store = billStore.get();
-    if (!store) return;
+    // Auto-share new participants
+    setSharingIds((prev) => {
+      const next = new Set(prev);
+      newContacts.forEach((c) => next.add(c.id));
+      return next;
+    });
 
+    setContactPickerVisible(false);
+  }, [participants]);
+
+  const handleRemoveParticipant = useCallback((person: Person) => {
     if (participants.length <= 2) {
       Alert.alert("Cannot remove", "A bill must have at least 2 participants.");
       return;
     }
 
-    const isPayer = store.payerId === person.id;
-
-    if (isPayer) {
-      setRemoveState({
-        visible: true,
-        person,
-        isPayer: true,
-        items: [],
-        title: "Remove Payer",
-        message: `${person.name} is currently marked as the bill payer.\n\nRemoving ${person.name} will require selecting a new payer before continuing.`,
-      });
-      return;
-    }
-
-    if (person.itemIds.length > 0) {
-      const items = person.itemIds
-        .map((id) => store.bill.items?.find((it: any) => it.id === id))
-        .filter(Boolean);
-
-      setRemoveState({
-        visible: true,
-        person,
-        isPayer: false,
-        items,
-        title: "Remove Participant",
-        message: `${person.name} has ${person.itemIds.length} assigned item${
-          person.itemIds.length !== 1 ? "s" : ""
-        }.\n\nRemoving ${person.name} will unassign these items:`,
-      });
-    } else {
-      setRemoveState({
-        visible: true,
-        person,
-        isPayer: false,
-        items: [],
-        title: `Remove ${person.name}?`,
-        message: "Are you sure you want to remove them from this bill?",
-      });
-    }
-  };
-
-  const confirmRemoveModal = () => {
-    if (!removeState.person) return;
-    confirmRemove(removeState.person.id, removeState.isPayer);
-    setRemoveState((prev) => ({ ...prev, visible: false }));
-    if (removeState.isPayer) {
-      router.replace("/who-paid" as any);
-    }
-  };
-
-  const confirmRemove = (id: string, clearPayer = false) => {
-    const store = billStore.get();
-    if (!store) return;
-
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    const updated = store.participants.filter((p) => p.id !== id);
+    const updated = participants.filter((p) => p.id !== person.id);
 
-    store.participants = updated;
-
-    if (clearPayer) {
-      store.payerId = null;
-      setPayerId(null);
+    // Update store
+    const store = billStore.get();
+    if (store) {
+      store.participants = updated;
     }
 
     setParticipants(updated);
-  };
 
-  const handleEditName = (person: Person) => {
+    // Clean up sharing
+    setSharingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(person.id);
+      return next;
+    });
+
+    // If the removed person was the payer, fall back to Me or first participant
+    if (payerId === person.id) {
+      const me = updated.find((p) => p.isCurrentUser);
+      const fallbackId = me?.id || updated[0]?.id || null;
+      setPayerId(fallbackId);
+      if (fallbackId) billStore.updatePayer(fallbackId);
+    }
+  }, [participants, payerId]);
+
+  const handleEditName = useCallback((person: Person) => {
     setEditingParticipant(person);
     setEditName(person.name);
-  };
+  }, []);
 
-  const saveEditName = () => {
+  const saveEditName = useCallback(() => {
     if (!editingParticipant) return;
     const name = editName.trim();
     if (!name) {
@@ -162,130 +208,137 @@ export default function ParticipantsScreen() {
       return;
     }
 
-    const store = billStore.get();
-    if (!store) return;
-
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const updated = participants.map((p) =>
       p.id === editingParticipant.id ? { ...p, name } : p
     );
 
-    store.participants = updated;
+    const store = billStore.get();
+    if (store) store.participants = updated;
+
     setParticipants(updated);
     setEditingParticipant(null);
-  };
+  }, [editingParticipant, editName, participants]);
 
-  const handleContinue = () => {
-    if (!payerId) {
-      Alert.alert("No Payer Selected", "Please select who paid the bill before continuing.");
-      return;
-    }
-    
-    // Save the selected payer to the store before continuing
+  const handleContinue = useCallback(() => {
+    if (!canContinue || !payerId) return;
+
+    // Save payer to store
     billStore.updatePayer(payerId);
-    
+
+    // Sync participants with sharing selection
+    const store = billStore.get();
+    if (store) {
+      store.participants = participants.filter((p) => sharingIds.has(p.id));
+    }
+
     router.push("/choose-split-method" as any);
-  };
+  }, [canContinue, payerId, participants, sharingIds, router]);
 
-  const canRemove = participants.length > 2;
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ── Header ─────────────────────────────────────────────── */}
         <View style={styles.header}>
           <Text style={styles.title}>Participants</Text>
-          <Text style={styles.subtitle}>Who's sharing this bill?</Text>
+          <Text style={styles.subtitle}>Set up payer and sharing details</Text>
         </View>
 
-        <FlatList
-          data={participants}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <View style={styles.row}>
-              <View style={styles.rowLeft}>
-                <Pressable
-                  onPress={() => canRemove && handleRemoveParticipant(item)}
-                  hitSlop={12}
-                  disabled={!canRemove}
-                >
-                  <Ionicons
-                    name="checkbox"
-                    size={24}
-                    color={canRemove ? "#111827" : "#D1D5DB"}
-                  />
-                </Pressable>
-                <View style={[styles.avatar, { backgroundColor: item.color }]}>
-                  <Text style={styles.avatarText}>
-                    {item.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.nameContainer}>
-                  <Text style={styles.nameText}>{item.name}</Text>
-                  {item.phone && <Text style={styles.phoneText}>{item.phone}</Text>}
-                </View>
-              </View>
-              <View style={styles.rowRight}>
-                <Pressable
-                  onPress={() => handleEditName(item)}
-                  style={styles.actionBtn}
-                >
-                  <Ionicons name="pencil" size={20} color="#9CA3AF" />
-                </Pressable>
-                <Pressable
-                  onPress={() => canRemove && handleRemoveParticipant(item)}
-                  style={[styles.actionBtn, !canRemove && styles.actionBtnDisabled]}
-                  disabled={!canRemove}
-                >
-                  <Ionicons name="close" size={24} color={canRemove ? "#9CA3AF" : "#D1D5DB"} />
-                </Pressable>
-              </View>
-            </View>
-          )}
-          ListFooterComponent={
-            <Pressable
-              style={styles.addBtn}
-              onPress={() => setModalVisible(true)}
-            >
-              <Ionicons name="person-add" size={18} color="#111827" />
-              <Text style={styles.addBtnText}>Add From Contacts</Text>
-            </Pressable>
-          }
-        />
+        {/* ── Section 1: Who paid the bill? ───────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Who paid the bill?" />
+          {participants.map((p) => (
+            <ParticipantCard
+              key={p.id}
+              name={p.name}
+              color={p.color}
+              isSelected={payerId === p.id}
+              onPress={() => handlePayerSelect(p.id)}
+            />
+          ))}
+        </View>
 
-        <View style={styles.footer}>
-          {!canRemove && (
-            <Text style={styles.minParticipantsHint}>⚠️ Minimum 2 participants required to split a bill.</Text>
-          )}
-          {payerId === null && (
-            <Text style={styles.noPayerHint}>Please select who paid the bill.</Text>
-          )}
+        {/* ── Section 2: Who is sharing this bill? ────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Who is sharing this bill?" />
+          {participants.map((p) => (
+            <ParticipantCheckbox
+              key={p.id}
+              name={p.name}
+              color={p.color}
+              phone={p.phone}
+              isChecked={sharingIds.has(p.id)}
+              onToggle={() => handleToggleSharing(p.id)}
+            />
+          ))}
+
+          {/* Add contacts button */}
           <Pressable
-            style={[styles.continueBtn, !payerId && styles.continueBtnDisabled]}
-            onPress={handleContinue}
+            style={styles.addBtn}
+            onPress={() => setContactPickerVisible(true)}
           >
-            <Text style={styles.continueBtnText}>Continue to Split →</Text>
+            <Ionicons name="person-add" size={18} color="#111827" />
+            <Text style={styles.addBtnText}>Add From Contacts</Text>
           </Pressable>
         </View>
+
+        {/* ── Section 3: Live Summary ────────────────────────────── */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Summary</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Sharing</Text>
+            <Text style={styles.summaryValue}>{sharerCount} participant{sharerCount !== 1 ? "s" : ""}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Bill Total</Text>
+            <Text style={styles.summaryValue}>₹{billTotal.toFixed(2)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Paid by</Text>
+            <Text style={styles.summaryValue}>
+              {payerId ? (participants.find((p) => p.id === payerId)?.name ?? "—") : "—"}
+            </Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryRow}>
+            <View style={styles.statusRow}>
+              <Ionicons name={validationStatus.icon} size={16} color={validationStatus.color} />
+              <Text style={[styles.statusText, { color: validationStatus.color }]}>
+                {validationStatus.text}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Bottom spacer for button */}
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      {/* ── Footer: Continue button ─────────────────────────────── */}
+      <View style={styles.footer}>
+        <PrimaryButton
+          label="Continue to Split →"
+          onPress={handleContinue}
+          disabled={!canContinue}
+        />
       </View>
 
+      {/* ── Contact Picker Modal ─────────────────────────────────── */}
       <ContactPickerModal
-        visible={isModalVisible}
-        onClose={() => setModalVisible(false)}
+        visible={isContactPickerVisible}
+        onClose={() => setContactPickerVisible(false)}
         onAddContacts={handleAddContacts}
         existingParticipantIds={participants.map((p) => p.id)}
         existingPhones={participants.map((p) => p.phone || "").filter(Boolean)}
       />
 
-      {payerId === null && (
-        <View style={styles.noPayerBanner}>
-          <Ionicons name="warning-outline" size={16} color="#92400E" />
-          <Text style={styles.noPayerBannerText}>
-            No payer selected. Please go back and select who paid.
-          </Text>
-        </View>
-      )}
-
+      {/* ── Edit Name Modal ──────────────────────────────────────── */}
       <Modal visible={!!editingParticipant} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
@@ -311,122 +364,131 @@ export default function ParticipantsScreen() {
           </View>
         </View>
       </Modal>
-
-      <Modal visible={removeState.visible} transparent animationType="fade" statusBarTranslucent>
-        <View style={styles.removeModalBackdrop}>
-          <View style={styles.removeModalCard}>
-            <View style={styles.removeModalIconWrap}>
-              <Ionicons name="warning" size={28} color="#D97706" />
-            </View>
-            <Text style={styles.removeModalTitle}>{removeState.title}</Text>
-            <Text style={styles.removeModalSubtitle}>{removeState.message}</Text>
-            
-            {removeState.items && removeState.items.length > 0 && (
-              <View style={styles.removeModalItemList}>
-                {removeState.items.map((it: any) => (
-                  <View key={it.id} style={styles.removeModalItemRow}>
-                    <View style={styles.removeModalItemDot} />
-                    <Text style={styles.removeModalItemName} numberOfLines={1}>{it.name}</Text>
-                    <Text style={styles.removeModalItemPrice}>₹{(it.price || 0).toFixed(2)}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <View style={styles.removeModalActions}>
-              <Pressable
-                style={styles.removeModalBtnSecondary}
-                onPress={() => setRemoveState(prev => ({ ...prev, visible: false }))}
-              >
-                <Text style={styles.removeModalBtnSecondaryText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={styles.removeModalBtnPrimary}
-                onPress={confirmRemoveModal}
-              >
-                <Text style={styles.removeModalBtnPrimaryText}>Remove</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
-  container: { flex: 1, paddingHorizontal: 16 },
-  header: { marginTop: 24, marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
-  subtitle: { fontSize: 16, color: "#6B7280", marginTop: 4 },
-  listContent: { paddingBottom: 100 },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 12,
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
+    paddingBottom: 20,
   },
-  rowLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
+
+  // Header
+  header: {
+    marginTop: 24,
+    marginBottom: 24,
   },
-  avatarText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  nameText: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  phoneText: { fontSize: 13, color: "#6B7280", marginTop: 2 },
-  rowRight: { flexDirection: "row", alignItems: "center", gap: 16 },
-  actionBtn: { padding: 4 },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#111827",
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+
+  // Sections
+  section: {
+    marginBottom: 24,
+  },
+
+  // Add button
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     backgroundColor: "#E5E7EB",
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
   },
-  addBtnText: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  addBtnText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  // Summary card
+  summaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  summaryTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    marginBottom: 12,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 6,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Footer
   footer: {
-    paddingVertical: 10,
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 32,
     backgroundColor: "#F9FAFB",
     borderTopWidth: 1,
     borderColor: "#E5E7EB",
   },
-  continueBtn: {
-    backgroundColor: "#111827",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  continueBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
-  continueBtnDisabled: { backgroundColor: "#9CA3AF" },
-  noPayerHint: { textAlign: "center", fontSize: 13, color: "#EF4444", marginBottom: 6 },
-  minParticipantsHint: { textAlign: "center", fontSize: 13, color: "#D97706", marginBottom: 6, fontWeight: "500" },
-  actionBtnDisabled: { opacity: 0.4 },
-  noPayerBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#FEF3C7",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginHorizontal: 16,
-    marginBottom: 12,
-  },
-  noPayerBannerText: { flex: 1, fontSize: 13, color: "#92400E", fontWeight: "500" },
-  nameContainer: { flex: 1 },
+
+  // Edit name modal
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -486,21 +548,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
   },
-  
-  // Remove Modal specific styling
-  removeModalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
-  removeModalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 20 },
-  removeModalIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#FEF3C7", alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 16 },
-  removeModalTitle: { fontSize: 20, fontWeight: "700", color: "#111827", textAlign: "center", marginBottom: 8, letterSpacing: -0.3 },
-  removeModalSubtitle: { fontSize: 14, color: "#6B7280", textAlign: "center", lineHeight: 20, marginBottom: 20 },
-  removeModalItemList: { backgroundColor: "#F9FAFB", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden", marginBottom: 24 },
-  removeModalItemRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderColor: "#F3F4F6", gap: 10 },
-  removeModalItemDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D97706" },
-  removeModalItemName: { flex: 1, fontSize: 14, color: "#111827", fontWeight: "500" },
-  removeModalItemPrice: { fontSize: 14, fontWeight: "700", color: "#374151" },
-  removeModalActions: { flexDirection: "row", gap: 12 },
-  removeModalBtnSecondary: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderColor: "#E5E7EB", alignItems: "center" },
-  removeModalBtnSecondaryText: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  removeModalBtnPrimary: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: "#EF4444", alignItems: "center" },
-  removeModalBtnPrimaryText: { fontSize: 14, fontWeight: "700", color: "#fff" },
 });
