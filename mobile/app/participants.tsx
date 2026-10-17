@@ -28,9 +28,11 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
+import { authStore } from "../services/authStore";
+import { contactGroupStore, membersToParticipants } from "../services/contactGroupStore";
 import ContactPickerModal, { ContactData } from "../components/ContactPickerModal";
 import type { Person } from "../types/bill";
-import { nanoid } from "../utils/nanoid";
+import type { ContactGroup } from "../types/group";
 
 // Reusable components
 import SectionHeader from "../components/bill-split/SectionHeader";
@@ -61,6 +63,10 @@ export default function ParticipantsScreen() {
   const [editingParticipant, setEditingParticipant] = useState<Person | null>(null);
   const [editName, setEditName] = useState("");
 
+  // Saved-group picker (prefill this bill's participants from a saved group)
+  const [groupPickerVisible, setGroupPickerVisible] = useState(false);
+  const [savedGroups, setSavedGroups] = useState<ContactGroup[]>([]);
+
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const store = billStore.get();
@@ -69,17 +75,34 @@ export default function ParticipantsScreen() {
       return;
     }
 
+    const currentUser = authStore.get().user;
+
+    // Payment identity belongs to the person it describes. This screen only
+    // ever deals in contact identity (name + phone); the single UPI ID it
+    // copies is the current user's own, read from their profile in authStore.
+    // Everyone else's UPI ID is resolved from their own Billy account once
+    // accounts/sync exist — never typed in by whoever created the bill.
+
     // Ensure "Me" participant exists
     let meParticipant = store.participants.find((p) => p.isCurrentUser === true);
     if (!meParticipant) {
       meParticipant = {
-        id: nanoid(),
-        name: "Me",
+        // Always the auth uid — everything downstream (Pay / Mark as Received
+        // visibility, History totals) matches on currentUser.uid, so the two
+        // must never diverge. Mirrors billStore.set()'s own fallback.
+        id: currentUser?.uid ?? "me",
+        name: currentUser?.name ?? "Me",
         color: COLORS[store.participants.length % COLORS.length],
         itemIds: [],
         isCurrentUser: true,
+        upiId: currentUser?.upiId,
       };
       billStore.addParticipant(meParticipant);
+    } else if (!meParticipant.upiId && currentUser?.upiId) {
+      // Backfill: "me" may have been created before the profile had a UPI ID.
+      store.participants = store.participants.map((p) =>
+        p.isCurrentUser ? { ...p, upiId: currentUser.upiId } : p
+      );
     }
 
     const latestStore = billStore.get()!;
@@ -100,6 +123,14 @@ export default function ParticipantsScreen() {
 
     // Initialize all participants as sharing by default
     setSharingIds(new Set(parts.map((p) => p.id)));
+  }, []);
+
+  // ── Saved groups (read-only here; all CRUD lives in contactGroupStore) ────
+  useEffect(() => {
+    setSavedGroups(contactGroupStore.getGroups());
+    return contactGroupStore.subscribe(() => {
+      setSavedGroups(contactGroupStore.getGroups());
+    });
   }, []);
 
   // ── Derived values ────────────────────────────────────────────────────────
@@ -160,6 +191,23 @@ export default function ParticipantsScreen() {
     });
 
     setContactPickerVisible(false);
+  }, [participants]);
+
+  /**
+   * Copy a saved group's members onto this bill. The group is only a source:
+   * members are copied, and adding/removing people here afterwards never
+   * writes back to it.
+   */
+  const handleUseGroup = useCallback((group: ContactGroup) => {
+    const merged = membersToParticipants(group.members, participants);
+    const store = billStore.get();
+    if (store) store.participants = merged;
+    billStore.setContactGroupId(group.id);
+
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setParticipants(merged);
+    setSharingIds(new Set(merged.map((p) => p.id)));
+    setGroupPickerVisible(false);
   }, [participants]);
 
   const handleRemoveParticipant = useCallback((person: Person) => {
@@ -286,6 +334,19 @@ export default function ParticipantsScreen() {
             <Ionicons name="person-add" size={18} color="#111827" />
             <Text style={styles.addBtnText}>Add From Contacts</Text>
           </Pressable>
+
+          {/* Prefill from a saved group */}
+          {savedGroups.length > 0 && (
+            <Pressable
+              style={styles.addBtn}
+              onPress={() => setGroupPickerVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Use a saved group"
+            >
+              <Ionicons name="people" size={18} color="#111827" />
+              <Text style={styles.addBtnText}>Use a Saved Group</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* ── Section 3: Live Summary ────────────────────────────── */}
@@ -338,6 +399,42 @@ export default function ParticipantsScreen() {
         existingPhones={participants.map((p) => p.phone || "").filter(Boolean)}
       />
 
+      {/* ── Saved Group Picker ───────────────────────────────────── */}
+      <Modal visible={groupPickerVisible} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Use a Saved Group</Text>
+            <ScrollView style={{ maxHeight: 280 }}>
+              {savedGroups.map((g) => (
+                <Pressable
+                  key={g.id}
+                  style={({ pressed }) => [styles.groupOption, pressed && { opacity: 0.7 }]}
+                  onPress={() => handleUseGroup(g)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use ${g.name}`}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.groupOptionName}>{g.name}</Text>
+                    <Text style={styles.groupOptionMeta}>
+                      {g.members.length} member{g.members.length !== 1 ? "s" : ""}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+                </Pressable>
+              ))}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setGroupPickerVisible(false)}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Edit Name Modal ──────────────────────────────────────── */}
       <Modal visible={!!editingParticipant} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
@@ -364,6 +461,7 @@ export default function ParticipantsScreen() {
           </View>
         </View>
       </Modal>
+
     </SafeAreaView>
   );
 }
@@ -522,6 +620,15 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 20,
   },
+  groupOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  groupOptionName: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  groupOptionMeta: { fontSize: 13, color: "#6B7280", marginTop: 2 },
   modalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",

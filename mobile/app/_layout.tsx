@@ -22,6 +22,7 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 import { authStore } from "../services/authStore";
+import { initFirebaseAuth } from "../services/auth/initFirebaseAuth";
 import { useAuth } from "../hooks/useAuth";
 
 // ── Auth-aware navigator ──────────────────────────────────────────────────────
@@ -60,8 +61,12 @@ function AuthGate() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
-  // Restore persisted session once on app start
+  // Pick the auth provider, then restore the persisted session.
+  // initFirebaseAuth() is a no-op that falls back to local sign-in whenever
+  // the Firebase native module or its config is missing, so this is safe to
+  // call before the project's google-services files exist.
   useEffect(() => {
+    initFirebaseAuth();
     authStore.restore();
   }, []);
 

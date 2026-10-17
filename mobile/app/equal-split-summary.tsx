@@ -82,6 +82,7 @@ export default function EqualSplitSummaryScreen() {
       updatedAt: new Date().toISOString(),
       status: "active",
       billSnapshot: store.bill,
+      contactGroupId: store.contactGroupId ?? undefined,
     };
 
     await groupStore.createGroup(newGroup);

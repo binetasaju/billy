@@ -1,15 +1,12 @@
 // ---------------------------------------------------------------------------
 // app/login.tsx
 //
-// Mock login screen — Phase 2 foundation.
+// Sign in with name + phone number.
 //
-// Collects name + phone number and creates a local User object.
-// No OTP or Firebase yet — that is Phase 3.
-//
-// Firebase migration path:
-//   Replace handleContinue's body with:
-//     const result = await signInWithPhoneNumber(auth, normalizedPhone);
-//     navigation.push("/verify-otp", { confirmation: result });
+// The screen does not know or care which provider authenticates: it asks
+// authStore, and shows the SMS-code step only if the active provider asks for
+// one. With the default local provider that step never appears, so this flow
+// is unchanged from before.
 // ---------------------------------------------------------------------------
 
 import { useState } from "react";
@@ -30,19 +27,17 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../services/authStore";
 import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
-import type { User } from "../types/user";
-
-// Simple UUID-like ID generator (matches existing nanoid pattern)
-function generateUid(): string {
-  return `mock_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
 
 export default function LoginScreen() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; phone?: string; code?: string }>({});
+
+  // Set only when the active provider requires an SMS code.
+  const [verificationId, setVerificationId] = useState<string | null>(null);
+  const [code, setCode] = useState("");
 
   const validate = (): boolean => {
     const newErrors: { name?: string; phone?: string } = {};
@@ -64,19 +59,41 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const normalizedPhone = normalizePhoneNumber(phone)!;
+      const result = await authStore.signInWithPhone(name, phone);
 
-      // ── Mock User (replace with Firebase Auth in Phase 3) ──
-      const mockUser: User = {
-        uid: generateUid(),
-        name: name.trim(),
-        phoneNumber: normalizedPhone,
-        createdAt: new Date().toISOString(),
-      };
+      if (result.status === "verification-required") {
+        // Provider sent an SMS — collect the code before the session opens.
+        setVerificationId(result.verificationId);
+        return;
+      }
 
-      await authStore.login(mockUser);
-      // Navigate to onboarding to optionally collect UPI ID
+      // Session is already open (local provider).
       router.replace("/onboarding" as any);
+    } catch (e) {
+      setErrors((prev) => ({
+        ...prev,
+        phone: e instanceof Error ? e.message : "Could not sign in. Please try again.",
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmCode = async () => {
+    if (!verificationId) return;
+    if (!code.trim()) {
+      setErrors((e) => ({ ...e, code: "Enter the code we sent you." }));
+      return;
+    }
+    setLoading(true);
+    try {
+      await authStore.confirmPhoneSignIn(verificationId, code.trim(), name);
+      router.replace("/onboarding" as any);
+    } catch (e) {
+      setErrors((prev) => ({
+        ...prev,
+        code: e instanceof Error ? e.message : "That code did not work.",
+      }));
     } finally {
       setLoading(false);
     }
@@ -150,20 +167,43 @@ export default function LoginScreen() {
               {errors.phone && <Text style={s.errorText}>{errors.phone}</Text>}
             </View>
 
+            {/* Verification code — only shown when the provider sent one */}
+            {verificationId && (
+              <View style={s.fieldGroup}>
+                <Text style={s.label}>Verification Code</Text>
+                <View style={[s.inputWrap, errors.code && s.inputError]}>
+                  <Ionicons name="keypad-outline" size={18} color="#9CA3AF" style={s.inputIcon} />
+                  <TextInput
+                    style={s.input}
+                    placeholder="6-digit code"
+                    placeholderTextColor="#D1D5DB"
+                    value={code}
+                    onChangeText={(t) => { setCode(t); setErrors((e) => ({ ...e, code: undefined })); }}
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    onSubmitEditing={handleConfirmCode}
+                  />
+                </View>
+                {errors.code && <Text style={s.errorText}>{errors.code}</Text>}
+              </View>
+            )}
+
             {/* CTA */}
             <Pressable
               style={[s.btn, loading && s.btnDisabled]}
-              onPress={handleContinue}
+              onPress={verificationId ? handleConfirmCode : handleContinue}
               disabled={loading}
             >
               {loading
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={s.btnText}>Continue →</Text>
+                : <Text style={s.btnText}>{verificationId ? "Verify →" : "Continue →"}</Text>
               }
             </Pressable>
 
             <Text style={s.disclaimer}>
-              OTP verification coming soon. For now, we'll set up your profile locally.
+              {authStore.requiresVerification()
+                ? "We\u2019ll text you a verification code to confirm your number."
+                : "We\u2019ll set up your profile on this device."}
             </Text>
           </View>
         </ScrollView>

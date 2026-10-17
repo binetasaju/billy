@@ -26,6 +26,12 @@ interface StoreState {
   payerId: string | null;
   participants: Person[];
   splitMethod: "equal" | "itemwise" | null;
+  /**
+   * The reusable ContactGroup these participants were prefilled from, if any.
+   * Carried through to the BillGroup as a backward reference — participants
+   * remain this bill's own, and editing them never touches the group.
+   */
+  contactGroupId: string | null;
 }
 
 let _state: StoreState | null = null;
@@ -59,6 +65,7 @@ export const billStore = {
       payerId: null,
       participants: [meParticipant],
       splitMethod: null,
+      contactGroupId: null,
     };
     _notify();
   },
@@ -120,6 +127,12 @@ export const billStore = {
   clearPayer() {
     if (_state) {
       _state = { ..._state, payerId: null };
+      _notify();
+    }
+  },
+  setContactGroupId(contactGroupId: string | null) {
+    if (_state) {
+      _state = { ..._state, contactGroupId };
       _notify();
     }
   },

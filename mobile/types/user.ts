@@ -30,4 +30,21 @@ export interface User {
 
   /** ISO 8601 timestamp of account creation. */
   createdAt?: string;
+
+  /**
+   * Which provider authenticated this session. Absent on sessions created
+   * before providers existed — those are treated as "local" and left alone.
+   */
+  authProvider?: "local" | "firebase";
+
+  /**
+   * Firebase Auth UID, when this person has verified a phone number.
+   *
+   * Deliberately separate from `uid`: `uid` is Billy's identity and is
+   * referenced by every stored BillGroup participant, payerId, settlement and
+   * ContactGroup member. Rewriting it would orphan that history, so linking a
+   * Firebase identity to an existing local account records the Firebase UID
+   * here and leaves `uid` untouched. New accounts get uid === firebaseUid.
+   */
+  firebaseUid?: string;
 }

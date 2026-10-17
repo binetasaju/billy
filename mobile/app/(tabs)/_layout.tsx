@@ -2,11 +2,13 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
 import { groupStore } from "../../services/groupStore";
+import { contactGroupStore } from "../../services/contactGroupStore";
 
 export default function TabLayout() {
-  // Restore groups from AsyncStorage when the tab layout mounts
+  // Restore persisted stores when the tab layout mounts
   useEffect(() => {
     groupStore.restore();
+    contactGroupStore.restore();
   }, []);
 
   return (
@@ -43,6 +45,15 @@ export default function TabLayout() {
           title: "Pay Bills",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="card-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="groups"
+        options={{
+          title: "Groups",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
           ),
         }}
       />

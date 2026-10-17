@@ -1,6 +1,15 @@
 import { Linking, Alert } from "react-native";
 import * as Clipboard from "expo-clipboard";
 
+/**
+ * Basic UPI ID (VPA) format check: <handle>@<psp>.
+ * Deliberately permissive — this catches typos, it does not verify the VPA
+ * exists (only a PSP can do that).
+ */
+export function isValidUpiId(value: string): boolean {
+  return /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/.test(value.trim());
+}
+
 export interface UpiPaymentConfig {
   upiId: string;
   receiverName: string;

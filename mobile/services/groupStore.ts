@@ -6,13 +6,23 @@
 // ---------------------------------------------------------------------------
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { BillGroup } from "../types/group";
+import type { BillGroup, GroupSettlement } from "../types/group";
 
 const STORAGE_KEY = "@billy_groups";
 
 interface GroupState {
   groups: BillGroup[];
   isLoading: boolean;
+}
+
+/**
+ * A group's status is derived from its settlement records — never stored
+ * independently. A group with no outstanding settlements (nobody owes anyone,
+ * e.g. a solo bill) is settled from the moment it is created; `every` on an
+ * empty array is true, which is exactly the behaviour we want here.
+ */
+function deriveStatus(settlements: GroupSettlement[]): BillGroup["status"] {
+  return settlements.every((tx) => tx.status === "paid") ? "settled" : "active";
 }
 
 let _state: GroupState = { groups: [], isLoading: true };
@@ -58,7 +68,10 @@ export const groupStore = {
 
   // ── Mutations ───────────────────────────────────────────────────────────────
   async createGroup(group: BillGroup): Promise<void> {
-    const updated = [group, ..._state.groups];
+    // Status is always derived here, so a bill with zero settlements is stored
+    // as "settled" instead of stranding as "active" forever.
+    const withStatus: BillGroup = { ...group, status: deriveStatus(group.settlements) };
+    const updated = [withStatus, ..._state.groups];
     _state = { groups: updated, isLoading: false };
     _notify();
     try {
@@ -114,12 +127,9 @@ export const groupStore = {
       return tx;
     });
 
-    // Check if ALL settlements are now paid
-    const allPaid = updatedSettlements.every((tx) => tx.status === "paid");
-
     await this.updateGroup(groupId, {
       settlements: updatedSettlements,
-      status: allPaid ? "settled" : "active",
+      status: deriveStatus(updatedSettlements),
     });
   },
 };

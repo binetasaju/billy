@@ -1,12 +1,22 @@
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Modal, ToastAndroid, Platform, Alert } from "react-native";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { groupStore } from "../../services/groupStore";
+import { useGroups } from "../../hooks/useGroups";
 import { authStore } from "../../services/authStore";
 import { openUpiPayment } from "../../services/upi";
+import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
+
+/** One row of a person's share breakdown. */
+interface BreakdownLine {
+  key: string;
+  name: string;
+  amount: number;
+  note?: string;
+}
 
 export default function GroupDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,11 +30,27 @@ export default function GroupDetailsScreen() {
     receiverUpiId?: string;
   } | null>(null);
 
+  // Payer-side "Mark as Paid" state (used when the receiver has no UPI ID)
+  const [payOtherTx, setPayOtherTx] = useState<{
+    from: string;
+    to: string;
+    amount: number;
+    receiverName: string;
+  } | null>(null);
+
+  // Payee-side "Mark as Received" state
+  const [receiveTx, setReceiveTx] = useState<{
+    from: string;
+    to: string;
+    amount: number;
+    payerName: string;
+  } | null>(null);
+
   // Item breakdown modal state
   const [itemsModal, setItemsModal] = useState<{
     visible: boolean;
     personName: string;
-    items: BillItem[];
+    lines: BreakdownLine[];
     itemsTotal: number;
     chargesShare: number;
     total: number;
@@ -33,47 +59,112 @@ export default function GroupDetailsScreen() {
   // Report error modal
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const group = groupStore.getGroupById(id);
+  // Subscribed read of the same store — the screen repaints as soon as a
+  // settlement is marked paid, without leaving and reopening it.
+  const { groups } = useGroups();
+  const group = useMemo(() => groups.find((g) => g.id === id), [groups, id]);
   const currentUser = authStore.get().user;
   const isCreator = currentUser?.uid === group?.createdBy;
 
-  // ── Build item breakdown for a participant ──────────────────────────────────
-  const getPersonItems = (personId: string) => {
-    const person = group?.participants.find((p) => p.id === personId);
+  // ── Build a person's share breakdown ───────────────────────────────────────
+  // Shared items are divided by the number of people who claimed them, and the
+  // charge share comes from the existing settlement engine run over the stored
+  // bill snapshot — so this works for the payer too, who has no settlement row.
+  // Stored settlement amounts are never altered here; they stay authoritative
+  // for what is owed.
+  const getPersonBreakdown = (personId: string) => {
+    const participants = group?.participants ?? [];
     const allItems = (group?.billSnapshot?.items ?? []) as BillItem[];
-    const personItems = (person?.itemIds ?? [])
-      .map((itemId) => allItems.find((it) => it.id === itemId))
-      .filter(Boolean) as BillItem[];
-    const itemsTotal = personItems.reduce((s, it) => s + (it.price ?? it.amount ?? 0), 0);
+    const person = participants.find((p) => p.id === personId);
 
-    // Find settlement for this person to get their total
+    // How many people claimed each item
+    const sharers: Record<string, number> = {};
+    participants.forEach((p) =>
+      p.itemIds.forEach((itemId) => {
+        sharers[itemId] = (sharers[itemId] ?? 0) + 1;
+      })
+    );
+
+    // A group with no item assignments at all was an equal split.
+    const isItemwise = participants.some((p) => p.itemIds.length > 0);
+
+    const lines: BreakdownLine[] = [];
+
+    if (isItemwise) {
+      (person?.itemIds ?? []).forEach((itemId) => {
+        const it = allItems.find((i) => i.id === itemId);
+        if (!it) return;
+        const shareCount = sharers[itemId] || 1;
+        const fullPrice = it.price ?? it.amount ?? 0;
+        lines.push({
+          key: itemId,
+          name: it.name,
+          amount: fullPrice / shareCount,
+          note: shareCount > 1 ? `shared by ${shareCount} · ₹${fullPrice.toFixed(2)}` : undefined,
+        });
+      });
+
+      // Items nobody claimed are split equally across everyone.
+      const unassigned = allItems.filter((it) => !sharers[it.id]);
+      if (unassigned.length > 0 && participants.length > 0) {
+        const unassignedTotal = unassigned.reduce((sum, it) => sum + (it.price ?? it.amount ?? 0), 0);
+        lines.push({
+          key: "__unassigned",
+          name: `Unassigned item${unassigned.length !== 1 ? "s" : ""} (${unassigned.length})`,
+          amount: unassignedTotal / participants.length,
+          note: "split equally",
+        });
+      }
+    } else if (allItems.length > 0 && participants.length > 0) {
+      const itemsSum = allItems.reduce((sum, it) => sum + (it.price ?? it.amount ?? 0), 0);
+      lines.push({
+        key: "__equal",
+        name: `Equal share of ${allItems.length} item${allItems.length !== 1 ? "s" : ""}`,
+        amount: itemsSum / participants.length,
+        note: `split between ${participants.length}`,
+      });
+    }
+
+    // Charges: reuse the engine rather than re-deriving proportions here.
+    // payerId only affects who-owes-whom, which this breakdown does not use.
+    const bill = group?.billSnapshot;
+    const gstAmount = bill?.gst ?? 0;
+    const serviceCharge = bill?.serviceCharge ?? 0;
+    const totalCharges = (bill?.charges ?? []).reduce((sum, c) => sum + c.amount, 0);
+    const pt = calculateSettlement({
+      payerId: "",
+      splitMethod: isItemwise ? "itemwise" : "equal",
+      participants,
+      items: allItems,
+      gstAmount,
+      serviceCharge,
+      additionalCharges: totalCharges - gstAmount - serviceCharge,
+    }).participantTotals.find((t) => t.personId === personId);
+
+    const itemsTotal = pt?.itemsTotal ?? lines.reduce((sum, l) => sum + l.amount, 0);
+    const chargesShare = pt
+      ? pt.taxShare + pt.serviceChargeShare + pt.additionalChargesShare
+      : 0;
+
+    // Use the engine's total so the modal is internally consistent
+    // (lines + charges = total). It is derived from the same snapshot the
+    // stored settlement was built from, so the two agree; the stored amount is
+    // the fallback and remains what the settlement row itself displays.
     const tx = group?.settlements.find((t) => t.fromUserId === personId);
-    const total = tx?.amount ?? itemsTotal;
-    const chargesShare = total - itemsTotal;
+    const total = pt?.total ?? tx?.amount ?? itemsTotal + chargesShare;
 
-    return { personItems, itemsTotal, chargesShare, total };
+    return { lines, itemsTotal, chargesShare, total };
   };
 
   const handleShowItems = (personId: string, personName: string) => {
-    const { personItems, itemsTotal, chargesShare, total } = getPersonItems(personId);
-    setItemsModal({
-      visible: true,
-      personName,
-      items: personItems,
-      itemsTotal,
-      chargesShare,
-      total,
-    });
+    const { lines, itemsTotal, chargesShare, total } = getPersonBreakdown(personId);
+    setItemsModal({ visible: true, personName, lines, itemsTotal, chargesShare, total });
   };
 
   const handlePayClick = async (tx: any, receiver: Person | undefined) => {
-    if (!receiver?.upiId) {
-      Alert.alert(
-        "Cannot Pay",
-        `${receiver?.name ?? "This person"} has not configured a UPI ID.`
-      );
-      return;
-    }
+    // The Pay action is only rendered when the receiver has a UPI ID; this is
+    // just a safety net, and it stays silent rather than dead-ending.
+    if (!receiver?.upiId) return;
     setActiveTx({
       from: tx.fromUserId,
       to: tx.toUserId,
@@ -99,6 +190,61 @@ export default function GroupDetailsScreen() {
       }
     }
     setActiveTx(null);
+  };
+
+  // ── Payer-side settle without UPI ────────────────────────────────────────
+  // Only the person who owes may mark their own settlement as paid.
+  const handleMarkPaidOtherClick = (tx: any, receiver: Person | undefined) => {
+    if (tx.fromUserId !== currentUser?.uid) return;
+    setPayOtherTx({
+      from: tx.fromUserId,
+      to: tx.toUserId,
+      amount: tx.amount,
+      receiverName: receiver?.name ?? "this person",
+    });
+  };
+
+  const handleConfirmPaidOther = async (method: "cash" | "other") => {
+    if (!payOtherTx || !group || payOtherTx.from !== currentUser?.uid) {
+      setPayOtherTx(null);
+      return;
+    }
+    await groupStore.markSettlementPaid(group.id, payOtherTx.from, payOtherTx.to, method);
+    const label = method === "cash" ? "Cash" : "Payment";
+    if (Platform.OS === "android") {
+      ToastAndroid.show(`${label} payment marked as completed.`, ToastAndroid.SHORT);
+    } else {
+      Alert.alert("Marked as Paid", `${label} payment marked as completed.`);
+    }
+    setPayOtherTx(null);
+  };
+
+  // ── Payee-side confirmation ────────────────────────────────────────────────
+  // Only the receiver of a settlement may mark it as received.
+  const handleMarkReceivedClick = (tx: any, sender: Person | undefined) => {
+    if (tx.toUserId !== currentUser?.uid) return;
+    setReceiveTx({
+      from: tx.fromUserId,
+      to: tx.toUserId,
+      amount: tx.amount,
+      payerName: sender?.name ?? "This person",
+    });
+  };
+
+  const handleConfirmReceived = async (method: "upi" | "cash" | "other") => {
+    // Re-check ownership at confirm time — never mark another pair's settlement.
+    if (!receiveTx || !group || receiveTx.to !== currentUser?.uid) {
+      setReceiveTx(null);
+      return;
+    }
+    await groupStore.markSettlementPaid(group.id, receiveTx.from, receiveTx.to, method);
+    const label = method === "cash" ? "Cash" : method === "upi" ? "UPI" : "Payment";
+    if (Platform.OS === "android") {
+      ToastAndroid.show(`${label} payment marked as received.`, ToastAndroid.SHORT);
+    } else {
+      Alert.alert("Marked as Received", `${label} payment marked as received.`);
+    }
+    setReceiveTx(null);
   };
 
   const handleCopyUpiId = async () => {
@@ -189,6 +335,12 @@ export default function GroupDetailsScreen() {
               if (isCurrentUserTo) personTo = "You";
 
               const isPaid = tx.status === "paid";
+              const receiverHasUpi = !!personToObj?.upiId;
+              const paidVia =
+                tx.paymentMethod === "cash" ? " in cash"
+                : tx.paymentMethod === "upi" ? " via UPI"
+                : tx.paymentMethod === "other" ? " via another method"
+                : "";
 
               return (
                 <View key={idx} style={[s.txRow, idx < group.settlements.length - 1 && s.txBorder]}>
@@ -207,7 +359,9 @@ export default function GroupDetailsScreen() {
                         <Text style={s.txName}>{personTo}</Text>
                       </Text>
                       {isPaid ? (
-                        <Text style={s.txPaidStatus}>✓ Paid on {new Date(tx.paidAt!).toLocaleDateString()}</Text>
+                        <Text style={s.txPaidStatus}>
+                          ✓ Paid{paidVia}{tx.paidAt ? ` on ${new Date(tx.paidAt).toLocaleDateString()}` : ""}
+                        </Text>
                       ) : (
                         <Text style={s.txPendingStatus}>Pending</Text>
                       )}
@@ -215,9 +369,20 @@ export default function GroupDetailsScreen() {
                     <Text style={s.txAmount}>₹{tx.amount.toFixed(2)}</Text>
                   </View>
 
-                  {/* Pay row: info icon + pay button side by side */}
-                  {!isPaid && (
-                    <View style={s.txActions}>
+                  {/* No UPI ID on file for the receiver — state the fact and
+                      offer the non-UPI paths instead of dead-ending. */}
+                  {!isPaid && isCurrentUserFrom && !receiverHasUpi && (
+                    <View style={s.upiMissingRow}>
+                      <Ionicons name="information-circle-outline" size={15} color="#92400E" />
+                      <Text style={s.upiMissingText}>
+                        UPI ID not available for {personToObj?.name ?? "this person"}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Actions: the item breakdown stays available once paid,
+                      so a settled bill can still be inspected from History. */}
+                  <View style={s.txActions}>
                       {/* Info icon — always visible to all participants */}
                       <Pressable
                         style={s.infoBtn}
@@ -230,17 +395,33 @@ export default function GroupDetailsScreen() {
                         <Text style={s.infoBtnText}>Items</Text>
                       </Pressable>
 
-                      {isCurrentUserFrom ? (
-                        <Pressable style={s.payBtn} onPress={() => handlePayClick(tx, personToObj)}>
-                          <Text style={s.payBtnText}>Pay ₹{tx.amount.toFixed(2)}</Text>
+                      {!isPaid && (isCurrentUserFrom ? (
+                        receiverHasUpi ? (
+                          <Pressable style={s.payBtn} onPress={() => handlePayClick(tx, personToObj)}>
+                            <Text style={s.payBtnText}>Pay ₹{tx.amount.toFixed(2)}</Text>
+                          </Pressable>
+                        ) : (
+                          <Pressable
+                            style={s.markPaidBtn}
+                            onPress={() => handleMarkPaidOtherClick(tx, personToObj)}
+                          >
+                            <Text style={s.markPaidBtnText}>Mark as Paid</Text>
+                          </Pressable>
+                        )
+                      ) : isCurrentUserTo ? (
+                        <Pressable
+                          style={s.receivedBtn}
+                          onPress={() => handleMarkReceivedClick(tx, personFromObj)}
+                        >
+                          <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+                          <Text style={s.receivedBtnText}>Mark as Received</Text>
                         </Pressable>
                       ) : (
                         <View style={s.waitingBadge}>
                           <Text style={s.waitingText}>Waiting for payment</Text>
                         </View>
-                      )}
-                    </View>
-                  )}
+                      ))}
+                  </View>
                 </View>
               );
             })
@@ -250,7 +431,17 @@ export default function GroupDetailsScreen() {
         <Text style={s.sectionTitle}>Participants ({group.participants.length})</Text>
         <View style={s.listCard}>
           {group.participants.map((p, idx) => (
-            <View key={p.id} style={[s.participantRow, idx < group.participants.length - 1 && s.txBorder]}>
+            <Pressable
+              key={p.id}
+              style={({ pressed }) => [
+                s.participantRow,
+                idx < group.participants.length - 1 && s.txBorder,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => handleShowItems(p.id, p.isCurrentUser ? "Your" : `${p.name}'s`)}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${p.name}'s share breakdown`}
+            >
               <View style={[s.avatar, { backgroundColor: p.color }]}>
                 <Text style={s.avatarText}>{p.name.charAt(0).toUpperCase()}</Text>
               </View>
@@ -264,7 +455,8 @@ export default function GroupDetailsScreen() {
                   </View>
                 ) : null}
               </View>
-            </View>
+              <Ionicons name="receipt-outline" size={17} color="#3B82F6" />
+            </Pressable>
           ))}
         </View>
       </ScrollView>
@@ -282,19 +474,30 @@ export default function GroupDetailsScreen() {
             </View>
 
             <View style={s.itemBreakdownList}>
-              {(itemsModal?.items ?? []).map((it, i) => (
-                <View key={it.id ?? i} style={[s.itemBreakdownRow, i < (itemsModal?.items.length ?? 0) - 1 && s.itemBreakdownBorder]}>
-                  <Text style={s.itemBreakdownName} numberOfLines={1}>{it.name}</Text>
-                  <Text style={s.itemBreakdownPrice}>₹{(it.price ?? it.amount ?? 0).toFixed(2)}</Text>
+              {(itemsModal?.lines ?? []).map((line, i) => (
+                <View key={line.key} style={[s.itemBreakdownRow, i < (itemsModal?.lines.length ?? 0) - 1 && s.itemBreakdownBorder]}>
+                  <View style={s.itemBreakdownInfo}>
+                    <Text style={s.itemBreakdownName} numberOfLines={1}>{line.name}</Text>
+                    {line.note ? <Text style={s.itemBreakdownNote}>{line.note}</Text> : null}
+                  </View>
+                  <Text style={s.itemBreakdownPrice}>₹{line.amount.toFixed(2)}</Text>
                 </View>
               ))}
-              {(itemsModal?.items.length ?? 0) === 0 && (
+              {(itemsModal?.lines.length ?? 0) === 0 && (
                 <Text style={s.noItemsText}>No specific items found</Text>
               )}
             </View>
 
+            {/* Items subtotal */}
+            <View style={s.itemBreakdownRow}>
+              <Text style={[s.itemBreakdownName, { color: "#6B7280" }]}>Items subtotal</Text>
+              <Text style={[s.itemBreakdownPrice, { color: "#6B7280" }]}>
+                ₹{(itemsModal?.itemsTotal ?? 0).toFixed(2)}
+              </Text>
+            </View>
+
             {/* Charges + Total */}
-            {(itemsModal?.chargesShare ?? 0) > 0 && (
+            {Math.abs(itemsModal?.chargesShare ?? 0) >= 0.01 && (
               <View style={s.itemBreakdownRow}>
                 <Text style={[s.itemBreakdownName, { color: "#6B7280" }]}>Taxes & Charges</Text>
                 <Text style={[s.itemBreakdownPrice, { color: "#6B7280" }]}>+₹{itemsModal!.chargesShare.toFixed(2)}</Text>
@@ -375,6 +578,59 @@ export default function GroupDetailsScreen() {
         </View>
       </Modal>
 
+
+      {/* ── Mark as Paid Modal (payer side, no UPI ID available) ── */}
+      <Modal visible={!!payOtherTx} transparent animationType="fade" statusBarTranslucent>
+        <View style={s.modalBackdrop}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Mark as Paid</Text>
+            {payOtherTx && (
+              <Text style={s.modalSubtitle}>
+                How did you pay {payOtherTx.receiverName} ₹{payOtherTx.amount.toFixed(2)}?
+              </Text>
+            )}
+            <View style={{ gap: 12, marginTop: 24 }}>
+              <Pressable style={s.modalBtnSuccess} onPress={() => handleConfirmPaidOther("cash")}>
+                <Text style={s.modalBtnSuccessText}>Paid in cash</Text>
+              </Pressable>
+              <Pressable style={s.modalBtnMethod} onPress={() => handleConfirmPaidOther("other")}>
+                <Text style={s.modalBtnMethodText}>Paid another way</Text>
+              </Pressable>
+              <Pressable style={s.modalBtnCancel} onPress={() => setPayOtherTx(null)}>
+                <Text style={s.modalBtnCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Mark as Received Modal (payee side) ── */}
+      <Modal visible={!!receiveTx} transparent animationType="fade" statusBarTranslucent>
+        <View style={s.modalBackdrop}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Mark as Received</Text>
+            {receiveTx && (
+              <Text style={s.modalSubtitle}>
+                How did {receiveTx.payerName} pay you ₹{receiveTx.amount.toFixed(2)}?
+              </Text>
+            )}
+            <View style={{ gap: 12, marginTop: 24 }}>
+              <Pressable style={s.modalBtnSuccess} onPress={() => handleConfirmReceived("upi")}>
+                <Text style={s.modalBtnSuccessText}>UPI received</Text>
+              </Pressable>
+              <Pressable style={s.modalBtnMethod} onPress={() => handleConfirmReceived("cash")}>
+                <Text style={s.modalBtnMethodText}>Cash received</Text>
+              </Pressable>
+              <Pressable style={s.modalBtnMethod} onPress={() => handleConfirmReceived("other")}>
+                <Text style={s.modalBtnMethodText}>Other</Text>
+              </Pressable>
+              <Pressable style={s.modalBtnCancel} onPress={() => setReceiveTx(null)}>
+                <Text style={s.modalBtnCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Payment Confirmation Modal ── */}
       <Modal visible={!!activeTx} transparent animationType="fade">
@@ -462,6 +718,16 @@ const s = StyleSheet.create({
   payBtn: { flex: 1, backgroundColor: "#111827", paddingVertical: 11, borderRadius: 10, alignItems: "center" },
   payBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
   waitingBadge: { flex: 1, backgroundColor: "#F3F4F6", paddingVertical: 11, borderRadius: 10, alignItems: "center" },
+  upiMissingRow: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A",
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginTop: 10,
+  },
+  upiMissingText: { flex: 1, fontSize: 12, fontWeight: "500", color: "#92400E" },
+  markPaidBtn: { flex: 1, backgroundColor: "#111827", paddingVertical: 11, borderRadius: 10, alignItems: "center" },
+  markPaidBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  receivedBtn: { flex: 1, flexDirection: "row", gap: 6, backgroundColor: "#10B981", paddingVertical: 11, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  receivedBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   waitingText: { color: "#6B7280", fontWeight: "500", fontSize: 13 },
 
   participantRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14 },
@@ -491,6 +757,8 @@ const s = StyleSheet.create({
   },
   itemBreakdownRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 11 },
   itemBreakdownBorder: { borderBottomWidth: 1, borderColor: "#F3F4F6" },
+  itemBreakdownInfo: { flex: 1, paddingRight: 12 },
+  itemBreakdownNote: { fontSize: 11, color: "#6B7280", marginTop: 2 },
   itemBreakdownName: { flex: 1, fontSize: 14, color: "#111827", fontWeight: "500", paddingRight: 12 },
   itemBreakdownPrice: { fontSize: 14, fontWeight: "600", color: "#111827" },
   noItemsText: { padding: 14, color: "#9CA3AF", fontSize: 14, textAlign: "center" },
@@ -529,6 +797,8 @@ const s = StyleSheet.create({
   modalBtnFailText: { color: "#EF4444", fontWeight: "600", fontSize: 15 },
   modalBtnCopyUpi: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#F3F4F6", paddingVertical: 14, borderRadius: 12 },
   modalBtnCopyUpiText: { color: "#374151", fontWeight: "600", fontSize: 14 },
+  modalBtnMethod: { backgroundColor: "#F3F4F6", paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#E5E7EB" },
+  modalBtnMethodText: { fontSize: 15, fontWeight: "700", color: "#374151" },
   modalBtnCancel: { paddingVertical: 14, borderRadius: 12, alignItems: "center" },
   modalBtnCancelText: { color: "#6B7280", fontWeight: "600", fontSize: 15 },
 });

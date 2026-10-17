@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1064599655749",
+    "project_id": "billy-ed9eb",
+    "storage_bucket": "billy-ed9eb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1064599655749:android:aee85184fa8d16a7161a2c",
+        "android_client_info": {
+          "package_name": "com.anonymous.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQQcO-4wO0qfMMdCCWIFpqJoX-efmxVrU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

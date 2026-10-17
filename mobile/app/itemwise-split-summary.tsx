@@ -107,6 +107,14 @@ export default function ItemwiseSplitSummaryScreen() {
     setChargesTotal(totalCharges);
   }, []);
 
+  // Back → return to the inline item-wise assignment on the split-method screen.
+  // The screen is still mounted below us in the stack, so its assignment state
+  // (and the store) is preserved; the replace() branch only covers deep links.
+  const goBackToAssignment = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/choose-split-method" as any);
+  };
+
   const handleCreateGroup = async () => {
     const user = authStore.get().user;
     const store = billStore.get();
@@ -123,6 +131,7 @@ export default function ItemwiseSplitSummaryScreen() {
       updatedAt: new Date().toISOString(),
       status: "active",
       billSnapshot: store.bill,
+      contactGroupId: store.contactGroupId ?? undefined,
     };
 
     await groupStore.createGroup(newGroup);
@@ -254,7 +263,7 @@ export default function ItemwiseSplitSummaryScreen() {
 
         {/* Actions */}
         <View style={s.actions}>
-          <Pressable style={s.changeBtn} onPress={() => router.back()}>
+          <Pressable style={s.changeBtn} onPress={goBackToAssignment}>
             <Ionicons name="swap-horizontal" size={16} color="#374151" />
             <Text style={s.changeBtnText}>Back to Assignment</Text>
           </Pressable>
@@ -307,7 +316,7 @@ export default function ItemwiseSplitSummaryScreen() {
             <View style={s.modalActions}>
               <Pressable
                 style={s.modalBtnSecondary}
-                onPress={() => { setShowUnassignedModal(false); router.back(); }}
+                onPress={() => { setShowUnassignedModal(false); goBackToAssignment(); }}
               >
                 <Text style={s.modalBtnSecondaryText}>Go Back & Assign</Text>
               </Pressable>
@@ -323,10 +332,10 @@ export default function ItemwiseSplitSummaryScreen() {
       </Modal>
       {/* ── Save Group Modal ── */}
       <Modal visible={showSaveModal} transparent animationType="fade" statusBarTranslucent>
-        <View style={s.modalBackdrop}>
-          <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Save Group</Text>
-            <Text style={s.modalSubtitle}>Create a group to track these payments.</Text>
+        <View style={s.saveModalBackdrop}>
+          <View style={s.saveModalCard}>
+            <Text style={s.saveModalTitle}>Save Group</Text>
+            <Text style={s.saveModalSubtitle}>Create a group to track these payments.</Text>
             
             <View style={s.inputWrap}>
               <Text style={s.inputLabel}>Group Name</Text>
@@ -579,10 +588,10 @@ const s = StyleSheet.create({
   modalBtnPrimaryText: { fontSize: 14, fontWeight: "700", color: "#fff" },
   
   // Save Modal overrides
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
-  modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
-  modalTitle: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6 },
-  modalSubtitle: { fontSize: 15, color: "#6B7280", marginBottom: 20, lineHeight: 22 },
+  saveModalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
+  saveModalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
+  saveModalTitle: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6 },
+  saveModalSubtitle: { fontSize: 15, color: "#6B7280", marginBottom: 20, lineHeight: 22 },
   inputWrap: { marginBottom: 24 },
   inputLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8 },
   input: { borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: "#111827", backgroundColor: "#F9FAFB" },

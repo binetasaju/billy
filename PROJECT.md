@@ -203,8 +203,6 @@ billy/
 │   │   ├── who-paid.tsx           # Select who paid the bill
 │   │   ├── choose-split-method.tsx # Equal vs. item-wise split
 │   │   ├── split.tsx              # Split configuration
-│   │   ├── assign-items.tsx       # Item-wise: assign items to people
-│   │   ├── assign-by-person.tsx   # Item-wise: assign by person view
 │   │   ├── equal-split-summary.tsx # Equal split results
 │   │   ├── itemwise-split-summary.tsx # Item-wise split results
 │   │   └── test-models.tsx        # Developer tool for model testing
