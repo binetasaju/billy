@@ -1,9 +1,4 @@
 # Billy — AI-Powered Bill Splitting for India
-
-<div align="center">
-
-<img src="assets/billy-demo.gif" alt="Billy mobile application walkthrough" width="300" />
-
 ### Every Bill Matters. Split bills, not friendships.
 
 **Snap a receipt. Split by item. Settle over UPI.**
