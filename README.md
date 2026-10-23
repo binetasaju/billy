@@ -18,10 +18,6 @@
   <img src="https://img.shields.io/badge/License-Proprietary-blue" alt="License" />
 </p>
 
-<p align="center">
-  <img src="./assets/billy-demo.gif" alt="Billy App Walkthrough Demo" width="320" style="border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);" />
-</p>
-
 ---
 
 ## Table of Contents
@@ -607,8 +603,6 @@ billy/
 │   ├── tailwind.config.js                 # NativeWind Tailwind CSS config
 │   └── package.json                       # Dependencies and npm scripts
 │
-├── assets/                                # Media & demo assets
-│   └── billy-demo.gif                     # Application walkthrough animation
 ├── backend/                               # Future Cloud proxy backend (placeholder)
 ├── docs/                                  # Documentation assets & web demos
 ├── Billy.pdf                              # Pitch Deck by Thynk Unlimited
