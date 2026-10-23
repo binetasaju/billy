@@ -1,4 +1,4 @@
-# Billy — AI-Powered Bill Splitting for India
+# Billy — AI-Powered Bill Splitting App
 ### Every Bill Matters. Split bills, not friendships.
 
 **Snap a receipt. Split by item. Settle over UPI.**
@@ -38,17 +38,33 @@ Billy is a mobile-first expense-splitting application designed to make sharing r
 - [Project Structure](#-project-structure)
 - [Project Information](#-project-information)
 
-## 🍽️ The Problem
+# Billy — AI-Powered Item-Wise Expense Splitting
 
-When friends dine together, one person often pays the entire restaurant bill. Splitting it afterward can involve:
+### Every Bill Matters. Split bills, not friendships.
 
-- Manually entering every food item and its price.
-- Figuring out who ordered what and which items were shared.
-- Distributing GST, service charges, and other fees fairly.
-- Calculating individual shares without rounding discrepancies.
-- Tracking who owes money and who has settled their share.
+**Scan a bill. Split by item. Pay your share.**
 
-Equal splitting is convenient, but it may be unfair when people order items of different prices.
+Billy is an AI-powered expense-splitting mobile application designed to make shared purchases fair, transparent, and easy to settle. From restaurant bills and grocery shopping to household essentials and group purchases, Billy helps people pay for what they actually bought or consumed instead of dividing every expense equally.
+
+By combining AI-assisted receipt processing, flexible item-wise allocation, automatic expense calculations, group balance tracking, and UPI payment links, Billy aims to make splitting expenses simpler for everyone.
+
+[Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Roadmap](#-future-roadmap)
+
+</div>
+
+---
+
+## 🍃 The Problem
+
+When people buy things together, splitting the total equally is not always fair.
+
+- **Groceries:** Everyone buys different products or quantities.
+- **Shopping:** Friends purchase items at different prices.
+- **Household expenses:** Flatmates share some items but purchase others individually.
+- **Group purchases:** Multiple people contribute toward a combined order.
+- **Restaurant bills:** Each person orders different dishes, with shared items and additional charges.
+
+Manually reading receipts, assigning items, calculating each person's share, distributing taxes, and tracking repayments can be tedious and error-prone.
 
 ## 💡 The Solution
 
