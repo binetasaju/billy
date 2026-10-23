@@ -438,8 +438,6 @@ billy/
 │   ├── types/               # TypeScript domain models
 │   ├── utils/               # Shared utilities
 │   └── package.json
-├── assets/
-│   └── billy-demo.gif       # Application walkthrough
 ├── docs/                    # Supporting documentation
 ├── Billy.pdf                # Project pitch deck
 ├── PROJECT.md               # Project notes
