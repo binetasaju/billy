@@ -349,6 +349,43 @@ export default function GroupDetailsScreen() {
           <Text style={s.summarySubtext}>{group.participants.length} Participants</Text>
         </View>
 
+        {/* ── Who had what (bills with a receipt only) ── */}
+        {group.billSnapshot && group.participants.length > 0 && (
+          <>
+            <Text style={s.sectionTitle}>Who had what</Text>
+            <View style={s.listCard}>
+              {group.participants.map((p, idx) => {
+                const b = getPersonBreakdown(p.id);
+                const summary = b.lines
+                  .map((l) => {
+                    const share = l.note?.match(/^shared by (\d+)/);
+                    return share ? `${l.name} (1/${share[1]})` : l.name;
+                  })
+                  .join(", ");
+                const isMe = p.id === currentUser?.uid;
+                return (
+                  <Pressable
+                    key={p.id}
+                    style={[s.whoRow, idx < group.participants.length - 1 && s.txBorder]}
+                    onPress={() => handleShowItems(p.id, isMe ? "Your" : `${p.name}'s`)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${p.name}'s items`}
+                  >
+                    <View style={[s.whoAvatar, { backgroundColor: p.color ?? "#9CA3AF" }]}>
+                      <Text style={s.whoAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.txName}>{isMe ? "You" : p.name}</Text>
+                      <Text style={s.whoItems} numberOfLines={2}>{summary || "No items"}</Text>
+                    </View>
+                    <Text style={s.whoTotal}>₹{b.total.toFixed(2)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
+
         <Text style={s.sectionTitle}>Settlements ({group.settlements.length})</Text>
         <View style={s.listCard}>
           {group.settlements.length === 0 ? (
@@ -746,6 +783,11 @@ const s = StyleSheet.create({
   txTextContent: { flex: 1 },
   txText: { fontSize: 15, color: "#4B5563" },
   txName: { fontWeight: "600", color: "#111827" },
+  whoRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
+  whoAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  whoAvatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  whoItems: { fontSize: 12, color: "#6B7280", marginTop: 2, lineHeight: 16 },
+  whoTotal: { fontSize: 15, fontWeight: "700", color: "#111827" },
   txPaidStatus: { fontSize: 12, color: "#10B981", fontWeight: "600", marginTop: 2 },
   txPendingStatus: { fontSize: 12, color: "#9CA3AF", fontWeight: "500", marginTop: 2 },
   txAmount: { fontSize: 16, fontWeight: "700", color: "#111827" },
