@@ -120,6 +120,19 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
+      <Pressable
+        onPress={() => router.push("/add-debt" as any)}
+        style={({ pressed }) => [styles.oweRow, pressed && styles.pressed]}
+        accessibilityRole="button"
+      >
+        <Ionicons name="swap-horizontal" size={20} color="#111827" />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.oweTitle}>Owe someone?</Text>
+          <Text style={styles.oweSubtitle}>Record money owed without a bill</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      </Pressable>
+
       <View style={styles.recentSection}>
         <Text style={styles.sectionTitle}>Recent Activity</Text>
         <View style={styles.emptyState}>
@@ -132,6 +145,13 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  oweRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    marginHorizontal: 20, marginTop: 16, padding: 16,
+    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB",
+  },
+  oweTitle: { fontSize: 15, fontWeight: "600", color: "#111827" },
+  oweSubtitle: { fontSize: 13, color: "#6B7280", marginTop: 2 },
   safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
   header: {
     paddingHorizontal: 24,
