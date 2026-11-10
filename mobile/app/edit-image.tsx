@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     minWidth: 68,
     backgroundColor: "#374151",
   },
-  toolBtnActive: { backgroundColor: "#1D4ED8" },
+  toolBtnActive: { backgroundColor: "#059669" },
   toolBtnDanger: { backgroundColor: "#7F1D1D" },
   toolBtnIcon:   { fontSize: 22, color: "#E5E7EB" },
   toolBtnLabel:  { fontSize: 11, color: "#9CA3AF", fontWeight: "600" },

@@ -64,7 +64,7 @@ export const billStore = {
     const meParticipant: Person = {
       id: currentUser?.uid ?? "me",
       name: currentUser?.name ?? "Me",
-      color: "#1D4ED8",
+      color: "#0A0A0A",
       itemIds: [],
       isCurrentUser: true,
     };
@@ -202,7 +202,7 @@ export const billStore = {
     const me: Person = {
       id: currentUser.uid,
       name: currentUser.name || "Me",
-      color: "#1D4ED8",
+      color: "#0A0A0A",
       itemIds: [],
       isCurrentUser: true,
       upiId: currentUser.upiId,

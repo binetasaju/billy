@@ -50,7 +50,7 @@ function AuthGate() {
   if (isLoading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#059669" />
       </View>
     );
   }

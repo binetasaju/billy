@@ -41,9 +41,10 @@ import ParticipantCheckbox from "../components/bill-split/ParticipantCheckbox";
 import { C } from "@/constants/colors";
 import { T } from "@/constants/typography";
 
+// People's avatar colours — emerald / black / white theme
 const COLORS = [
-  C.danger, "#F97316", C.warning, C.success,
-  "#06B6D4", C.primaryMuted, "#8B5CF6", "#EC4899",
+  "#059669", "#0A0A0A", "#0F766E", "#525252",
+  "#10B981", "#78716C", "#065F46", "#14B8A6",
 ];
 
 export default function ParticipantsScreen() {

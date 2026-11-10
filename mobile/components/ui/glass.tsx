@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // components/ui/glass.tsx — Billy's glassmorphism design system
 //
-//   GlassScreen      screen wrapper: soft indigo / violet / mint glows behind
+//   GlassScreen      screen wrapper: soft emerald / mint / grey glows behind
 //                    the content (drop-in replacement for SafeAreaView)
 //   GlassCard        translucent white card with a bright edge
 //   GlassButton      primary (solid indigo) or glass (translucent) button
@@ -54,9 +54,9 @@ export function GlassBackground() {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <View style={[StyleSheet.absoluteFill, { backgroundColor: C.glassBase }]} />
-      <Glow color={C.glowIndigo} size={520} top={-200} left={-180} strength={0.30} />
-      <Glow color={C.glowViolet} size={420} top={220} right={-220} strength={0.22} />
-      <Glow color={C.glowMint} size={480} bottom={-200} left={-80} strength={0.24} />
+      <Glow color={C.glowPrimary} size={520} top={-200} left={-180} strength={0.22} />
+      <Glow color={C.glowTertiary} size={420} top={220} right={-220} strength={0.30} />
+      <Glow color={C.glowSecondary} size={480} bottom={-200} left={-80} strength={0.24} />
     </View>
   );
 }
@@ -122,7 +122,7 @@ const s = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: C.glassBorder,
-    shadowColor: C.glowIndigo,
+    shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },

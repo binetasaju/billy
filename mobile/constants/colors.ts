@@ -1,55 +1,55 @@
 // ---------------------------------------------------------------------------
-// constants/colors.ts — Billy's colour theme (indigo + mint, iOS system colours)
+// constants/colors.ts — Billy's colour theme: emerald green, black & white, glass
 //
 // The single source of truth for colours. Screens import `C` and use these
 // tokens instead of hex codes, so the whole app can be re-themed here.
 // ---------------------------------------------------------------------------
 
 export const C = {
-  // Brand — iOS systemIndigo family
-  primary: "#5856D6",        // buttons, links, active tab, selected
-  primaryDark: "#3C3AB8",    // dark cards (balance / summary)
-  primarySoft: "#EEEEFC",    // icon circles, light highlights
-  primaryMuted: "#7D7AFF",   // secondary accents / info icons
+  // Brand — emerald green, black & white
+  primary: "#059669",        // emerald — buttons, active tab, links, selected
+  primaryDark: "#0A0A0A",    // black — dark cards (login / summary)
+  primarySoft: "#E6F6EF",    // light emerald highlights
+  primaryMuted: "#10B981",   // lighter emerald accents / info icons
 
-  // Text — iOS label colours
-  ink: "#1C1C1E",            // label: headings and main text
-  text: "#3A3A3C",           // body text
-  textMuted: "#8E8E93",      // secondaryLabel (systemGray)
-  textSubtle: "#AEAEB2",     // tertiaryLabel, placeholders (systemGray2)
+  // Text — black & greys
+  ink: "#0A0A0A",            // headings and main text
+  text: "#262626",           // body text
+  textMuted: "#737373",      // secondary text
+  textSubtle: "#A3A3A3",     // hints, placeholders, disabled
 
-  // Surfaces — iOS grouped backgrounds
-  bg: "#F2F2F7",             // systemGroupedBackground
-  surface: "#FFFFFF",        // secondarySystemGroupedBackground (cards)
-  surfaceAlt: "#EFEFF4",     // fills, pressed rows
-  border: "#E5E5EA",         // systemGray5
-  borderStrong: "#D1D1D6",   // systemGray4
-  separator: "#C6C6C8",      // hairline separators
+  // Surfaces
+  bg: "#F4F6F5",             // plain backgrounds (inputs etc.)
+  surface: "#FFFFFF",
+  surfaceAlt: "#EEF1EF",
+  border: "#E5E7E6",
+  borderStrong: "#D4D8D6",
+  separator: "#D4D4D4",
 
-  // Money / status — iOS system colours
-  success: "#34C759",        // systemGreen — owed to you, paid, settled
-  successDark: "#248A3D",    // green text on light backgrounds
-  successSoft: "#E9F9EE",
-  danger: "#FF3B30",         // systemRed — you owe, delete, errors
-  dangerDark: "#D70015",
-  dangerSoft: "#FFEBEA",
-  warning: "#FF9500",        // systemOrange — pending, check this
-  warningDark: "#C93400",
-  warningSoft: "#FFF4E5",
+  // Money / status
+  success: "#10B981",        // owed to you, paid, settled
+  successDark: "#047857",    // green text on light backgrounds
+  successSoft: "#E6F6EF",
+  danger: "#E11D48",         // you owe, delete, errors
+  dangerDark: "#BE123C",
+  dangerSoft: "#FFF1F2",
+  warning: "#F59E0B",        // pending, check this
+  warningDark: "#B45309",
+  warningSoft: "#FFFBEB",
 
-  // Glass (glassmorphism) — translucent white over the glow background
-  glass: "rgba(255,255,255,0.60)",       // cards, lists
-  glassStrong: "rgba(255,255,255,0.80)", // inputs, chips, secondary buttons
-  glassBorder: "rgba(255,255,255,0.90)", // bright edge that sells the glass
-  glassBase: "#ECEEFB",                  // screen base under the glows
-  glowIndigo: "#6366F1",
-  glowViolet: "#A78BFA",
-  glowMint: "#34D399",
+  // Glass (glassmorphism) — translucent white over a soft emerald glow
+  glass: "rgba(255,255,255,0.62)",       // cards, lists
+  glassStrong: "rgba(255,255,255,0.82)", // inputs, chips, secondary buttons
+  glassBorder: "rgba(255,255,255,0.95)", // bright edge that sells the glass
+  glassBase: "#F1F5F3",                  // screen base under the glows
+  glowPrimary: "#10B981",                // emerald
+  glowSecondary: "#6EE7B7",              // mint
+  glowTertiary: "#D1D5DB",               // soft grey
 
-  // On dark cards
+  // On dark (black) cards
   onDark: "#FFFFFF",
-  onDarkMuted: "#D4D3F7",
-  onDarkLine: "rgba(255,255,255,0.18)",
+  onDarkMuted: "#A3A3A3",
+  onDarkLine: "rgba(255,255,255,0.14)",
 
   white: "#FFFFFF",
 } as const;
