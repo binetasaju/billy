@@ -13,6 +13,7 @@ import { calculateSettlement } from "../services/calculateSettlement";
 import type { BillItem } from "../types/bill";
 import type { ParticipantTotal, SettlementTransaction } from "../services/calculateSettlement";
 import type { BillGroup } from "../types/group";
+import { C } from "@/constants/colors";
 
 export default function EqualSplitSummaryScreen() {
   const router = useRouter();
@@ -137,7 +138,7 @@ export default function EqualSplitSummaryScreen() {
             const p = billStore.get()?.participants.find(x => x.id === pt.personId);
             return (
               <View key={pt.personId} style={[s.personRow, idx < rows.length - 1 && s.personRowBorder]}>
-                <View style={[s.avatar, { backgroundColor: p?.color ?? "#111827" }]}>
+                <View style={[s.avatar, { backgroundColor: p?.color ?? C.ink }]}>
                   <Text style={s.avatarText}>{pt.personName.charAt(0).toUpperCase()}</Text>
                 </View>
                 <View style={s.personInfo}>
@@ -159,7 +160,7 @@ export default function EqualSplitSummaryScreen() {
         {/* Actions */}
         <View style={s.actions}>
           <Pressable style={s.changeBtn} onPress={() => router.back()}>
-            <Ionicons name="swap-horizontal" size={16} color="#374151" />
+            <Ionicons name="swap-horizontal" size={16} color={C.text} />
             <Text style={s.changeBtnText}>Change Split Method</Text>
           </Pressable>
           <Pressable style={s.doneBtn} onPress={() => setShowSaveModal(true)}>
@@ -182,7 +183,7 @@ export default function EqualSplitSummaryScreen() {
                 value={groupTitle}
                 onChangeText={setGroupTitle}
                 placeholder="e.g. Friday Dinner"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textSubtle}
                 autoFocus
               />
             </View>
@@ -203,45 +204,45 @@ export default function EqualSplitSummaryScreen() {
 }
 
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
   header: { marginTop: 28, marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
-  restaurant: { fontSize: 15, fontWeight: "600", color: "#1D4ED8", marginTop: 4 },
-  summaryCard: { backgroundColor: "#111827", borderRadius: 20, padding: 20, marginBottom: 28 },
+  title: { fontSize: 28, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
+  restaurant: { fontSize: 15, fontWeight: "600", color: C.primary, marginTop: 4 },
+  summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 20, marginBottom: 28 },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
-  summaryLabel: { fontSize: 14, color: "#9CA3AF", fontWeight: "500" },
-  summaryValue: { fontSize: 16, color: "#F9FAFB", fontWeight: "700" },
+  summaryLabel: { fontSize: 14, color: C.onDarkMuted, fontWeight: "500" },
+  summaryValue: { fontSize: 16, color: C.onDark, fontWeight: "700" },
   highlight: { color: "#34D399", fontSize: 20 },
-  divider: { height: 1, backgroundColor: "#374151", marginVertical: 4 },
-  sectionLabel: { fontSize: 13, fontWeight: "600", color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12 },
-  personList: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 28, overflow: "hidden" },
+  divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
+  sectionLabel: { fontSize: 13, fontWeight: "600", color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12 },
+  personList: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, marginBottom: 28, overflow: "hidden" },
   personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
-  personRowBorder: { borderBottomWidth: 1, borderColor: "#F3F4F6" },
+  personRowBorder: { borderBottomWidth: 1, borderColor: C.surfaceAlt },
   avatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", marginRight: 12 },
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   personInfo: { flex: 1 },
-  personName: { fontSize: 15, fontWeight: "600", color: "#111827" },
-  settleLine: { fontSize: 12, color: "#059669", marginTop: 2, fontWeight: "600" },
+  personName: { fontSize: 15, fontWeight: "600", color: C.ink },
+  settleLine: { fontSize: 12, color: C.successDark, marginTop: 2, fontWeight: "600" },
   breakdownRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
-  breakdownText: { fontSize: 11, color: "#9CA3AF" },
-  personShare: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  breakdownText: { fontSize: 11, color: C.textSubtle },
+  personShare: { fontSize: 16, fontWeight: "700", color: C.ink },
   actions: { gap: 12 },
-  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "#fff" },
-  changeBtnText: { fontSize: 15, fontWeight: "600", color: "#374151" },
-  doneBtn: { backgroundColor: "#111827", paddingVertical: 16, borderRadius: 12, alignItems: "center" },
+  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: "#fff" },
+  changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
+  doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
   doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
-  modalTitle: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6 },
-  modalSubtitle: { fontSize: 15, color: "#6B7280", marginBottom: 20, lineHeight: 22 },
+  modalTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  modalSubtitle: { fontSize: 15, color: C.textMuted, marginBottom: 20, lineHeight: 22 },
   inputWrap: { marginBottom: 24 },
-  inputLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8 },
-  input: { borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: "#111827", backgroundColor: "#F9FAFB" },
+  inputLabel: { fontSize: 13, fontWeight: "600", color: C.text, marginBottom: 8 },
+  input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: C.ink, backgroundColor: C.bg },
   modalActions: { flexDirection: "row", gap: 12 },
-  modalBtnSecondary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: "#F3F4F6" },
-  modalBtnSecondaryText: { color: "#4B5563", fontSize: 15, fontWeight: "600" },
-  modalBtnPrimary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: "#1D4ED8" },
+  modalBtnSecondary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.surfaceAlt },
+  modalBtnSecondaryText: { color: C.text, fontSize: 15, fontWeight: "600" },
+  modalBtnPrimary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.primary },
   modalBtnPrimaryText: { color: "#fff", fontSize: 15, fontWeight: "600" },
 });

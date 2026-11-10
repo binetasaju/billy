@@ -26,6 +26,7 @@ import { nanoid } from "../utils/nanoid";
 import type { BillItem, ChargeInfo } from "../types/bill";
 import BillImagePanel from "../components/BillImagePanel";
 import FullScreenViewer from "../components/FullScreenViewer";
+import { C } from "@/constants/colors";
 
 const { height: SH } = Dimensions.get("window");
 // 42% gives enough vertical room to read the bill inline before going fullscreen
@@ -246,7 +247,7 @@ function RemoveItemModal({
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Remove Item</Text>
-          <Text style={{ fontSize: 15, color: "#374151", marginBottom: 20 }}>
+          <Text style={{ fontSize: 15, color: C.text, marginBottom: 20 }}>
             Are you sure you want to remove <Text style={{ fontWeight: "600" }}>{item.name}</Text> (₹{(item.price || 0).toFixed(2)}) from this bill?
           </Text>
           
@@ -254,7 +255,7 @@ function RemoveItemModal({
             <Pressable onPress={onCancel} style={styles.modalCancelBtn}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={() => onConfirm(item.id)} style={[styles.modalSaveBtn, { backgroundColor: "#EF4444" }]}>
+            <Pressable onPress={() => onConfirm(item.id)} style={[styles.modalSaveBtn, { backgroundColor: C.danger }]}>
               <Text style={styles.modalSaveText}>Remove</Text>
             </Pressable>
           </View>
@@ -318,7 +319,7 @@ function ItemRow({
           <Text style={styles.actionBtnText}>✎</Text>
         </Pressable>
         <Pressable onPress={onDelete} style={[styles.actionBtn, styles.deleteActionBtn]} hitSlop={8}>
-          <Text style={[styles.actionBtnText, { color: "#EF4444" }]}>✕</Text>
+          <Text style={[styles.actionBtnText, { color: C.danger }]}>✕</Text>
         </Pressable>
       </View>
     </View>
@@ -526,7 +527,7 @@ export default function ReviewItemsScreen() {
                 <Ionicons
                   name={chargesExpanded ? "chevron-up" : "chevron-down"}
                   size={22}
-                  color="#374151"
+                  color={C.text}
                 />
               </Pressable>
 
@@ -563,7 +564,7 @@ export default function ReviewItemsScreen() {
             style={styles.addChargeBtn}
             accessibilityRole="button"
           >
-            <Ionicons name="add-circle-outline" size={18} color="#1D4ED8" />
+            <Ionicons name="add-circle-outline" size={18} color={C.primary} />
             <Text style={styles.addChargeText}>Add tax / charge / discount</Text>
           </Pressable>
 
@@ -596,7 +597,7 @@ export default function ReviewItemsScreen() {
           style={({ pressed }) => [
             styles.continueBtn, 
             (pressed || items.length === 0) && { opacity: 0.8 },
-            items.length === 0 && { backgroundColor: "#9CA3AF" }
+            items.length === 0 && { backgroundColor: C.textSubtle }
           ]}
           disabled={items.length === 0}
         >
@@ -652,13 +653,13 @@ export default function ReviewItemsScreen() {
 // Styles
 // ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { flex: 1, backgroundColor: C.bg },
 
   headerRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6,
   },
-  title: { fontSize: 22, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
+  title: { fontSize: 22, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
 
   titleEditRow: {
     flexDirection: "row",
@@ -668,21 +669,21 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   restaurantName: {
-    fontSize: 15, fontWeight: "600", color: "#1D4ED8",
+    fontSize: 15, fontWeight: "600", color: C.primary,
     flexShrink: 1, flexWrap: "wrap",
   },
   pencilIcon: {
     width: 22, height: 22, borderRadius: 6,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: C.primarySoft,
     alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: "#BFDBFE",
   },
-  pencilText: { fontSize: 12, color: "#3B82F6", lineHeight: 14 },
+  pencilText: { fontSize: 12, color: C.primaryMuted, lineHeight: 14 },
 
-  subtitle: { fontSize: 12, color: "#9CA3AF", marginTop: 1 },
+  subtitle: { fontSize: 12, color: C.textSubtle, marginTop: 1 },
   verificationHint: {
     marginHorizontal: 16, marginBottom: 8,
-    backgroundColor: "#FFFBEB", borderRadius: 10,
+    backgroundColor: C.warningSoft, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: "#FDE68A",
   },
@@ -703,76 +704,76 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
     borderRadius: 12, padding: 12, marginBottom: 6,
-    borderWidth: 1, borderColor: "#E5E7EB",
+    borderWidth: 1, borderColor: C.border,
   },
 
   itemInfo: { flex: 1 },
   itemNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  itemName: { fontSize: 14, fontWeight: "500", color: "#111827", flex: 1 },
-  itemMeta: { fontSize: 12, color: "#6B7280", marginTop: 2 },
+  itemName: { fontSize: 14, fontWeight: "500", color: C.ink, flex: 1 },
+  itemMeta: { fontSize: 12, color: C.textMuted, marginTop: 2 },
 
   childrenContainer: {
     marginTop: 6, marginLeft: 0,
-    backgroundColor: "#F9FAFB", borderRadius: 6,
+    backgroundColor: C.bg, borderRadius: 6,
     paddingHorizontal: 8, paddingVertical: 5,
-    borderLeftWidth: 2, borderLeftColor: "#D1D5DB",
+    borderLeftWidth: 2, borderLeftColor: C.borderStrong,
   },
-  childrenLabel: { fontSize: 10, fontWeight: "600", color: "#9CA3AF", marginBottom: 3, letterSpacing: 0.3 },
-  childItem: { fontSize: 12, color: "#6B7280", lineHeight: 18 },
+  childrenLabel: { fontSize: 10, fontWeight: "600", color: C.textSubtle, marginBottom: 3, letterSpacing: 0.3 },
+  childItem: { fontSize: 12, color: C.textMuted, lineHeight: 18 },
 
   modifiersContainer: { marginTop: 6, marginLeft: 2, gap: 2 },
   modifierRow: { flexDirection: "row", justifyContent: "space-between" },
-  modifierItem: { fontSize: 11, color: "#6B7280", flex: 1, paddingRight: 8 },
-  modifierPrice: { fontSize: 11, color: "#6B7280" },
+  modifierItem: { fontSize: 11, color: C.textMuted, flex: 1, paddingRight: 8 },
+  modifierPrice: { fontSize: 11, color: C.textMuted },
 
   itemActions: { flexDirection: "row", gap: 6 },
   actionBtn: {
     width: 32, height: 32, borderRadius: 8,
-    backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center",
+    backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center",
   },
-  deleteActionBtn: { backgroundColor: "#FEF2F2" },
-  actionBtnText: { fontSize: 14, color: "#374151" },
+  deleteActionBtn: { backgroundColor: C.dangerSoft },
+  actionBtnText: { fontSize: 14, color: C.text },
 
   addBtn: {
     margin: 4, marginBottom: 16, padding: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: "#D1D5DB", borderStyle: "dashed", alignItems: "center",
+    borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center",
   },
-  addBtnText: { color: "#6B7280", fontWeight: "500", fontSize: 14 },
-  emptyText: { textAlign: "center", color: "#9CA3AF", marginTop: 32, fontSize: 14 },
+  addBtnText: { color: C.textMuted, fontWeight: "500", fontSize: 14 },
+  emptyText: { textAlign: "center", color: C.textSubtle, marginTop: 32, fontSize: 14 },
 
   totalsBox: {
     backgroundColor: "#fff", marginHorizontal: 16, borderRadius: 12,
-    borderWidth: 1, borderColor: "#E5E7EB", padding: 14, marginBottom: 12, gap: 6,
+    borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 12, gap: 6,
   },
   totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  totalLabel: { fontSize: 13, color: "#6B7280" },
-  totalValue: { fontSize: 13, color: "#374151" },
+  totalLabel: { fontSize: 13, color: C.textMuted },
+  totalValue: { fontSize: 13, color: C.text },
   totalValueDiscount: { color: "#16A34A" },
   chargesToggleRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     paddingVertical: 8,
   },
-  chargesToggleLabel: { fontSize: 14, color: "#374151", fontWeight: "500" },
+  chargesToggleLabel: { fontSize: 14, color: C.text, fontWeight: "500" },
   chargesDetail: { gap: 5, paddingTop: 4, paddingBottom: 2 },
   addChargeBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8 },
-  addChargeText: { fontSize: 14, color: "#1D4ED8", fontWeight: "600" },
+  addChargeText: { fontSize: 14, color: C.primary, fontWeight: "600" },
   presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  presetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: "#D1D5DB" },
-  presetChipActive: { backgroundColor: "#111827", borderColor: "#111827" },
-  presetChipText: { fontSize: 13, color: "#374151" },
+  presetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: C.borderStrong },
+  presetChipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  presetChipText: { fontSize: 13, color: C.text },
   presetChipTextActive: { color: "#fff" },
-  taxInclusiveText: { fontSize: 12, color: "#6B7280", marginTop: 6 },
+  taxInclusiveText: { fontSize: 12, color: C.textMuted, marginTop: 6 },
   mismatchBox: {
     marginTop: 8, padding: 10, borderRadius: 10,
     backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FCD34D",
   },
   mismatchText: { fontSize: 13, color: "#92400E", lineHeight: 18 },
-  grandRow: { borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: 8, marginTop: 4 },
-  grandLabel: { fontSize: 16, fontWeight: "700", color: "#111827" },
-  grandValue: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  grandRow: { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 8, marginTop: 4 },
+  grandLabel: { fontSize: 16, fontWeight: "700", color: C.ink },
+  grandValue: { fontSize: 16, fontWeight: "700", color: C.ink },
 
   continueBtn: {
-    backgroundColor: "#111827", marginHorizontal: 16, marginBottom: 24,
+    backgroundColor: C.primary, marginHorizontal: 16, marginBottom: 24,
     paddingVertical: 16, borderRadius: 12, alignItems: "center",
   },
   continueBtnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
@@ -785,29 +786,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 40,
   },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 20 },
-  modalLabel: { fontSize: 13, color: "#6B7280", marginBottom: 6 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 20 },
+  modalLabel: { fontSize: 13, color: C.textMuted, marginBottom: 6 },
   modalInput: {
-    borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10,
-    padding: 12, fontSize: 15, color: "#111827", marginBottom: 16,
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    padding: 12, fontSize: 15, color: C.ink, marginBottom: 16,
   },
   modalActions: { flexDirection: "row", gap: 12, marginTop: 4 },
   modalCancelBtn: {
     flex: 1, padding: 14, borderRadius: 12, borderWidth: 1,
-    borderColor: "#E5E7EB", alignItems: "center",
+    borderColor: C.border, alignItems: "center",
   },
-  modalCancelText: { color: "#374151", fontWeight: "600" },
+  modalCancelText: { color: C.text, fontWeight: "600" },
   modalSaveBtn: {
     flex: 1, padding: 14, borderRadius: 12,
-    backgroundColor: "#111827", alignItems: "center",
+    backgroundColor: C.primary, alignItems: "center",
   },
   modalSaveText: { color: "#fff", fontWeight: "600" },
 
   errorBox: {
-    backgroundColor: "#FEF2F2", borderRadius: 12, padding: 16, margin: 24,
+    backgroundColor: C.dangerSoft, borderRadius: 12, padding: 16, margin: 24,
     borderWidth: 1, borderColor: "#FECACA",
   },
-  errorText: { fontSize: 14, color: "#B91C1C", marginBottom: 12 },
+  errorText: { fontSize: 14, color: C.dangerDark, marginBottom: 12 },
   backBtn: {
     backgroundColor: "#fff", borderWidth: 1, borderColor: "#FECACA",
     borderRadius: 10, paddingVertical: 10, alignItems: "center",

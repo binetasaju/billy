@@ -37,10 +37,11 @@ import SectionHeader from "../components/bill-split/SectionHeader";
 import PrimaryButton from "../components/bill-split/PrimaryButton";
 import ParticipantCard from "../components/bill-split/ParticipantCard";
 import ParticipantCheckbox from "../components/bill-split/ParticipantCheckbox";
+import { C } from "@/constants/colors";
 
 const COLORS = [
-  "#EF4444", "#F97316", "#F59E0B", "#10B981",
-  "#06B6D4", "#3B82F6", "#8B5CF6", "#EC4899",
+  C.danger, "#F97316", C.warning, C.success,
+  "#06B6D4", C.primaryMuted, "#8B5CF6", "#EC4899",
 ];
 
 export default function ParticipantsScreen() {
@@ -141,10 +142,10 @@ export default function ParticipantsScreen() {
 
   // ── Validation status label ───────────────────────────────────────────────
   const validationStatus = useMemo(() => {
-    if (!hasPayerSelected) return { icon: "alert-circle" as const, text: "Select who paid", color: "#EF4444" };
-    if (!hasEnoughSharers) return { icon: "alert-circle" as const, text: "Select at least 2 people sharing", color: "#EF4444" };
-    if (!payerIsSharing) return { icon: "alert-circle" as const, text: "Who paid must also be sharing", color: "#EF4444" };
-    return { icon: "checkmark-circle" as const, text: "Ready to split", color: "#059669" };
+    if (!hasPayerSelected) return { icon: "alert-circle" as const, text: "Select who paid", color: C.danger };
+    if (!hasEnoughSharers) return { icon: "alert-circle" as const, text: "Select at least 2 people sharing", color: C.danger };
+    if (!payerIsSharing) return { icon: "alert-circle" as const, text: "Who paid must also be sharing", color: C.danger };
+    return { icon: "checkmark-circle" as const, text: "Ready to split", color: C.successDark };
   }, [hasPayerSelected, hasEnoughSharers, payerIsSharing]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -347,7 +348,7 @@ export default function ParticipantsScreen() {
             style={styles.addBtn}
             onPress={() => setContactPickerVisible(true)}
           >
-            <Ionicons name="person-add" size={18} color="#111827" />
+            <Ionicons name="person-add" size={18} color={C.ink} />
             <Text style={styles.addBtnText}>Add From Contacts</Text>
           </Pressable>
 
@@ -359,7 +360,7 @@ export default function ParticipantsScreen() {
               accessibilityRole="button"
               accessibilityLabel="Use a saved group"
             >
-              <Ionicons name="people" size={18} color="#111827" />
+              <Ionicons name="people" size={18} color={C.ink} />
               <Text style={styles.addBtnText}>Use a Saved Group</Text>
             </Pressable>
           )}
@@ -439,7 +440,7 @@ export default function ParticipantsScreen() {
                       {g.members.length} member{g.members.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+                  <Ionicons name="chevron-forward" size={18} color={C.borderStrong} />
                 </Pressable>
               ))}
             </ScrollView>
@@ -492,7 +493,7 @@ export default function ParticipantsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
@@ -510,12 +511,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: "#6B7280",
+    color: C.textMuted,
     marginTop: 4,
   },
 
@@ -530,7 +531,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
@@ -538,15 +539,15 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
+    color: C.ink,
   },
 
   // Summary card
   summaryCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -557,7 +558,7 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6B7280",
+    color: C.textMuted,
     letterSpacing: 0.3,
     textTransform: "uppercase",
     marginBottom: 12,
@@ -570,16 +571,16 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: "#6B7280",
+    color: C.textMuted,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
+    color: C.ink,
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.surfaceAlt,
     marginVertical: 6,
   },
   statusRow: {
@@ -601,9 +602,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     paddingBottom: 32,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
     borderTopWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
   },
 
   // Edit name modal
@@ -615,7 +616,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "85%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderRadius: 16,
     padding: 24,
     shadowColor: "#000",
@@ -627,17 +628,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
     marginBottom: 16,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: C.borderStrong,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: "#111827",
+    color: C.ink,
     marginBottom: 20,
   },
   groupOption: {
@@ -645,10 +646,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: C.surfaceAlt,
   },
-  groupOptionName: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  groupOptionMeta: { fontSize: 13, color: "#6B7280", marginTop: 2 },
+  groupOptionName: { fontSize: 16, fontWeight: "600", color: C.ink },
+  groupOptionMeta: { fontSize: 13, color: C.textMuted, marginTop: 2 },
   modalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -662,10 +663,10 @@ const styles = StyleSheet.create({
   modalCancelBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#6B7280",
+    color: C.textMuted,
   },
   modalSaveBtn: {
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -673,6 +674,6 @@ const styles = StyleSheet.create({
   modalSaveBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: C.white,
   },
 });

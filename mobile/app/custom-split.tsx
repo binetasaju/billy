@@ -24,6 +24,7 @@ import {
 } from "../services/calculateSettlement";
 import type { BillItem, Person } from "../types/bill";
 import type { BillGroup } from "../types/group";
+import { C } from "@/constants/colors";
 
 export default function CustomSplitScreen() {
   const router = useRouter();
@@ -190,7 +191,7 @@ export default function CustomSplitScreen() {
                 value={titleText}
                 onChangeText={(t) => handleAmountOnlyChange(t, totalText)}
                 placeholder="e.g. Cab to airport, Goa trip"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textSubtle}
                 maxLength={60}
               />
               <Text style={[s.inputLabel, { marginTop: 14 }]}>Total amount you paid</Text>
@@ -201,7 +202,7 @@ export default function CustomSplitScreen() {
                   value={totalText}
                   onChangeText={(t) => handleAmountOnlyChange(titleText, t)}
                   placeholder="0.00"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={C.textSubtle}
                   keyboardType="decimal-pad"
                   accessibilityLabel="Total amount"
                 />
@@ -231,7 +232,7 @@ export default function CustomSplitScreen() {
               const amount = amounts[p.id] ?? 0;
               return (
                 <View key={p.id} style={[s.personRow, idx < participants.length - 1 && s.personRowBorder]}>
-                  <View style={[s.avatar, { backgroundColor: p.color ?? "#111827" }]}>
+                  <View style={[s.avatar, { backgroundColor: p.color ?? C.ink }]}>
                     <Text style={s.avatarText}>{p.name.charAt(0).toUpperCase()}</Text>
                   </View>
                   <View style={s.personInfo}>
@@ -252,7 +253,7 @@ export default function CustomSplitScreen() {
                       // Tapping starts with an empty box (current amount as a
                       // hint) so a new number can be typed straight away.
                       placeholder={amount.toFixed(2)}
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={C.textSubtle}
                       onChangeText={(t) => handleChange(p.id, t)}
                       onFocus={() => {
                         setFocusedId(p.id);
@@ -273,24 +274,24 @@ export default function CustomSplitScreen() {
                   </View>
                   {isLocked ? (
                     <Pressable onPress={() => handleUnlock(p.id)} hitSlop={10} accessibilityLabel={`Auto-balance ${p.name}`}>
-                      <Ionicons name="lock-closed" size={16} color="#D97706" />
+                      <Ionicons name="lock-closed" size={16} color={C.warning} />
                     </Pressable>
                   ) : (
-                    <Ionicons name="sync-outline" size={16} color="#9CA3AF" />
+                    <Ionicons name="sync-outline" size={16} color={C.textSubtle} />
                   )}
                 </View>
               );
             })}
           </View>
           <Text style={s.legend}>
-            <Ionicons name="lock-closed" size={11} color="#D97706" /> typed by you (tap to auto-balance)   ·
-            {"  "}<Ionicons name="sync-outline" size={11} color="#9CA3AF" /> auto-balanced
+            <Ionicons name="lock-closed" size={11} color={C.warning} /> typed by you (tap to auto-balance)   ·
+            {"  "}<Ionicons name="sync-outline" size={11} color={C.textSubtle} /> auto-balanced
           </Text>
 
           {/* Actions */}
           <View style={s.actions}>
             <Pressable style={s.changeBtn} onPress={handleResetEqual}>
-              <Ionicons name="refresh" size={16} color="#374151" />
+              <Ionicons name="refresh" size={16} color={C.text} />
               <Text style={s.changeBtnText}>Reset to Equal</Text>
             </Pressable>
             <Pressable
@@ -319,7 +320,7 @@ export default function CustomSplitScreen() {
                 value={groupTitle}
                 onChangeText={setGroupTitle}
                 placeholder="e.g. Friday Dinner"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textSubtle}
                 autoFocus
               />
             </View>
@@ -339,51 +340,51 @@ export default function CustomSplitScreen() {
 }
 
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
   header: { marginTop: 28, marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
-  restaurant: { fontSize: 15, fontWeight: "600", color: "#1D4ED8", marginTop: 4 },
-  hint: { fontSize: 13, color: "#6B7280", marginTop: 8, lineHeight: 18 },
-  summaryCard: { backgroundColor: "#111827", borderRadius: 20, padding: 20, marginBottom: 20 },
+  title: { fontSize: 28, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
+  restaurant: { fontSize: 15, fontWeight: "600", color: C.primary, marginTop: 4 },
+  hint: { fontSize: 13, color: C.textMuted, marginTop: 8, lineHeight: 18 },
+  summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 20, marginBottom: 20 },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
-  summaryLabel: { fontSize: 14, color: "#9CA3AF", fontWeight: "500" },
-  summaryValue: { fontSize: 16, color: "#F9FAFB", fontWeight: "700" },
+  summaryLabel: { fontSize: 14, color: C.onDarkMuted, fontWeight: "500" },
+  summaryValue: { fontSize: 16, color: C.onDark, fontWeight: "700" },
   ok: { color: "#34D399", fontSize: 20 },
   warn: { color: "#FBBF24", fontSize: 20 },
-  divider: { height: 1, backgroundColor: "#374151", marginVertical: 4 },
-  personList: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 8, overflow: "hidden" },
+  divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
+  personList: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, marginBottom: 8, overflow: "hidden" },
   personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-  personRowBorder: { borderBottomWidth: 1, borderColor: "#F3F4F6" },
+  personRowBorder: { borderBottomWidth: 1, borderColor: C.surfaceAlt },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   personInfo: { flex: 1 },
-  personName: { fontSize: 15, fontWeight: "600", color: "#111827" },
-  owesLine: { fontSize: 12, color: "#059669", marginTop: 2, fontWeight: "500" },
-  amountBox: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 10, paddingHorizontal: 8, backgroundColor: "#F9FAFB", minWidth: 96 },
-  amountBoxLocked: { borderColor: "#FCD34D", backgroundColor: "#FFFBEB" },
-  rupee: { fontSize: 15, color: "#6B7280", marginRight: 2 },
-  amountInput: { flex: 1, fontSize: 15, fontWeight: "600", color: "#111827", paddingVertical: 8, textAlign: "right" },
-  amountOnlyCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", padding: 16, marginBottom: 20 },
+  personName: { fontSize: 15, fontWeight: "600", color: C.ink },
+  owesLine: { fontSize: 12, color: C.successDark, marginTop: 2, fontWeight: "500" },
+  amountBox: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 8, backgroundColor: C.bg, minWidth: 96 },
+  amountBoxLocked: { borderColor: "#FCD34D", backgroundColor: C.warningSoft },
+  rupee: { fontSize: 15, color: C.textMuted, marginRight: 2 },
+  amountInput: { flex: 1, fontSize: 15, fontWeight: "600", color: C.ink, paddingVertical: 8, textAlign: "right" },
+  amountOnlyCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 20 },
   totalBox: { minWidth: 0, backgroundColor: "#fff" },
   totalInput: { fontSize: 22, textAlign: "left", paddingVertical: 10 },
-  legend: { fontSize: 11, color: "#9CA3AF", marginBottom: 24, marginLeft: 4 },
+  legend: { fontSize: 11, color: C.textSubtle, marginBottom: 24, marginLeft: 4 },
   actions: { gap: 12 },
-  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "#fff" },
-  changeBtnText: { fontSize: 15, fontWeight: "600", color: "#374151" },
-  doneBtn: { backgroundColor: "#111827", paddingVertical: 16, borderRadius: 12, alignItems: "center" },
-  doneBtnDisabled: { backgroundColor: "#9CA3AF" },
+  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: "#fff" },
+  changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
+  doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
+  doneBtnDisabled: { backgroundColor: C.textSubtle },
   doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, elevation: 10 },
-  modalTitle: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6 },
-  modalSubtitle: { fontSize: 15, color: "#6B7280", marginBottom: 20, lineHeight: 22 },
+  modalTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  modalSubtitle: { fontSize: 15, color: C.textMuted, marginBottom: 20, lineHeight: 22 },
   inputWrap: { marginBottom: 24 },
-  inputLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8 },
-  input: { borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: "#111827", backgroundColor: "#F9FAFB" },
+  inputLabel: { fontSize: 13, fontWeight: "600", color: C.text, marginBottom: 8 },
+  input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: C.ink, backgroundColor: C.bg },
   modalActions: { flexDirection: "row", gap: 12 },
-  modalBtnSecondary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: "#F3F4F6" },
-  modalBtnSecondaryText: { color: "#4B5563", fontSize: 15, fontWeight: "600" },
-  modalBtnPrimary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: "#1D4ED8" },
+  modalBtnSecondary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.surfaceAlt },
+  modalBtnSecondaryText: { color: C.text, fontSize: 15, fontWeight: "600" },
+  modalBtnPrimary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.primary },
   modalBtnPrimaryText: { color: "#fff", fontSize: 15, fontWeight: "600" },
 });

@@ -17,6 +17,7 @@
 import React, { useRef, useState } from "react";
 import { View, Text, StyleSheet, Image, Pressable, Animated } from "react-native";
 import { ReactNativeZoomableView } from "@openspacelabs/react-native-zoomable-view";
+import { C } from "@/constants/colors";
 
 interface BillImagePanelProps {
   uri: string;
@@ -98,7 +99,7 @@ export default function BillImagePanel({ uri, height, onTap }: BillImagePanelPro
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     width: "100%",
     overflow: "hidden",
     position: "relative",
@@ -135,13 +136,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   errorText: {
-    color: "#9CA3AF",
+    color: C.textSubtle,
     marginBottom: 10,
     fontSize: 14,
   },
   retryText: {
     color: "#fff",
-    backgroundColor: "#374151",
+    backgroundColor: C.text,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,

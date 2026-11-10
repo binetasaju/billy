@@ -7,6 +7,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C } from "@/constants/colors";
 
 interface ParticipantCardProps {
   name: string;
@@ -17,7 +18,7 @@ interface ParticipantCardProps {
 
 export default function ParticipantCard({
   name,
-  color = "#6B7280",
+  color = C.textMuted,
   isSelected,
   onPress,
 }: ParticipantCardProps) {
@@ -46,7 +47,7 @@ export default function ParticipantCard({
       <Ionicons
         name={isSelected ? "radio-button-on" : "radio-button-off"}
         size={22}
-        color={isSelected ? "#111827" : "#D1D5DB"}
+        color={isSelected ? C.ink : C.borderStrong}
       />
     </Pressable>
   );
@@ -57,17 +58,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     marginBottom: 8,
   },
   cardSelected: {
-    borderColor: "#111827",
-    backgroundColor: "#F9FAFB",
+    borderColor: C.primary,
+    backgroundColor: C.bg,
   },
   cardPressed: {
     opacity: 0.85,
@@ -85,17 +86,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontSize: 16,
     fontWeight: "700",
   },
   name: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#374151",
+    color: C.text,
   },
   nameSelected: {
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
   },
 });

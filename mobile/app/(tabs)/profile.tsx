@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
+import { C } from "@/constants/colors";
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -87,7 +88,7 @@ export default function ProfileScreen() {
 
         {/* ── Logout ── */}
         <Pressable style={s.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+          <Ionicons name="log-out-outline" size={20} color={C.danger} />
           <Text style={s.logoutText}>Log Out</Text>
         </Pressable>
 
@@ -138,7 +139,7 @@ function Row({
   return (
     <View style={s.row}>
       <View style={s.rowIcon}>
-        <Ionicons name={icon} size={18} color="#6B7280" />
+        <Ionicons name={icon} size={18} color={C.textMuted} />
       </View>
       <View style={s.rowContent}>
         <Text style={s.rowLabel}>{label}</Text>
@@ -148,7 +149,7 @@ function Row({
       </View>
       {actionIcon && (
         <View style={{ paddingLeft: 8 }}>
-          <Ionicons name={actionIcon} size={18} color="#9CA3AF" />
+          <Ionicons name={actionIcon} size={18} color={C.textSubtle} />
         </View>
       )}
     </View>
@@ -156,54 +157,54 @@ function Row({
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F9FAFB" },
+  safe: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   header: { marginTop: 24, marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
+  title: { fontSize: 28, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
 
   avatarCard: { alignItems: "center", marginBottom: 24 },
   avatar: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: "#1D4ED8",
+    backgroundColor: C.primary,
     alignItems: "center", justifyContent: "center",
     marginBottom: 12,
-    shadowColor: "#1D4ED8", shadowOffset: { width: 0, height: 6 },
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
   avatarText: { color: "#fff", fontSize: 32, fontWeight: "700" },
-  name: { fontSize: 22, fontWeight: "700", color: "#111827", letterSpacing: -0.3 },
-  phone: { fontSize: 14, color: "#6B7280", marginTop: 4 },
+  name: { fontSize: 22, fontWeight: "700", color: C.ink, letterSpacing: -0.3 },
+  phone: { fontSize: 14, color: C.textMuted, marginTop: 4 },
 
   card: {
     backgroundColor: "#fff", borderRadius: 16,
-    borderWidth: 1, borderColor: "#E5E7EB",
+    borderWidth: 1, borderColor: C.border,
     marginBottom: 24, overflow: "hidden",
   },
-  divider: { height: 1, backgroundColor: "#F3F4F6", marginLeft: 52 },
+  divider: { height: 1, backgroundColor: C.surfaceAlt, marginLeft: 52 },
   row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   rowIcon: { width: 36, alignItems: "center" },
   rowContent: { flex: 1 },
-  rowLabel: { fontSize: 12, color: "#9CA3AF", fontWeight: "500", marginBottom: 2 },
-  rowValue: { fontSize: 15, color: "#111827", fontWeight: "500" },
-  rowValueMuted: { color: "#9CA3AF" },
-  rowValueMono: { fontFamily: "monospace", fontSize: 12, color: "#374151" },
+  rowLabel: { fontSize: 12, color: C.textSubtle, fontWeight: "500", marginBottom: 2 },
+  rowValue: { fontSize: 15, color: C.ink, fontWeight: "500" },
+  rowValueMuted: { color: C.textSubtle },
+  rowValueMono: { fontFamily: "monospace", fontSize: 12, color: C.text },
 
   logoutBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 10, paddingVertical: 16, borderRadius: 14,
     borderWidth: 1.5, borderColor: "#FEE2E2", backgroundColor: "#FFF5F5",
   },
-  logoutText: { fontSize: 16, fontWeight: "700", color: "#EF4444" },
+  logoutText: { fontSize: 16, fontWeight: "700", color: C.danger },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: "#111827", marginBottom: 6 },
-  modalLabel: { fontSize: 14, color: "#6B7280", marginBottom: 16 },
-  modalInput: { borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, padding: 14, fontSize: 16, color: "#111827", marginBottom: 24, backgroundColor: "#F9FAFB" },
+  modalTitle: { fontSize: 20, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  modalLabel: { fontSize: 14, color: C.textMuted, marginBottom: 16 },
+  modalInput: { borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 14, fontSize: 16, color: C.ink, marginBottom: 24, backgroundColor: C.bg },
   modalActions: { flexDirection: "row", gap: 12 },
-  modalCancelBtn: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center" },
-  modalCancelText: { color: "#374151", fontWeight: "600", fontSize: 15 },
-  modalSaveBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: "#1D4ED8", alignItems: "center" },
+  modalCancelBtn: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border, alignItems: "center" },
+  modalCancelText: { color: C.text, fontWeight: "600", fontSize: 15 },
+  modalSaveBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: C.primary, alignItems: "center" },
   modalSaveText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

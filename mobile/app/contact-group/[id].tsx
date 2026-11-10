@@ -24,6 +24,7 @@ import { billStore } from "../../services/billStore";
 import { computeGroupBalances, describeBalance, simplifyDebts } from "../../services/groupBalances";
 import ContactPickerModal, { ContactData } from "../../components/ContactPickerModal";
 import type { GroupMember } from "../../types/group";
+import { C } from "@/constants/colors";
 
 export default function ContactGroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -130,7 +131,7 @@ export default function ContactGroupDetailScreen() {
       <SafeAreaView style={s.safeArea}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} style={s.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#111827" />
+            <Ionicons name="arrow-back" size={24} color={C.ink} />
           </Pressable>
         </View>
         <View style={s.emptyState}>
@@ -144,7 +145,7 @@ export default function ContactGroupDetailScreen() {
     <SafeAreaView style={s.safeArea}>
       <View style={s.header}>
         <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={24} color={C.ink} />
         </Pressable>
         <Pressable
           style={s.renameBtn}
@@ -152,7 +153,7 @@ export default function ContactGroupDetailScreen() {
           accessibilityRole="button"
           accessibilityLabel="Rename group"
         >
-          <Ionicons name="create-outline" size={15} color="#374151" />
+          <Ionicons name="create-outline" size={15} color={C.text} />
           <Text style={s.renameBtnText}>Rename</Text>
         </Pressable>
       </View>
@@ -176,7 +177,7 @@ export default function ContactGroupDetailScreen() {
                 key={m.id}
                 style={[s.memberRow, idx < group.members.length - 1 && s.rowBorder]}
               >
-                <View style={[s.avatar, { backgroundColor: m.color ?? "#6B7280" }]}>
+                <View style={[s.avatar, { backgroundColor: m.color ?? C.textMuted }]}>
                   <Text style={s.avatarText}>{m.name.charAt(0).toUpperCase()}</Text>
                 </View>
                 <View style={s.memberInfo}>
@@ -193,7 +194,7 @@ export default function ContactGroupDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${m.name}`}
                   >
-                    <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+                    <Ionicons name="close-circle-outline" size={20} color={C.danger} />
                   </Pressable>
                 )}
               </View>
@@ -202,7 +203,7 @@ export default function ContactGroupDetailScreen() {
         </View>
 
         <Pressable style={s.addBtn} onPress={() => setPickerVisible(true)}>
-          <Ionicons name="person-add" size={18} color="#111827" />
+          <Ionicons name="person-add" size={18} color={C.ink} />
           <Text style={s.addBtnText}>Add From Contacts</Text>
         </Pressable>
 
@@ -225,7 +226,7 @@ export default function ContactGroupDetailScreen() {
                   key={b.personId}
                   style={[s.memberRow, idx < balances.members.length - 1 && s.rowBorder]}
                 >
-                  <View style={[s.avatar, { backgroundColor: member?.color ?? "#9CA3AF" }]}>
+                  <View style={[s.avatar, { backgroundColor: member?.color ?? C.textSubtle }]}>
                     <Text style={s.avatarText}>{b.name.charAt(0).toUpperCase()}</Text>
                   </View>
                   <View style={s.memberInfo}>
@@ -286,7 +287,7 @@ export default function ContactGroupDetailScreen() {
             <Text style={s.splitAmountTitle}>Split an Amount</Text>
             <Text style={s.splitAmountSub}>No bill? Enter a total and set each person&apos;s share</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          <Ionicons name="chevron-forward" size={18} color={C.textSubtle} />
         </Pressable>
 
         {/* ── Bills from this group ── */}
@@ -325,7 +326,7 @@ export default function ContactGroupDetailScreen() {
         )}
 
         <Pressable style={s.deleteBtn} onPress={handleDeleteGroup}>
-          <Ionicons name="trash-outline" size={16} color="#EF4444" />
+          <Ionicons name="trash-outline" size={16} color={C.danger} />
           <Text style={s.deleteBtnText}>Delete Group</Text>
         </Pressable>
       </ScrollView>
@@ -349,7 +350,7 @@ export default function ContactGroupDetailScreen() {
               value={draftName}
               onChangeText={setDraftName}
               placeholder="e.g. Flatmates"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.textSubtle}
               autoFocus
               selectTextOnFocus
               returnKeyType="done"
@@ -371,95 +372,95 @@ export default function ContactGroupDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8,
   },
   backBtn: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: "#F3F4F6",
+    width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt,
     alignItems: "center", justifyContent: "center",
   },
   renameBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#F3F4F6", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,
+    backgroundColor: C.surfaceAlt, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,
   },
-  renameBtnText: { color: "#374151", fontSize: 13, fontWeight: "600" },
+  renameBtnText: { color: C.text, fontSize: 13, fontWeight: "600" },
 
   scroll: { paddingHorizontal: 24, paddingBottom: 40 },
-  title: { fontSize: 32, fontWeight: "800", color: "#111827", letterSpacing: -0.5, marginTop: 16, marginBottom: 4 },
-  subtitle: { fontSize: 15, color: "#6B7280", marginBottom: 28 },
+  title: { fontSize: 32, fontWeight: "800", color: C.ink, letterSpacing: -0.5, marginTop: 16, marginBottom: 4 },
+  subtitle: { fontSize: 15, color: C.textMuted, marginBottom: 28 },
 
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 12, marginTop: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 12, marginTop: 8 },
   listCard: {
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden",
+    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: "hidden",
   },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceAlt },
 
   memberRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginRight: 12 },
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   memberInfo: { flex: 1, paddingRight: 10 },
-  memberName: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  memberPhone: { fontSize: 13, color: "#6B7280", marginTop: 2 },
-  memberUpi: { fontSize: 12, color: "#3B82F6", fontWeight: "500", marginTop: 2 },
-  youBadge: { backgroundColor: "#EFF6FF", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  youBadgeText: { color: "#3B82F6", fontSize: 12, fontWeight: "700" },
+  memberName: { fontSize: 16, fontWeight: "600", color: C.ink },
+  memberPhone: { fontSize: 13, color: C.textMuted, marginTop: 2 },
+  memberUpi: { fontSize: 12, color: C.primaryMuted, fontWeight: "500", marginTop: 2 },
+  youBadge: { backgroundColor: C.primarySoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  youBadgeText: { color: C.primaryMuted, fontSize: 12, fontWeight: "700" },
 
-  balanceText: { fontSize: 13, fontWeight: "600", color: "#6B7280", maxWidth: "52%", textAlign: "right" },
-  balancePositive: { color: "#059669" },
-  balanceNegative: { color: "#DC2626" },
-  formerMember: { fontSize: 11, color: "#9CA3AF", marginTop: 2, fontStyle: "italic" },
+  balanceText: { fontSize: 13, fontWeight: "600", color: C.textMuted, maxWidth: "52%", textAlign: "right" },
+  balancePositive: { color: C.successDark },
+  balanceNegative: { color: C.danger },
+  formerMember: { fontSize: 11, color: C.textSubtle, marginTop: 2, fontStyle: "italic" },
 
   addBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: "#fff", borderWidth: 1, borderColor: "#D1D5DB",
+    backgroundColor: "#fff", borderWidth: 1, borderColor: C.borderStrong,
     paddingVertical: 14, borderRadius: 12, marginTop: 12,
   },
-  addBtnText: { fontSize: 15, fontWeight: "600", color: "#111827" },
-  splitAmountBtn: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#111827", borderRadius: 16, padding: 16, marginBottom: 24 },
+  addBtnText: { fontSize: 15, fontWeight: "600", color: C.ink },
+  splitAmountBtn: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.primary, borderRadius: 16, padding: 16, marginBottom: 24 },
   splitAmountTitle: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  splitAmountSub: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
+  splitAmountSub: { fontSize: 12, color: C.textSubtle, marginTop: 2 },
   suggestCard: { padding: 16, gap: 8 },
-  suggestTitle: { fontSize: 15, fontWeight: "700", color: "#111827", marginBottom: 4 },
+  suggestTitle: { fontSize: 15, fontWeight: "700", color: C.ink, marginBottom: 4 },
   suggestRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  suggestText: { fontSize: 14, color: "#374151", flex: 1 },
-  suggestName: { fontWeight: "600", color: "#111827" },
-  suggestAmount: { fontSize: 15, fontWeight: "700", color: "#111827" },
-  suggestNote: { fontSize: 12, color: "#9CA3AF", marginTop: 4 },
+  suggestText: { fontSize: 14, color: C.text, flex: 1 },
+  suggestName: { fontWeight: "600", color: C.ink },
+  suggestAmount: { fontSize: 15, fontWeight: "700", color: C.ink },
+  suggestNote: { fontSize: 12, color: C.textSubtle, marginTop: 4 },
 
   emptyBills: {
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB",
+    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border,
     borderStyle: "dashed", paddingVertical: 28, alignItems: "center",
   },
-  emptyBillsText: { fontSize: 14, color: "#9CA3AF" },
+  emptyBillsText: { fontSize: 14, color: C.textSubtle },
 
   billRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   billRight: { alignItems: "flex-end" },
-  billAmount: { fontSize: 15, fontWeight: "700", color: "#111827" },
-  billSettled: { fontSize: 12, fontWeight: "600", color: "#059669", marginTop: 2 },
-  billActive: { fontSize: 12, fontWeight: "600", color: "#D97706", marginTop: 2 },
+  billAmount: { fontSize: 15, fontWeight: "700", color: C.ink },
+  billSettled: { fontSize: 12, fontWeight: "600", color: C.successDark, marginTop: 2 },
+  billActive: { fontSize: 12, fontWeight: "600", color: C.warning, marginTop: 2 },
 
   deleteBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
     paddingVertical: 14, borderRadius: 12, marginTop: 28,
-    borderWidth: 1, borderColor: "#FECACA", backgroundColor: "#FEF2F2",
+    borderWidth: 1, borderColor: "#FECACA", backgroundColor: C.dangerSoft,
   },
-  deleteBtnText: { color: "#EF4444", fontSize: 15, fontWeight: "600" },
+  deleteBtnText: { color: C.danger, fontSize: 15, fontWeight: "600" },
 
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { fontSize: 15, color: "#9CA3AF" },
+  errorText: { fontSize: 15, color: C.textSubtle },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 20, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: "#111827", marginBottom: 18 },
+  modalTitle: { fontSize: 20, fontWeight: "700", color: C.ink, marginBottom: 18 },
   modalInput: {
-    borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, color: "#111827", marginBottom: 20,
+    borderWidth: 1, borderColor: C.borderStrong, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, color: C.ink, marginBottom: 20,
   },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 12 },
   modalCancelBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
-  modalCancelText: { fontSize: 15, fontWeight: "600", color: "#6B7280" },
-  modalSaveBtn: { backgroundColor: "#111827", paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
+  modalCancelText: { fontSize: 15, fontWeight: "600", color: C.textMuted },
+  modalSaveBtn: { backgroundColor: C.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
   modalSaveText: { fontSize: 15, fontWeight: "700", color: "#fff" },
 });

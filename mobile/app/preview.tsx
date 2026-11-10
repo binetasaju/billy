@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { autoCropReceipt } from "../services/optimizer";
+import { C } from "@/constants/colors";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 const IMAGE_MAX_H = Math.round(SCREEN_H * 0.55);
@@ -95,8 +96,8 @@ export default function PreviewScreen() {
         >
           <View style={styles.btnInner}>
             {autoCropping
-              ? <ActivityIndicator size="small" color="#6B7280" />
-              : <Ionicons name="sparkles-outline" size={16} color="#6B7280" />}
+              ? <ActivityIndicator size="small" color={C.textMuted} />
+              : <Ionicons name="sparkles-outline" size={16} color={C.textMuted} />}
             <Text style={styles.retakeBtnText}>{autoCropping ? "Finding the receipt…" : "Auto-crop (AI)"}</Text>
           </View>
         </Pressable>
@@ -111,7 +112,7 @@ export default function PreviewScreen() {
             ]}
           >
             <View style={styles.btnInner}>
-              <Ionicons name="crop-outline" size={18} color="#111827" />
+              <Ionicons name="crop-outline" size={18} color={C.ink} />
               <Text style={styles.buttonTextSecondary}>Adjust Crop</Text>
             </View>
           </Pressable>
@@ -133,23 +134,23 @@ export default function PreviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB", padding: 24, paddingTop: 20 },
+  safeArea: { flex: 1, backgroundColor: C.bg, padding: 24, paddingTop: 20 },
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
     padding: 24,
     paddingTop: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#111827",
+    color: C.ink,
     marginBottom: 6,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "#6B7280",
+    color: C.textMuted,
     marginBottom: 24,
   },
   imageContainer: {
@@ -157,16 +158,16 @@ const styles = StyleSheet.create({
     height: IMAGE_MAX_H,
     borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     marginBottom: 14,
   },
   image: { width: "100%", height: "100%" },
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  imagePlaceholderText: { color: "#9CA3AF", fontSize: 16 },
+  imagePlaceholderText: { color: C.textSubtle, fontSize: 16 },
 
   actions: { gap: 10 },
   retakeBtn: { alignItems: "center", paddingVertical: 6 },
-  retakeBtnText: { fontSize: 14, color: "#6B7280", fontWeight: "500" },
+  retakeBtnText: { fontSize: 14, color: C.textMuted, fontWeight: "500" },
 
   btnInner: { flexDirection: "row", alignItems: "center", gap: 7 },
   mainButtons: { flexDirection: "row", gap: 12 },
@@ -178,11 +179,11 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: { backgroundColor: "#000000" },
   buttonSecondary: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
   },
   buttonPressed: { opacity: 0.75 },
-  buttonTextPrimary: { color: "#FFFFFF", fontWeight: "600", fontSize: 16 },
-  buttonTextSecondary: { color: "#111827", fontWeight: "600", fontSize: 16 },
+  buttonTextPrimary: { color: C.white, fontWeight: "600", fontSize: 16 },
+  buttonTextSecondary: { color: C.ink, fontWeight: "600", fontSize: 16 },
 });

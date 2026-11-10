@@ -21,6 +21,7 @@ import type { BillItem } from "../types/bill";
 import type { ParticipantTotal, SettlementTransaction } from "../services/calculateSettlement";
 import { Ionicons } from "@expo/vector-icons";
 import ItemAssignmentSection from "../components/ItemAssignmentSection";
+import { C } from "@/constants/colors";
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -219,7 +220,7 @@ export default function ItemwiseSplitSummaryScreen() {
                   onPress={() => setExpandedId(isExpanded ? null : pt.personId)}
                 >
                   {/* Avatar */}
-                  <View style={[s.avatar, { backgroundColor: p?.color ?? "#111827" }]}>
+                  <View style={[s.avatar, { backgroundColor: p?.color ?? C.ink }]}>
                     <Text style={s.avatarText}>{pt.personName.charAt(0).toUpperCase()}</Text>
                   </View>
 
@@ -240,7 +241,7 @@ export default function ItemwiseSplitSummaryScreen() {
                     <Ionicons
                       name={isExpanded ? "chevron-up" : "chevron-down"}
                       size={16}
-                      color="#9CA3AF"
+                      color={C.textSubtle}
                       style={{ marginTop: 4, alignSelf: "flex-end" }}
                     />
                   </View>
@@ -263,8 +264,8 @@ export default function ItemwiseSplitSummaryScreen() {
                     {/* Charges row */}
                     {chargesShare > 0 && (
                       <View style={s.expandedItemRow}>
-                        <Text style={[s.expandedItemName, { color: "#6B7280" }]}>Taxes &amp; Charges</Text>
-                        <Text style={[s.expandedItemPrice, { color: "#6B7280" }]}>+₹{chargesShare.toFixed(2)}</Text>
+                        <Text style={[s.expandedItemName, { color: C.textMuted }]}>Taxes &amp; Charges</Text>
+                        <Text style={[s.expandedItemPrice, { color: C.textMuted }]}>+₹{chargesShare.toFixed(2)}</Text>
                       </View>
                     )}
 
@@ -283,7 +284,7 @@ export default function ItemwiseSplitSummaryScreen() {
         {/* Actions */}
         <View style={s.actions}>
           <Pressable style={s.changeBtn} onPress={goBackToMethod}>
-            <Ionicons name="swap-horizontal" size={16} color="#374151" />
+            <Ionicons name="swap-horizontal" size={16} color={C.text} />
             <Text style={s.changeBtnText}>Change Method</Text>
           </Pressable>
           <Pressable style={s.doneBtn} onPress={handleDone}>
@@ -304,7 +305,7 @@ export default function ItemwiseSplitSummaryScreen() {
           <View style={s.modalCard}>
             {/* Icon + title */}
             <View style={s.modalIconWrap}>
-              <Ionicons name="warning" size={28} color="#D97706" />
+              <Ionicons name="warning" size={28} color={C.warning} />
             </View>
             <Text style={s.modalTitle}>Unassigned Items</Text>
             <Text style={s.modalSubtitle}>
@@ -363,7 +364,7 @@ export default function ItemwiseSplitSummaryScreen() {
                 value={groupTitle}
                 onChangeText={setGroupTitle}
                 placeholder="e.g. Friday Dinner"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textSubtle}
                 autoFocus
               />
             </View>
@@ -388,20 +389,20 @@ export default function ItemwiseSplitSummaryScreen() {
 // Styles
 // ---------------------------------------------------------------------------
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   header: { marginTop: 28, marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
-  restaurant: { fontSize: 15, fontWeight: "600", color: "#1D4ED8", marginTop: 4 },
+  title: { fontSize: 28, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
+  restaurant: { fontSize: 15, fontWeight: "600", color: C.primary, marginTop: 4 },
 
-  summaryCard: { backgroundColor: "#111827", borderRadius: 20, padding: 20, marginBottom: 28 },
+  summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 20, marginBottom: 28 },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
-  summaryLabel: { fontSize: 14, color: "#9CA3AF", fontWeight: "500" },
-  summaryValue: { fontSize: 16, color: "#F9FAFB", fontWeight: "700" },
-  divider: { height: 1, backgroundColor: "#374151", marginVertical: 4 },
+  summaryLabel: { fontSize: 14, color: C.onDarkMuted, fontWeight: "500" },
+  summaryValue: { fontSize: 16, color: C.onDark, fontWeight: "700" },
+  divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
   badge: {
-    backgroundColor: "#059669",
+    backgroundColor: C.successDark,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 20,
@@ -409,17 +410,17 @@ const s = StyleSheet.create({
   badgeText: { fontSize: 12, fontWeight: "700", color: "#fff" },
 
   sectionLabel: {
-    fontSize: 13, fontWeight: "600", color: "#6B7280",
+    fontSize: 13, fontWeight: "600", color: C.textMuted,
     textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12,
   },
   personList: {
     backgroundColor: "#fff", borderRadius: 16,
-    borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 28, overflow: "hidden",
+    borderWidth: 1, borderColor: C.border, marginBottom: 28, overflow: "hidden",
   },
   personRow: {
     flexDirection: "column",
   },
-  personRowBorder: { borderBottomWidth: 1, borderColor: "#F3F4F6" },
+  personRowBorder: { borderBottomWidth: 1, borderColor: C.surfaceAlt },
 
   personRowHeader: {
     flexDirection: "row",
@@ -427,16 +428,16 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  expandHint: { fontSize: 12, color: "#9CA3AF", marginTop: 3 },
+  expandHint: { fontSize: 12, color: C.textSubtle, marginTop: 3 },
 
   // Expanded detail panel
   expandedPanel: {
     marginHorizontal: 16,
     marginBottom: 14,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     overflow: "hidden",
   },
   expandedItemRow: {
@@ -446,21 +447,21 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: C.surfaceAlt,
   },
-  expandedItemName: { flex: 1, fontSize: 14, color: "#111827", fontWeight: "500", paddingRight: 12 },
-  expandedItemPrice: { fontSize: 14, fontWeight: "600", color: "#111827" },
-  expandedNoItems: { fontSize: 13, color: "#EF4444", padding: 14 },
+  expandedItemName: { flex: 1, fontSize: 14, color: C.ink, fontWeight: "500", paddingRight: 12 },
+  expandedItemPrice: { fontSize: 14, fontWeight: "600", color: C.ink },
+  expandedNoItems: { fontSize: 13, color: C.danger, padding: 14 },
   expandedTotal: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
   },
-  expandedTotalLabel: { fontSize: 14, fontWeight: "700", color: "#9CA3AF" },
-  expandedTotalValue: { fontSize: 16, fontWeight: "800", color: "#FFFFFF", letterSpacing: -0.3 },
+  expandedTotalLabel: { fontSize: 14, fontWeight: "700", color: C.textSubtle },
+  expandedTotalValue: { fontSize: 16, fontWeight: "800", color: C.white, letterSpacing: -0.3 },
 
   avatar: {
     width: 38, height: 38, borderRadius: 19,
@@ -469,24 +470,24 @@ const s = StyleSheet.create({
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
   personInfo: { flex: 1, paddingRight: 8 },
-  personName: { fontSize: 15, fontWeight: "600", color: "#111827" },
-  itemList: { fontSize: 12, color: "#6B7280", marginTop: 2, lineHeight: 17 },
-  settleLine: { fontSize: 12, color: "#059669", marginTop: 4, fontWeight: "600" },
+  personName: { fontSize: 15, fontWeight: "600", color: C.ink },
+  itemList: { fontSize: 12, color: C.textMuted, marginTop: 2, lineHeight: 17 },
+  settleLine: { fontSize: 12, color: C.successDark, marginTop: 4, fontWeight: "600" },
 
   breakdownRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
-  breakdownText: { fontSize: 11, color: "#9CA3AF" },
+  breakdownText: { fontSize: 11, color: C.textSubtle },
 
   amounts: { alignItems: "flex-end" },
-  personTotal: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  personTotal: { fontSize: 16, fontWeight: "700", color: C.ink },
 
   actions: { gap: 12 },
   changeBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 8, paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "#fff",
+    borderWidth: 1, borderColor: C.border, backgroundColor: "#fff",
   },
-  changeBtnText: { fontSize: 15, fontWeight: "600", color: "#374151" },
-  doneBtn: { backgroundColor: "#111827", paddingVertical: 16, borderRadius: 12, alignItems: "center" },
+  changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
+  doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
   doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 
   // Unassigned warning banner
@@ -502,7 +503,7 @@ const s = StyleSheet.create({
   warnBannerHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
   warnBannerTitle: { flex: 1, fontSize: 14, fontWeight: "700", color: "#92400E" },
   warnItemRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  warnItemDot: { fontSize: 14, color: "#B45309" },
+  warnItemDot: { fontSize: 14, color: C.warningDark },
   warnItemName: { flex: 1, fontSize: 13, color: "#78350F" },
   warnItemPrice: { fontSize: 13, fontWeight: "600", color: "#78350F" },
   warnItemNote: { fontSize: 12, color: "#92400E", marginTop: 6, fontStyle: "italic" },
@@ -541,23 +542,23 @@ const s = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
     textAlign: "center",
     marginBottom: 8,
     letterSpacing: -0.3,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: "#6B7280",
+    color: C.textMuted,
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 20,
   },
   modalItemList: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     overflow: "hidden",
     marginBottom: 24,
   },
@@ -567,41 +568,41 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: C.surfaceAlt,
     gap: 10,
   },
   modalItemDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#D97706",
+    backgroundColor: C.warning,
   },
-  modalItemName: { flex: 1, fontSize: 14, color: "#111827", fontWeight: "500" },
-  modalItemPrice: { fontSize: 14, fontWeight: "700", color: "#374151" },
+  modalItemName: { flex: 1, fontSize: 14, color: C.ink, fontWeight: "500" },
+  modalItemPrice: { fontSize: 14, fontWeight: "700", color: C.text },
   modalItemTotalRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.surfaceAlt,
   },
-  modalItemTotalLabel: { flex: 1, fontSize: 13, color: "#6B7280", fontWeight: "600" },
-  modalItemTotalValue: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  modalItemTotalLabel: { flex: 1, fontSize: 13, color: C.textMuted, fontWeight: "600" },
+  modalItemTotalValue: { fontSize: 15, fontWeight: "700", color: C.ink },
   modalActions: { flexDirection: "row", gap: 12 },
   modalBtnSecondary: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     alignItems: "center",
   },
-  modalBtnSecondaryText: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  modalBtnSecondaryText: { fontSize: 14, fontWeight: "600", color: C.text },
   modalBtnPrimary: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     alignItems: "center",
   },
   modalBtnPrimaryText: { fontSize: 14, fontWeight: "700", color: "#fff" },
@@ -609,9 +610,9 @@ const s = StyleSheet.create({
   // Save Modal overrides
   saveModalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   saveModalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
-  saveModalTitle: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6 },
-  saveModalSubtitle: { fontSize: 15, color: "#6B7280", marginBottom: 20, lineHeight: 22 },
+  saveModalTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  saveModalSubtitle: { fontSize: 15, color: C.textMuted, marginBottom: 20, lineHeight: 22 },
   inputWrap: { marginBottom: 24 },
-  inputLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8 },
-  input: { borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: "#111827", backgroundColor: "#F9FAFB" },
+  inputLabel: { fontSize: 13, fontWeight: "600", color: C.text, marginBottom: 8 },
+  input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: C.ink, backgroundColor: C.bg },
 });

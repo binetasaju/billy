@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect } from "react";
 import { groupStore } from "../../services/groupStore";
 import { contactGroupStore } from "../../services/contactGroupStore";
+import { C } from "@/constants/colors";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -17,11 +18,11 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#111827",
-        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarActiveTintColor: C.primary,
+        tabBarInactiveTintColor: C.textSubtle,
         tabBarStyle: {
-          backgroundColor: "#ffffff",
-          borderTopColor: "#E5E7EB",
+          backgroundColor: C.white,
+          borderTopColor: C.border,
           // Edge-to-edge: lift the tab bar above the system navigation bar.
           paddingBottom: 4 + insets.bottom,
           paddingTop: 4,

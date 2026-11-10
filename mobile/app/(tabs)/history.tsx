@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
 import type { BillGroup } from "../../types/group";
+import { C } from "@/constants/colors";
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -73,7 +74,7 @@ export default function HistoryScreen() {
           <Text style={s.subtitle}>Your settled bills</Text>
         </View>
         <View style={s.loader}>
-          <ActivityIndicator size="large" color="#9CA3AF" />
+          <ActivityIndicator size="large" color={C.textSubtle} />
         </View>
       </SafeAreaView>
     );
@@ -94,15 +95,15 @@ export default function HistoryScreen() {
           <>
             <View style={s.statsRow}>
               <View style={s.statCard}>
-                <View style={[s.iconWrap, { backgroundColor: "#FEF2F2" }]}>
-                  <Ionicons name="arrow-down-outline" size={20} color="#EF4444" />
+                <View style={[s.iconWrap, { backgroundColor: C.dangerSoft }]}>
+                  <Ionicons name="arrow-down-outline" size={20} color={C.danger} />
                 </View>
                 <Text style={s.statLabel}>Total Spent</Text>
                 <Text style={s.statValue}>₹{stats.totalSpent.toFixed(2)}</Text>
               </View>
               <View style={s.statCard}>
-                <View style={[s.iconWrap, { backgroundColor: "#ECFDF5" }]}>
-                  <Ionicons name="arrow-up-outline" size={20} color="#10B981" />
+                <View style={[s.iconWrap, { backgroundColor: C.successSoft }]}>
+                  <Ionicons name="arrow-up-outline" size={20} color={C.success} />
                 </View>
                 <Text style={s.statLabel}>Total Received</Text>
                 <Text style={s.statValue}>₹{stats.totalReceived.toFixed(2)}</Text>
@@ -122,7 +123,7 @@ export default function HistoryScreen() {
 
         {!hasHistory ? (
           <View style={s.emptyState}>
-            <Ionicons name="folder-open-outline" size={32} color="#D1D5DB" />
+            <Ionicons name="folder-open-outline" size={32} color={C.borderStrong} />
             <Text style={s.emptyText}>No settled bills yet</Text>
             <Text style={s.emptySubtext}>
               Your completed bills will appear here.
@@ -141,7 +142,7 @@ export default function HistoryScreen() {
                 <View style={s.groupHeader}>
                   <Text style={s.groupTitle} numberOfLines={1}>{group.title}</Text>
                   <View style={s.settledBadge}>
-                    <Ionicons name="checkmark-circle" size={13} color="#059669" />
+                    <Ionicons name="checkmark-circle" size={13} color={C.successDark} />
                     <Text style={s.settledText}>Settled</Text>
                   </View>
                 </View>
@@ -150,7 +151,7 @@ export default function HistoryScreen() {
 
                 <View style={s.groupFooter}>
                   <View style={s.footerItem}>
-                    <Ionicons name="people" size={16} color="#6B7280" />
+                    <Ionicons name="people" size={16} color={C.textMuted} />
                     <Text style={s.footerText}>
                       {group.participants.length} participant
                       {group.participants.length !== 1 ? "s" : ""}
@@ -168,10 +169,10 @@ export default function HistoryScreen() {
 }
 
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
-  title: { fontSize: 28, fontWeight: "800", color: "#111827", letterSpacing: -0.5, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: "#6B7280" },
+  title: { fontSize: 28, fontWeight: "800", color: C.ink, letterSpacing: -0.5, marginBottom: 4 },
+  subtitle: { fontSize: 16, color: C.textMuted },
 
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
 
@@ -179,40 +180,40 @@ const s = StyleSheet.create({
 
   statsRow: { flexDirection: "row", gap: 16, marginBottom: 20 },
   statCard: {
-    flex: 1, backgroundColor: "#ffffff", borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: "#F3F4F6",
+    flex: 1, backgroundColor: C.white, borderRadius: 20, padding: 20,
+    borderWidth: 1, borderColor: C.surfaceAlt,
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
   iconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  statLabel: { fontSize: 13, color: "#6B7280", fontWeight: "500", marginBottom: 4 },
-  statValue: { fontSize: 24, fontWeight: "800", color: "#111827", letterSpacing: -0.5 },
+  statLabel: { fontSize: 13, color: C.textMuted, fontWeight: "500", marginBottom: 4 },
+  statValue: { fontSize: 24, fontWeight: "800", color: C.ink, letterSpacing: -0.5 },
 
-  statsBadge: { alignSelf: "flex-start", backgroundColor: "#F3F4F6", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginBottom: 32 },
-  badgeText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+  statsBadge: { alignSelf: "flex-start", backgroundColor: C.surfaceAlt, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginBottom: 32 },
+  badgeText: { fontSize: 13, fontWeight: "600", color: C.text },
 
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 16 },
 
-  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24, backgroundColor: "#ffffff", borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB", borderStyle: "dashed" },
-  emptyText: { fontSize: 15, color: "#9CA3AF", marginTop: 12, fontWeight: "500" },
-  emptySubtext: { fontSize: 14, color: "#D1D5DB", marginTop: 6, textAlign: "center" },
+  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24, backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.border, borderStyle: "dashed" },
+  emptyText: { fontSize: 15, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
+  emptySubtext: { fontSize: 14, color: C.borderStrong, marginTop: 6, textAlign: "center" },
 
   groupList: { gap: 16 },
   groupCard: {
-    backgroundColor: "#ffffff",
+    backgroundColor: C.white,
     borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: "#E5E7EB",
+    borderWidth: 1, borderColor: C.border,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04, shadowRadius: 12, elevation: 3,
   },
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  groupTitle: { fontSize: 18, fontWeight: "700", color: "#111827", flex: 1, marginRight: 12 },
-  settledBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#ECFDF5", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  settledText: { color: "#059669", fontSize: 12, fontWeight: "600" },
-  groupDate: { fontSize: 13, color: "#9CA3AF", marginBottom: 20 },
+  groupTitle: { fontSize: 18, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
+  settledBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.successSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  settledText: { color: C.successDark, fontSize: 12, fontWeight: "600" },
+  groupDate: { fontSize: 13, color: C.textSubtle, marginBottom: 20 },
 
   groupFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   footerItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  footerText: { fontSize: 14, color: "#4B5563", fontWeight: "500" },
-  groupAmount: { fontSize: 20, fontWeight: "800", color: "#111827", letterSpacing: -0.5 },
+  footerText: { fontSize: 14, color: C.text, fontWeight: "500" },
+  groupAmount: { fontSize: 20, fontWeight: "800", color: C.ink, letterSpacing: -0.5 },
 });

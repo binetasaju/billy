@@ -19,6 +19,7 @@ import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
 import { contactGroupStore, MEMBER_COLORS } from "../../services/contactGroupStore";
 import type { GroupMember } from "../../types/group";
+import { C } from "@/constants/colors";
 
 export default function GroupsScreen() {
   const router = useRouter();
@@ -93,7 +94,7 @@ export default function GroupsScreen() {
           <Text style={s.subtitle}>People you split with often</Text>
         </View>
         <View style={s.loader}>
-          <ActivityIndicator size="large" color="#9CA3AF" />
+          <ActivityIndicator size="large" color={C.textSubtle} />
         </View>
       </SafeAreaView>
     );
@@ -109,7 +110,7 @@ export default function GroupsScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {sorted.length === 0 ? (
           <View style={s.emptyState}>
-            <Ionicons name="people-outline" size={32} color="#D1D5DB" />
+            <Ionicons name="people-outline" size={32} color={C.borderStrong} />
             <Text style={s.emptyText}>No groups yet</Text>
             <Text style={s.emptySubtext}>
               Save a group of people to reuse them on future bills.
@@ -130,7 +131,7 @@ export default function GroupsScreen() {
                 >
                   <View style={s.groupHeader}>
                     <Text style={s.groupTitle} numberOfLines={1}>{group.name}</Text>
-                    <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+                    <Ionicons name="chevron-forward" size={18} color={C.borderStrong} />
                   </View>
 
                   <Text style={s.groupMeta}>
@@ -171,7 +172,7 @@ export default function GroupsScreen() {
               value={draftName}
               onChangeText={setDraftName}
               placeholder="e.g. Flatmates"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.textSubtle}
               autoFocus
               returnKeyType="done"
               onSubmitEditing={handleCreate}
@@ -195,51 +196,51 @@ export default function GroupsScreen() {
 }
 
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
-  title: { fontSize: 28, fontWeight: "800", color: "#111827", letterSpacing: -0.5, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: "#6B7280" },
+  title: { fontSize: 28, fontWeight: "800", color: C.ink, letterSpacing: -0.5, marginBottom: 4 },
+  subtitle: { fontSize: 16, color: C.textMuted },
 
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
 
   emptyState: {
     alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24,
-    backgroundColor: "#ffffff", borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB", borderStyle: "dashed",
+    backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.border, borderStyle: "dashed",
   },
-  emptyText: { fontSize: 15, color: "#9CA3AF", marginTop: 12, fontWeight: "500" },
-  emptySubtext: { fontSize: 14, color: "#D1D5DB", marginTop: 6, textAlign: "center" },
+  emptyText: { fontSize: 15, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
+  emptySubtext: { fontSize: 14, color: C.borderStrong, marginTop: 6, textAlign: "center" },
 
   groupList: { gap: 16 },
   groupCard: {
-    backgroundColor: "#ffffff", borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: "#E5E7EB",
+    backgroundColor: C.white, borderRadius: 20, padding: 20,
+    borderWidth: 1, borderColor: C.border,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04, shadowRadius: 12, elevation: 3,
   },
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  groupTitle: { fontSize: 18, fontWeight: "700", color: "#111827", flex: 1, marginRight: 12 },
-  groupMeta: { fontSize: 14, color: "#4B5563", fontWeight: "500" },
-  groupActivity: { fontSize: 13, color: "#9CA3AF", marginTop: 6 },
+  groupTitle: { fontSize: 18, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
+  groupMeta: { fontSize: 14, color: C.text, fontWeight: "500" },
+  groupActivity: { fontSize: 13, color: C.textSubtle, marginTop: 6 },
 
   createBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: "#111827", paddingVertical: 16, borderRadius: 14, marginTop: 24,
+    backgroundColor: C.primary, paddingVertical: 16, borderRadius: 14, marginTop: 24,
   },
   createBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 20, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: "#111827", marginBottom: 6 },
-  modalSubtitle: { fontSize: 14, color: "#6B7280", marginBottom: 18, lineHeight: 20 },
+  modalTitle: { fontSize: 20, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  modalSubtitle: { fontSize: 14, color: C.textMuted, marginBottom: 18, lineHeight: 20 },
   modalInput: {
-    borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, color: "#111827", marginBottom: 20,
+    borderWidth: 1, borderColor: C.borderStrong, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, color: C.ink, marginBottom: 20,
   },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 12 },
   modalCancelBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
-  modalCancelText: { fontSize: 15, fontWeight: "600", color: "#6B7280" },
-  modalSaveBtn: { backgroundColor: "#111827", paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
+  modalCancelText: { fontSize: 15, fontWeight: "600", color: C.textMuted },
+  modalSaveBtn: { backgroundColor: C.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
   modalSaveText: { fontSize: 15, fontWeight: "700", color: "#fff" },
 });

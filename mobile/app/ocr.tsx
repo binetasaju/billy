@@ -18,6 +18,7 @@ import { matchItemsToBlocks, buildBlocksFromRawText } from "../services/matchIte
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
 import type { ParsedBill } from "../services/parseBill";
+import { C } from "@/constants/colors";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -409,7 +410,7 @@ export default function OcrScreen() {
         >
           {isLoading && !isSlow ? (
             <View style={styles.buttonInner}>
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={C.white} size="small" />
               <Text style={styles.buttonLoadingText}>Extracting Bill…</Text>
             </View>
           ) : (
@@ -432,36 +433,36 @@ export default function OcrScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
     padding: 24,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#111827",
+    color: C.ink,
     marginBottom: 6,
     letterSpacing: -0.5,
   },
-  subtitle: { fontSize: 14, color: "#6B7280", marginBottom: 20 },
+  subtitle: { fontSize: 14, color: C.textMuted, marginBottom: 20 },
   imageContainer: {
     height: 200,
     borderRadius: 14,
     overflow: "hidden",
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     marginBottom: 20,
     position: "relative"
   },
   image: { flex: 1, width: "100%" },
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  imagePlaceholderText: { color: "#9CA3AF", fontSize: 14 },
+  imagePlaceholderText: { color: C.textSubtle, fontSize: 14 },
   button: {
     backgroundColor: "#000",
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
   },
-  buttonDisabled: { backgroundColor: "#374151" },
-  buttonLoading: { backgroundColor: "#374151" },
+  buttonDisabled: { backgroundColor: C.text },
+  buttonLoading: { backgroundColor: C.text },
   buttonPressed: { opacity: 0.75 },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
   buttonInner: {
@@ -475,7 +476,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
     lineHeight: 20,
-    color: "#6B7280",
+    color: C.textMuted,
   },
   buttonLoadingText: {
     color: "#fff",
@@ -485,7 +486,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorBox: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: C.dangerSoft,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
@@ -499,7 +500,7 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     fontSize: 13,
-    color: "#B91C1C",
+    color: C.dangerDark,
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -522,7 +523,7 @@ const styles = StyleSheet.create({
   },
   // ── Not-a-bill card ────────────────────────────────────────────────────────
   notBillBox: {
-    backgroundColor: "#FFFBEB",
+    backgroundColor: C.warningSoft,
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
@@ -548,7 +549,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   notBillButton: {
-    backgroundColor: "#D97706",
+    backgroundColor: C.warning,
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
@@ -556,7 +557,7 @@ const styles = StyleSheet.create({
     width: "100%" as any,
   },
   notBillButtonText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontWeight: "700" as const,
     fontSize: 16,
     letterSpacing: 0.3,
@@ -570,7 +571,7 @@ const styles = StyleSheet.create({
   },
   successHelper: {
     fontSize: 12,
-    color: "#6B7280",
+    color: C.textMuted,
     marginBottom: 16,
   },
   debugBox: {
@@ -578,13 +579,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     marginBottom: 16,
   },
   debugLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#6B7280",
+    color: C.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -592,11 +593,11 @@ const styles = StyleSheet.create({
   debugText: {
     fontFamily: "monospace",
     fontSize: 12,
-    color: "#111827",
+    color: C.ink,
     lineHeight: 20,
   },
   debugItemRow: {
     paddingVertical: 4, paddingHorizontal: 4,
-    borderRadius: 6, backgroundColor: "#F3F4F6", marginBottom: 4
+    borderRadius: 6, backgroundColor: C.surfaceAlt, marginBottom: 4
   }
 });

@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
+import { C } from "@/constants/colors";
 
 type Method = "equal" | "itemwise";
 
@@ -34,8 +35,8 @@ const CARDS: MethodCard[] = [
   {
     method: "equal",
     icon: "people",
-    iconBg: "#EFF6FF",
-    iconColor: "#3B82F6",
+    iconBg: C.primarySoft,
+    iconColor: C.primaryMuted,
     title: "Split Equally",
     description: "Everyone pays an equal share of the total bill.",
     badge: "Quick",
@@ -43,8 +44,8 @@ const CARDS: MethodCard[] = [
   {
     method: "itemwise",
     icon: "receipt-outline",
-    iconBg: "#F0FDF4",
-    iconColor: "#059669",
+    iconBg: C.successSoft,
+    iconColor: C.successDark,
     title: "Item-wise Split",
     description: "Assign individual items to participants for a precise split.",
     badge: "Precise",
@@ -120,7 +121,7 @@ export default function ChooseSplitMethodScreen() {
 
               {/* Arrow */}
               <View style={styles.cardArrow}>
-                <Ionicons name="arrow-forward" size={18} color="#9CA3AF" />
+                <Ionicons name="arrow-forward" size={18} color={C.textSubtle} />
               </View>
             </Pressable>
           ))}
@@ -132,29 +133,29 @@ export default function ChooseSplitMethodScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   header: { marginTop: 28, marginBottom: 28 },
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: "#6B7280",
+    color: C.textMuted,
     marginTop: 6,
     lineHeight: 22,
   },
 
   cards: { gap: 16 },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -187,13 +188,13 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
     marginBottom: 8,
     letterSpacing: -0.3,
   },
   cardDescription: {
     fontSize: 14,
-    color: "#6B7280",
+    color: C.textMuted,
     lineHeight: 20,
     marginBottom: 16,
   },

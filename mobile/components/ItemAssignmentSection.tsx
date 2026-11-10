@@ -22,6 +22,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
 import type { BillItem, Person } from "../types/bill";
+import { C } from "@/constants/colors";
 
 interface ItemAssignmentSectionProps {
   /** Shows a "View Settlement" button when provided. */
@@ -146,7 +147,7 @@ export default function ItemAssignmentSection({ onDone, onChange }: ItemAssignme
         key={person.id}
         style={[
           styles.chip,
-          isSelected && { borderColor: person.color, backgroundColor: "#FFFFFF" },
+          isSelected && { borderColor: person.color, backgroundColor: C.white },
           isSelected && styles.chipSelected,
         ]}
         onPress={() => setActivePersonIndex(idx)}
@@ -188,7 +189,7 @@ export default function ItemAssignmentSection({ onDone, onChange }: ItemAssignme
         style={({ pressed }) => [
           styles.itemRow,
           isChecked && styles.itemRowChecked,
-          pressed && { backgroundColor: "#F9FAFB" },
+          pressed && { backgroundColor: C.bg },
         ]}
         onPress={() => toggleItem(item.id)}
       >
@@ -265,7 +266,7 @@ export default function ItemAssignmentSection({ onDone, onChange }: ItemAssignme
             disabled={activePersonIndex === 0}
             onPress={handlePrev}
           >
-            <Ionicons name="chevron-back" size={18} color={activePersonIndex === 0 ? "#9CA3AF" : "#374151"} />
+            <Ionicons name="chevron-back" size={18} color={activePersonIndex === 0 ? C.textSubtle : C.text} />
             <Text style={[styles.navBtnText, activePersonIndex === 0 && styles.navBtnTextDisabled]}>Previous</Text>
           </Pressable>
 
@@ -275,7 +276,7 @@ export default function ItemAssignmentSection({ onDone, onChange }: ItemAssignme
             onPress={handleNext}
           >
             <Text style={[styles.navBtnText, activePersonIndex === participants.length - 1 && styles.navBtnTextDisabled]}>Next</Text>
-            <Ionicons name="chevron-forward" size={18} color={activePersonIndex === participants.length - 1 ? "#9CA3AF" : "#374151"} />
+            <Ionicons name="chevron-forward" size={18} color={activePersonIndex === participants.length - 1 ? C.textSubtle : C.text} />
           </Pressable>
         </View>
       )}
@@ -284,7 +285,7 @@ export default function ItemAssignmentSection({ onDone, onChange }: ItemAssignme
       <View style={styles.statusBoxWrap}>
         {unassignedCount > 0 ? (
           <View style={styles.warningBox}>
-            <Ionicons name="warning" size={16} color="#B45309" />
+            <Ionicons name="warning" size={16} color={C.warningDark} />
             <Text style={styles.warningText}>
               {unassignedCount === 1
                 ? "1 item isn't assigned. Its cost will be split equally among all participants."
@@ -293,7 +294,7 @@ export default function ItemAssignmentSection({ onDone, onChange }: ItemAssignme
           </View>
         ) : (
           <View style={styles.successBox}>
-            <Ionicons name="checkmark-circle" size={16} color="#047857" />
+            <Ionicons name="checkmark-circle" size={16} color={C.successDark} />
             <Text style={styles.successText}>All items assigned!</Text>
           </View>
         )}
@@ -323,19 +324,19 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 6,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     borderRadius: 3,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     borderRadius: 3,
   },
   progressLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#4B5563",
+    color: C.text,
   },
 
   // Chips Scroll
@@ -349,10 +350,10 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     paddingLeft: 4,
     paddingRight: 12,
     paddingVertical: 4,
@@ -375,7 +376,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   avatarText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontWeight: "700",
     fontSize: 12,
   },
@@ -385,15 +386,15 @@ const styles = StyleSheet.create({
   chipName: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#374151",
+    color: C.text,
   },
   chipNameSelected: {
-    color: "#111827",
+    color: C.ink,
     fontWeight: "700",
   },
   chipSub: {
     fontSize: 10,
-    color: "#6B7280",
+    color: C.textMuted,
   },
   chipCheck: {
     position: "absolute",
@@ -402,14 +403,14 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: "#059669",
+    backgroundColor: C.successDark,
     alignItems: "center",
     justifyContent: "center",
   },
 
   // Active banner — label above value, stacked vertically
   activeBanner: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.surfaceAlt,
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderRadius: 8,
@@ -421,28 +422,28 @@ const styles = StyleSheet.create({
   },
   activeBannerSep: {
     height: 1,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     marginVertical: 10,
   },
   activeBannerLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#6B7280",
+    color: C.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   activeBannerValue: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
   },
 
   // Item List
   listContainer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     overflow: "hidden",
     marginBottom: 16,
   },
@@ -452,10 +453,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: C.surfaceAlt,
   },
   itemRowChecked: {
-    backgroundColor: "#F0FDF4",
+    backgroundColor: C.successSoft,
   },
   itemInfo: {
     flex: 1,
@@ -464,11 +465,11 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
+    color: C.ink,
   },
   itemSharers: {
     fontSize: 11,
-    color: "#059669",
+    color: C.successDark,
     fontWeight: "500",
     marginTop: 2,
   },
@@ -480,24 +481,24 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#D1D5DB",
+    borderColor: C.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
   emptyText: {
     textAlign: "center",
-    color: "#9CA3AF",
+    color: C.textSubtle,
     paddingVertical: 20,
     fontSize: 14,
   },
@@ -513,23 +514,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: C.borderStrong,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
   },
   navBtnDisabled: {
     opacity: 0.5,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.surfaceAlt,
   },
   navBtnText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#374151",
+    color: C.text,
   },
   navBtnTextDisabled: {
-    color: "#9CA3AF",
+    color: C.textSubtle,
   },
 
   // Warnings / Statuses
@@ -540,7 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#FFFBEB",
+    backgroundColor: C.warningSoft,
     borderColor: "#FDE68A",
     borderWidth: 1,
     borderRadius: 8,
@@ -556,7 +557,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#ECFDF5",
+    backgroundColor: C.successSoft,
     borderColor: "#A7F3D0",
     borderWidth: 1,
     borderRadius: 8,
@@ -574,13 +575,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   continueBtn: {
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
   },
   continueBtnText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontWeight: "600",
     fontSize: 16,
   },

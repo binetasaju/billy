@@ -14,6 +14,7 @@ import * as Contacts from "expo-contacts";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
+import { C } from "@/constants/colors";
 
 export interface ContactData {
   id: string;
@@ -196,7 +197,7 @@ export default function ContactPickerModal({
         {/* Permission Denied State */}
         {hasPermission === false ? (
           <View style={styles.centerContainer}>
-            <Ionicons name="people-circle-outline" size={64} color="#9CA3AF" />
+            <Ionicons name="people-circle-outline" size={64} color={C.textSubtle} />
             <Text style={styles.errorText}>
               Contacts access is required to quickly add participants.
             </Text>
@@ -208,7 +209,7 @@ export default function ContactPickerModal({
           /* Contacts List State */
           <>
             <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+              <Ionicons name="search" size={20} color={C.textSubtle} style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search contacts..."
@@ -220,7 +221,7 @@ export default function ContactPickerModal({
 
             {loading ? (
               <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#111827" />
+                <ActivityIndicator size="large" color={C.ink} />
               </View>
             ) : (
               <FlatList
@@ -282,7 +283,7 @@ export default function ContactPickerModal({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -291,63 +292,63 @@ const styles = StyleSheet.create({
     // paddingTop is set inline via useSafeAreaInsets() — do not hardcode here
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     backgroundColor: "#FFF",
   },
-  title: { fontSize: 18, fontWeight: "600", color: "#111827" },
+  title: { fontSize: 18, fontWeight: "600", color: C.ink },
   headerBtn: { padding: 4 },
   headerBtnDisabled: { opacity: 0.5 },
-  headerBtnText: { fontSize: 16, color: "#4B5563" },
-  headerBtnAdd: { color: "#1D4ED8", fontWeight: "600" },
+  headerBtnText: { fontSize: 16, color: C.text },
+  headerBtnAdd: { color: C.primary, fontWeight: "600" },
   centerContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  errorText: { fontSize: 16, color: "#4B5563", textAlign: "center", marginTop: 16, marginBottom: 24 },
-  grantBtn: { backgroundColor: "#111827", paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
+  errorText: { fontSize: 16, color: C.text, textAlign: "center", marginTop: 16, marginBottom: 24 },
+  grantBtn: { backgroundColor: C.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
   grantBtnText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     margin: 16,
     paddingHorizontal: 12,
     borderRadius: 10,
     height: 40,
   },
   searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 16, color: "#111827" },
+  searchInput: { flex: 1, fontSize: 16, color: C.ink },
   contactRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: C.surfaceAlt,
     backgroundColor: "#FFF",
   },
-  contactRowDisabled: { backgroundColor: "#F9FAFB" },
+  contactRowDisabled: { backgroundColor: C.bg },
   contactAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#D1D5DB",
+    backgroundColor: C.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  contactAvatarText: { fontSize: 16, fontWeight: "600", color: "#4B5563" },
+  contactAvatarText: { fontSize: 16, fontWeight: "600", color: C.text },
   contactInfo: { flex: 1 },
-  contactName: { fontSize: 16, fontWeight: "500", color: "#111827" },
-  contactPhone: { fontSize: 14, color: "#6B7280", marginTop: 2 },
-  textDisabled: { color: "#9CA3AF" },
+  contactName: { fontSize: 16, fontWeight: "500", color: C.ink },
+  contactPhone: { fontSize: 14, color: C.textMuted, marginTop: 2 },
+  textDisabled: { color: C.textSubtle },
   checkboxContainer: { paddingLeft: 12 },
-  addedText: { fontSize: 14, color: "#9CA3AF", fontWeight: "500" },
+  addedText: { fontSize: 14, color: C.textSubtle, fontWeight: "500" },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#D1D5DB",
+    borderColor: C.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  checkboxSelected: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
+  checkboxSelected: { backgroundColor: C.primary, borderColor: C.primary },
 });

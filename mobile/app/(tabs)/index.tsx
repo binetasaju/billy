@@ -20,6 +20,7 @@ import { computeHomeSummary, type PendingRow } from "../../services/homeSummary"
 import { billStore } from "../../services/billStore";
 import { authStore } from "../../services/authStore";
 import type { ParsedBill } from "../../types/bill";
+import { C } from "@/constants/colors";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -127,7 +128,7 @@ export default function HomeScreen() {
       accessibilityRole="button"
     >
       <View style={[styles.avatar, { backgroundColor: kind === "pay" ? "#FEE2E2" : "#D1FAE5" }]}>
-        <Text style={[styles.avatarText, { color: kind === "pay" ? "#B91C1C" : "#047857" }]}>
+        <Text style={[styles.avatarText, { color: kind === "pay" ? C.dangerDark : C.successDark }]}>
           {row.personName.charAt(0).toUpperCase()}
         </Text>
       </View>
@@ -138,7 +139,7 @@ export default function HomeScreen() {
         <Text style={styles.rowSub} numberOfLines={1}>{row.billTitle} · {formatDate(row.createdAt)}</Text>
       </View>
       <View style={styles.rowRight}>
-        <Text style={[styles.rowAmount, { color: kind === "pay" ? "#B91C1C" : "#047857" }]}>
+        <Text style={[styles.rowAmount, { color: kind === "pay" ? C.dangerDark : C.successDark }]}>
           ₹{row.amount.toFixed(2)}
         </Text>
         <View style={[styles.chip, kind === "pay" ? styles.chipPay : styles.chipRequest]}>
@@ -168,7 +169,7 @@ export default function HomeScreen() {
             style={styles.headerBtn}
             accessibilityLabel="Profile"
           >
-            <Ionicons name="person-circle-outline" size={28} color="#111827" />
+            <Ionicons name="person-circle-outline" size={28} color={C.ink} />
           </Pressable>
         </View>
 
@@ -213,7 +214,7 @@ export default function HomeScreen() {
               accessibilityLabel={a.label.replace("\n", " ")}
             >
               <View style={styles.quickIcon}>
-                <Ionicons name={a.icon} size={24} color="#1D4ED8" />
+                <Ionicons name={a.icon} size={24} color={C.primary} />
               </View>
               <Text style={styles.quickLabel}>{a.label}</Text>
             </Pressable>
@@ -230,7 +231,7 @@ export default function HomeScreen() {
               ["paper-plane-outline", "Pay or request on UPI in one tap"],
             ].map(([icon, text]) => (
               <View key={text} style={styles.howRow}>
-                <Ionicons name={icon as any} size={20} color="#1D4ED8" />
+                <Ionicons name={icon as any} size={20} color={C.primary} />
                 <Text style={styles.howText}>{text}</Text>
               </View>
             ))}
@@ -263,7 +264,7 @@ export default function HomeScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
                   {summary.people.map((p) => (
                     <View key={p.id} style={styles.person}>
-                      <View style={[styles.personAvatar, { backgroundColor: p.color ?? "#6B7280" }]}>
+                      <View style={[styles.personAvatar, { backgroundColor: p.color ?? C.textMuted }]}>
                         <Text style={styles.personAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
                       </View>
                       <Text style={styles.personName} numberOfLines={1}>{p.name}</Text>
@@ -292,7 +293,7 @@ export default function HomeScreen() {
                     accessibilityRole="button"
                   >
                     <View style={styles.recentIcon}>
-                      <Ionicons name={g.billSnapshot?.items?.length ? "receipt-outline" : "calculator-outline"} size={18} color="#374151" />
+                      <Ionicons name={g.billSnapshot?.items?.length ? "receipt-outline" : "calculator-outline"} size={18} color={C.text} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.rowTitle} numberOfLines={1}>{g.title}</Text>
@@ -316,78 +317,78 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F3F4F6" },
+  safeArea: { flex: 1, backgroundColor: C.surfaceAlt },
   scroll: { paddingHorizontal: 16, paddingBottom: 32 },
   pressed: { opacity: 0.75 },
 
   // Header
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 16, paddingBottom: 18 },
-  headerAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center" },
+  headerAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.primary, alignItems: "center", justifyContent: "center" },
   headerAvatarText: { color: "#fff", fontWeight: "700", fontSize: 18 },
-  greeting: { fontSize: 20, fontWeight: "700", color: "#111827" },
-  subtitle: { fontSize: 13, color: "#6B7280", marginTop: 1 },
+  greeting: { fontSize: 20, fontWeight: "700", color: C.ink },
+  subtitle: { fontSize: 13, color: C.textMuted, marginTop: 1 },
   headerBtn: { padding: 4 },
 
   // Balance card
-  balanceCard: { backgroundColor: "#111827", borderRadius: 22, padding: 20, marginBottom: 20 },
-  balanceLabel: { fontSize: 13, color: "#9CA3AF", fontWeight: "500" },
-  balanceNet: { fontSize: 26, fontWeight: "800", color: "#F9FAFB", marginTop: 4, letterSpacing: -0.5 },
-  balanceSplit: { flexDirection: "row", marginTop: 18, backgroundColor: "#1F2937", borderRadius: 14, paddingVertical: 12 },
+  balanceCard: { backgroundColor: C.primaryDark, borderRadius: 22, padding: 20, marginBottom: 20 },
+  balanceLabel: { fontSize: 13, color: C.onDarkMuted, fontWeight: "500" },
+  balanceNet: { fontSize: 26, fontWeight: "800", color: C.bg, marginTop: 4, letterSpacing: -0.5 },
+  balanceSplit: { flexDirection: "row", marginTop: 18, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 14, paddingVertical: 12 },
   balanceCol: { flex: 1, paddingHorizontal: 14 },
   balanceColHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-  balanceColLabel: { fontSize: 12, color: "#D1D5DB", fontWeight: "500" },
+  balanceColLabel: { fontSize: 12, color: C.onDarkMuted, fontWeight: "500" },
   balanceColValue: { fontSize: 17, color: "#fff", fontWeight: "700", marginTop: 4 },
-  balanceDivider: { width: 1, backgroundColor: "#374151" },
+  balanceDivider: { width: 1, backgroundColor: C.onDarkLine },
 
   // Quick actions
   quickRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#fff", borderRadius: 18, paddingVertical: 16, paddingHorizontal: 8, marginBottom: 20 },
   quickItem: { flex: 1, alignItems: "center", gap: 8 },
-  quickIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
-  quickLabel: { fontSize: 12, color: "#111827", fontWeight: "600", textAlign: "center", lineHeight: 15 },
+  quickIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
+  quickLabel: { fontSize: 12, color: C.ink, fontWeight: "600", textAlign: "center", lineHeight: 15 },
 
   // Sections
   sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: C.ink },
   sectionTitleSpaced: { marginTop: 20, marginBottom: 10 },
-  seeAll: { fontSize: 13, fontWeight: "600", color: "#1D4ED8" },
+  seeAll: { fontSize: 13, fontWeight: "600", color: C.primary },
   card: { backgroundColor: "#fff", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 6 },
 
   // Pending rows
   pendingRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   avatarText: { fontWeight: "700", fontSize: 16 },
-  rowTitle: { fontSize: 15, fontWeight: "600", color: "#111827" },
-  rowSub: { fontSize: 12, color: "#6B7280", marginTop: 2 },
+  rowTitle: { fontSize: 15, fontWeight: "600", color: C.ink },
+  rowSub: { fontSize: 12, color: C.textMuted, marginTop: 2 },
   rowRight: { alignItems: "flex-end", gap: 4 },
-  rowAmount: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  rowAmount: { fontSize: 15, fontWeight: "700", color: C.ink },
   chip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  chipPay: { backgroundColor: "#1D4ED8" },
-  chipRequest: { backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "#A7F3D0" },
+  chipPay: { backgroundColor: C.primary },
+  chipRequest: { backgroundColor: C.successSoft, borderWidth: 1, borderColor: "#A7F3D0" },
   chipText: { fontSize: 12, fontWeight: "700" },
   chipPayText: { color: "#fff" },
-  chipRequestText: { color: "#047857" },
+  chipRequestText: { color: C.successDark },
 
   // People
   peopleRow: { gap: 14, paddingRight: 8 },
   person: { width: 72, alignItems: "center" },
   personAvatar: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
   personAvatarText: { color: "#fff", fontWeight: "700", fontSize: 18 },
-  personName: { fontSize: 12, fontWeight: "600", color: "#111827", marginTop: 6, maxWidth: 72 },
-  personNet: { fontSize: 11, color: "#6B7280", marginTop: 1, maxWidth: 72 },
+  personName: { fontSize: 12, fontWeight: "600", color: C.ink, marginTop: 6, maxWidth: 72 },
+  personNet: { fontSize: 11, color: C.textMuted, marginTop: 1, maxWidth: 72 },
 
   // Recent
   recentRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-  rowBorder: { borderTopWidth: 1, borderTopColor: "#F3F4F6" },
-  recentIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center" },
+  rowBorder: { borderTopWidth: 1, borderTopColor: C.surfaceAlt },
+  recentIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
   statusText: { fontSize: 12, fontWeight: "600" },
-  positive: { color: "#047857" },
-  negative: { color: "#B91C1C" },
-  pending: { color: "#B45309" },
+  positive: { color: C.successDark },
+  negative: { color: C.dangerDark },
+  pending: { color: C.warningDark },
 
   // First run
-  cardTitle: { fontSize: 16, fontWeight: "700", color: "#111827", marginTop: 10, marginBottom: 6 },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: C.ink, marginTop: 10, marginBottom: 6 },
   howRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  howText: { flex: 1, fontSize: 14, color: "#374151" },
-  primaryBtn: { backgroundColor: "#111827", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 8, marginBottom: 12 },
+  howText: { flex: 1, fontSize: 14, color: C.text },
+  primaryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 8, marginBottom: 12 },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
 });
