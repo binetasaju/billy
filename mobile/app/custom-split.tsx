@@ -36,6 +36,8 @@ export default function CustomSplitScreen() {
   const [locked, setLocked] = useState<Record<string, number>>({});
   /** Raw text in each input, so partial input like "12." isn't reformatted. */
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  /** The box being typed in: it shows exactly what was typed, even when empty. */
+  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [groupTitle, setGroupTitle] = useState("");
@@ -192,13 +194,32 @@ export default function CustomSplitScreen() {
                     <Text style={s.rupee}>₹</Text>
                     <TextInput
                       style={s.amountInput}
-                      value={isLocked ? (drafts[p.id] ?? String(amount)) : amount.toFixed(2)}
+                      value={
+                        focusedId === p.id
+                          ? (drafts[p.id] ?? "")
+                          : isLocked
+                            ? (drafts[p.id] ?? String(amount))
+                            : amount.toFixed(2)
+                      }
+                      // Tapping starts with an empty box (current amount as a
+                      // hint) so a new number can be typed straight away.
+                      placeholder={amount.toFixed(2)}
+                      placeholderTextColor="#9CA3AF"
                       onChangeText={(t) => handleChange(p.id, t)}
                       onFocus={() => {
-                        if (!isLocked) setDrafts((d) => ({ ...d, [p.id]: amount.toFixed(2) }));
+                        setFocusedId(p.id);
+                        setDrafts((d) => ({ ...d, [p.id]: "" }));
+                        setLocked((l) => { const next = { ...l }; delete next[p.id]; return next; });
+                      }}
+                      onBlur={() => {
+                        setFocusedId((cur) => (cur === p.id ? null : cur));
+                        // Left empty → back to the auto-balanced amount.
+                        setDrafts((d) => {
+                          if (d[p.id]) return d;
+                          const next = { ...d }; delete next[p.id]; return next;
+                        });
                       }}
                       keyboardType="decimal-pad"
-                      selectTextOnFocus
                       accessibilityLabel={`Amount for ${p.name}`}
                     />
                   </View>
