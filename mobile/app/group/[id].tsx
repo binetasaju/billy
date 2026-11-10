@@ -5,6 +5,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { groupStore } from "../../services/groupStore";
+import { billStore } from "../../services/billStore";
+import { canEditBill } from "../../services/billEditing";
 import { useGroups } from "../../hooks/useGroups";
 import { authStore } from "../../services/authStore";
 import { buildPaymentRequestMessage, isValidUpiId, openUpiPayment } from "../../services/upi";
@@ -66,6 +68,14 @@ export default function GroupDetailsScreen() {
   const group = useMemo(() => groups.find((g) => g.id === id), [groups, id]);
   const currentUser = authStore.get().user;
   const isCreator = currentUser?.uid === group?.createdBy;
+  // Creator can edit until the first payment is marked.
+  const canEdit = canEditBill(group, currentUser?.uid);
+
+  const handleEditBill = () => {
+    if (!group || !canEdit) return;
+    billStore.loadForEdit(group);
+    router.push("/review-items");
+  };
 
   // ── Build a person's share breakdown ───────────────────────────────────────
   // Shared items are divided by the number of people who claimed them, and the
@@ -320,6 +330,12 @@ export default function GroupDetailsScreen() {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {canEdit && (
+            <Pressable style={s.editBtn} onPress={handleEditBill} accessibilityRole="button">
+              <Ionicons name="create-outline" size={15} color="#1D4ED8" />
+              <Text style={s.editBtnText}>Edit</Text>
+            </Pressable>
+          )}
           <Pressable style={s.reportBtn} onPress={() => setShowReportModal(true)}>
             <Ionicons name="flag-outline" size={15} color="#EF4444" />
             <Text style={s.reportBtnText}>Report Error</Text>
@@ -605,13 +621,24 @@ export default function GroupDetailsScreen() {
               </View>
               <Text style={s.modalTitle}>Report Bill Error</Text>
               <Text style={s.modalSubtitle}>
-                {isCreator
-                  ? "Found a mistake? You can delete this group and rescan the corrected bill."
+                {canEdit
+                  ? "Found a mistake? Edit the bill — everyone's share is recalculated. Editing is possible until someone pays."
+                  : isCreator
+                  ? "Someone has already paid, so this bill can't be edited. You can delete it and rescan the corrected bill."
                   : "Found a mistake in the bill? The bill creator can delete and rescan it with the correct details."}
               </Text>
             </View>
 
             <View style={{ gap: 12, marginTop: 8 }}>
+              {canEdit && (
+                <Pressable
+                  style={s.reportEditBtn}
+                  onPress={() => { setShowReportModal(false); handleEditBill(); }}
+                >
+                  <Ionicons name="create-outline" size={16} color="#fff" />
+                  <Text style={s.reportDeleteBtnText}>Edit Bill</Text>
+                </Pressable>
+              )}
               {isCreator ? (
                 <Pressable
                   style={s.reportDeleteBtn}
@@ -755,6 +782,9 @@ const s = StyleSheet.create({
   statusText: { color: "#EF4444", fontSize: 13, fontWeight: "600" },
   statusTextSettled: { color: "#10B981" },
 
+  editBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#EFF6FF" },
+  editBtnText: { fontSize: 13, fontWeight: "600", color: "#1D4ED8" },
+  reportEditBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#1D4ED8", paddingVertical: 14, borderRadius: 12 },
   reportBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
     backgroundColor: "#FEF2F2", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,

@@ -94,6 +94,19 @@ export const groupStore = {
     }
   },
 
+  /** Replace a bill's content after an edit (see services/billEditing.ts). */
+  async replaceGroup(group: BillGroup): Promise<void> {
+    const withStatus: BillGroup = { ...group, status: deriveStatus(group.settlements) };
+    const updated = _state.groups.map((g) => (g.id === group.id ? withStatus : g));
+    _state = { groups: updated, isLoading: false };
+    _notify();
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn("[groupStore] Failed to replace group:", e);
+    }
+  },
+
   async deleteGroup(id: string): Promise<void> {
     const updated = _state.groups.filter((g) => g.id !== id);
     _state = { groups: updated, isLoading: false };

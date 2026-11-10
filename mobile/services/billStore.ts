@@ -9,6 +9,8 @@
 
 import type { ParsedBill, OcrBlock, Person, BillItem } from "../types/bill";
 import type { User } from "../types/user";
+import type { BillGroup } from "../types/group";
+import { payerOf } from "./billEditing";
 import { recalculateBillTotals } from "./recalculateBillTotals";
 
 interface StoreState {
@@ -32,6 +34,10 @@ interface StoreState {
    * remain this bill's own, and editing them never touches the group.
    */
   contactGroupId: string | null;
+  /** Set when editing a saved bill: saving updates it instead of creating one. */
+  editingGroupId?: string | null;
+  /** Custom-split amounts to prefill when editing a custom bill. */
+  customAmounts?: Record<string, number> | null;
 }
 
 let _state: StoreState | null = null;
@@ -66,6 +72,8 @@ export const billStore = {
       participants: [meParticipant],
       splitMethod: null,
       contactGroupId: null,
+      editingGroupId: null,
+      customAmounts: null,
     };
     _notify();
   },
@@ -162,6 +170,26 @@ export const billStore = {
       _notify();
     }
   },
+  /** Load a saved bill back into the split flow for editing. */
+  loadForEdit(group: BillGroup) {
+    if (!group.billSnapshot) return;
+    const bill = JSON.parse(JSON.stringify(group.billSnapshot)) as ParsedBill;
+    _state = {
+      bill,
+      originalBill: JSON.parse(JSON.stringify(bill)),
+      imageUri: "",
+      ocrBlocks: null,
+      hasBoundingBoxes: false,
+      payerId: payerOf(group),
+      participants: group.participants.map((p) => ({ ...p, itemIds: [...p.itemIds] })),
+      splitMethod: group.splitMethod ?? (group.participants.some((p) => p.itemIds.length > 0) ? "itemwise" : "equal"),
+      contactGroupId: group.contactGroupId ?? null,
+      editingGroupId: group.id,
+      customAmounts: group.customAmounts ?? null,
+    };
+    _notify();
+  },
+
   clear() {
     _state = null;
     _notify();

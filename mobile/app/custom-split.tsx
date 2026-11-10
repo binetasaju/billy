@@ -10,13 +10,13 @@
 // friends" works.
 // ---------------------------------------------------------------------------
 import { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, KeyboardAvoidingView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, KeyboardAvoidingView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
-import { groupStore } from "../services/groupStore";
+import { saveSplit } from "../services/saveSplit";
 import {
   calculateSettlement,
   rebalanceCustomAmounts,
@@ -48,6 +48,19 @@ export default function CustomSplitScreen() {
     setBillTotal(store.bill.total ?? 0);
     setRestaurantName(store.bill.restaurant ?? "");
     setGroupTitle(store.bill.restaurant || "Untitled Bill");
+
+    // Editing a saved custom split: start from the agreed amounts, as long as
+    // they still add up to the (possibly edited) bill total.
+    const saved = store.customAmounts;
+    if (saved) {
+      const ids = store.participants.map((p) => p.id);
+      const prefill: Record<string, number> = {};
+      ids.forEach((id) => { if (id in saved) prefill[id] = saved[id]; });
+      if (Object.keys(prefill).length === ids.length && remainingToAssign(store.bill.total ?? 0, prefill) === 0) {
+        setLocked(prefill);
+        setDrafts(Object.fromEntries(Object.entries(prefill).map(([k, v]) => [k, String(v)])));
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, []);
 
@@ -114,9 +127,18 @@ export default function CustomSplitScreen() {
       customAmounts: amounts,
     };
 
-    await groupStore.createGroup(newGroup);
+    const wasEditing = !!store.editingGroupId;
+    let savedId: string;
+    try {
+      savedId = await saveSplit(newGroup);
+    } catch (e) {
+      setShowSaveModal(false);
+      Alert.alert("Couldn't save", e instanceof Error ? e.message : "Please try again.");
+      return;
+    }
     setShowSaveModal(false);
-    router.replace("/(tabs)/pay-bills" as any);
+    if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
+    else router.replace("/(tabs)/pay-bills" as any);
   };
 
   const owesLine = (p: Person, amount: number) => {

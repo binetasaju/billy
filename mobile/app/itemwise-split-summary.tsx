@@ -9,13 +9,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput
-} from "react-native";
+  View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, Alert} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
-import { groupStore } from "../services/groupStore";
+import { saveSplit } from "../services/saveSplit";
 import { calculateSettlement } from "../services/calculateSettlement";
 import type { BillGroup } from "../types/group";
 import type { BillItem } from "../types/bill";
@@ -142,9 +141,18 @@ export default function ItemwiseSplitSummaryScreen() {
       contactGroupId: store.contactGroupId ?? undefined,
     };
 
-    await groupStore.createGroup(newGroup);
+    const wasEditing = !!store.editingGroupId;
+    let savedId: string;
+    try {
+      savedId = await saveSplit(newGroup);
+    } catch (e) {
+      setShowSaveModal(false);
+      Alert.alert("Couldn't save", e instanceof Error ? e.message : "Please try again.");
+      return;
+    }
     setShowSaveModal(false);
-    router.replace("/(tabs)/pay-bills" as any);
+    if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
+    else router.replace("/(tabs)/pay-bills" as any);
   };
 
   return (
