@@ -3,7 +3,8 @@
 // ---------------------------------------------------------------------------
 import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
@@ -217,7 +218,7 @@ const s = StyleSheet.create({
   highlight: { color: "#34D399", fontSize: 20 },
   divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
   sectionLabel: { fontSize: 13, fontWeight: "600", color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12 },
-  personList: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, marginBottom: 28, overflow: "hidden" },
+  personList: { backgroundColor: C.glass, borderRadius: 16, borderWidth: 1, borderColor: C.glassBorder, marginBottom: 28, overflow: "hidden" },
   personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   personRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   avatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", marginRight: 12 },
@@ -229,7 +230,7 @@ const s = StyleSheet.create({
   breakdownText: { fontSize: 11, color: C.textSubtle },
   personShare: { fontSize: 16, fontWeight: "700", color: C.ink },
   actions: { gap: 12 },
-  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: "#fff" },
+  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.glassBorder, backgroundColor: C.glassStrong },
   changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
   doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
   doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },

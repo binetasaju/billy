@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: C.white,
+    backgroundColor: C.glassStrong,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.glassBorder,
     paddingLeft: 4,
     paddingRight: 12,
     paddingVertical: 4,
@@ -440,10 +440,10 @@ const styles = StyleSheet.create({
 
   // Item List
   listContainer: {
-    backgroundColor: C.white,
+    backgroundColor: C.glass,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.glassBorder,
     overflow: "hidden",
     marginBottom: 16,
   },
@@ -514,11 +514,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     borderWidth: 1,
-    borderColor: C.borderStrong,
+    borderColor: C.glassBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: C.white,
+    backgroundColor: C.glassStrong,
   },
   navBtnDisabled: {
     opacity: 0.5,

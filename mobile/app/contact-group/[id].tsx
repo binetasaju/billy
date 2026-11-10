@@ -13,7 +13,8 @@ import {
   View, Text, StyleSheet, ScrollView,
   Pressable, Modal, TextInput, Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useContactGroups } from "../../hooks/useContactGroups";
@@ -394,7 +395,7 @@ const s = StyleSheet.create({
 
   sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 12, marginTop: 8 },
   listCard: {
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: "hidden",
+    backgroundColor: C.glass, borderRadius: 16, borderWidth: 1, borderColor: C.glassBorder, overflow: "hidden",
   },
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.surfaceAlt },
 
@@ -415,7 +416,7 @@ const s = StyleSheet.create({
 
   addBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: "#fff", borderWidth: 1, borderColor: C.borderStrong,
+    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.glassBorder,
     paddingVertical: 14, borderRadius: 12, marginTop: 12,
   },
   addBtnText: { fontSize: 15, fontWeight: "600", color: C.ink },
@@ -431,7 +432,7 @@ const s = StyleSheet.create({
   suggestNote: { fontSize: 12, color: C.textSubtle, marginTop: 4 },
 
   emptyBills: {
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.glass, borderRadius: 16, borderWidth: 1, borderColor: C.glassBorder,
     borderStyle: "dashed", paddingVertical: 28, alignItems: "center",
   },
   emptyBillsText: { fontSize: 14, color: C.textSubtle },

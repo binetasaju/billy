@@ -11,7 +11,8 @@
 // ---------------------------------------------------------------------------
 import { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, KeyboardAvoidingView, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
@@ -354,7 +355,7 @@ const s = StyleSheet.create({
   ok: { color: "#34D399", fontSize: 20 },
   warn: { color: "#FBBF24", fontSize: 20 },
   divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
-  personList: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, marginBottom: 8, overflow: "hidden" },
+  personList: { backgroundColor: C.glass, borderRadius: 16, borderWidth: 1, borderColor: C.glassBorder, marginBottom: 8, overflow: "hidden" },
   personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
   personRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
@@ -366,12 +367,12 @@ const s = StyleSheet.create({
   amountBoxLocked: { borderColor: "#FCD34D", backgroundColor: C.warningSoft },
   rupee: { fontSize: 15, color: C.textMuted, marginRight: 2 },
   amountInput: { flex: 1, fontSize: 15, fontWeight: "600", color: C.ink, paddingVertical: 8, textAlign: "right" },
-  amountOnlyCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 20 },
+  amountOnlyCard: { backgroundColor: C.glass, borderRadius: 16, borderWidth: 1, borderColor: C.glassBorder, padding: 16, marginBottom: 20 },
   totalBox: { minWidth: 0, backgroundColor: "#fff" },
   totalInput: { fontSize: 22, textAlign: "left", paddingVertical: 10 },
   legend: { fontSize: 11, color: C.textSubtle, marginBottom: 24, marginLeft: 4 },
   actions: { gap: 12 },
-  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: "#fff" },
+  changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.glassBorder, backgroundColor: C.glassStrong },
   changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
   doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
   doneBtnDisabled: { backgroundColor: C.textSubtle },

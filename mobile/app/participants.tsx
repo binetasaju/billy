@@ -22,7 +22,8 @@ import {
   Modal,
   TextInput,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
@@ -543,10 +544,10 @@ const styles = StyleSheet.create({
 
   // Summary card
   summaryCard: {
-    backgroundColor: C.white,
+    backgroundColor: C.glass,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.glassBorder,
     padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },

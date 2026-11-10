@@ -7,7 +7,8 @@
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Alert, Modal, TextInput, KeyboardAvoidingView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
@@ -178,8 +179,8 @@ const s = StyleSheet.create({
   phone: { fontSize: 14, color: C.textMuted, marginTop: 4 },
 
   card: {
-    backgroundColor: "#fff", borderRadius: 16,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.glass, borderRadius: 16,
+    borderWidth: 1, borderColor: C.glassBorder,
     marginBottom: 24, overflow: "hidden",
   },
   divider: { height: 1, backgroundColor: C.surfaceAlt, marginLeft: 52 },

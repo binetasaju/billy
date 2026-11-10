@@ -11,7 +11,8 @@ import {
   View, Text, StyleSheet, ScrollView,
   Pressable, ActivityIndicator, Modal, TextInput, Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useContactGroups } from "../../hooks/useContactGroups";
@@ -207,15 +208,15 @@ const s = StyleSheet.create({
 
   emptyState: {
     alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24,
-    backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.border, borderStyle: "dashed",
+    backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, borderStyle: "dashed",
   },
   emptyText: { fontSize: 15, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
   emptySubtext: { fontSize: 14, color: C.borderStrong, marginTop: 6, textAlign: "center" },
 
   groupList: { gap: 16 },
   groupCard: {
-    backgroundColor: C.white, borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.glass, borderRadius: 20, padding: 20,
+    borderWidth: 1, borderColor: C.glassBorder,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04, shadowRadius: 12, elevation: 0,
   },

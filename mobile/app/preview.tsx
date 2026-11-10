@@ -14,7 +14,8 @@
 
 import { useEffect, useState } from "react";
 import { View, Text, Image, Pressable, StyleSheet, Dimensions, Alert, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { autoCropReceipt } from "../services/optimizer";
@@ -178,9 +179,9 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: { backgroundColor: "#000000" },
   buttonSecondary: {
-    backgroundColor: C.white,
+    backgroundColor: C.glassStrong,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.glassBorder,
   },
   buttonPressed: { opacity: 0.75 },
   buttonTextPrimary: { color: C.white, fontWeight: "600", fontSize: 16 },

@@ -17,7 +17,8 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { billStore } from "../services/billStore";
@@ -702,9 +703,9 @@ const styles = StyleSheet.create({
   list: { flex: 1, paddingHorizontal: 16 },
 
   itemRow: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
+    flexDirection: "row", alignItems: "center", backgroundColor: C.glassStrong,
     borderRadius: 12, padding: 12, marginBottom: 6,
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: C.glassBorder,
   },
 
   itemInfo: { flex: 1 },
@@ -742,8 +743,8 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: "center", color: C.textSubtle, marginTop: 32, fontSize: 14 },
 
   totalsBox: {
-    backgroundColor: "#fff", marginHorizontal: 16, borderRadius: 12,
-    borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 12, gap: 6,
+    backgroundColor: C.glass, marginHorizontal: 16, borderRadius: 12,
+    borderWidth: 1, borderColor: C.glassBorder, padding: 14, marginBottom: 12, gap: 6,
   },
   totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   totalLabel: { fontSize: 13, color: C.textMuted },
@@ -810,7 +811,7 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 14, color: C.dangerDark, marginBottom: 12 },
   backBtn: {
-    backgroundColor: "#fff", borderWidth: 1, borderColor: "#FECACA",
+    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: "#FECACA",
     borderRadius: 10, paddingVertical: 10, alignItems: "center",
   },
   backBtnText: { color: "#991B1B", fontWeight: "600", fontSize: 14 },

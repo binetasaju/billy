@@ -10,7 +10,8 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, Alert} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
@@ -415,8 +416,8 @@ const s = StyleSheet.create({
     textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12,
   },
   personList: {
-    backgroundColor: "#fff", borderRadius: 16,
-    borderWidth: 1, borderColor: C.border, marginBottom: 28, overflow: "hidden",
+    backgroundColor: C.glass, borderRadius: 16,
+    borderWidth: 1, borderColor: C.glassBorder, marginBottom: 28, overflow: "hidden",
   },
   personRow: {
     flexDirection: "column",
@@ -485,7 +486,7 @@ const s = StyleSheet.create({
   changeBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 8, paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1, borderColor: C.border, backgroundColor: "#fff",
+    borderWidth: 1, borderColor: C.glassBorder, backgroundColor: C.glassStrong,
   },
   changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
   doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },

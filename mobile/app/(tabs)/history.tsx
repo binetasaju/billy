@@ -11,7 +11,8 @@ import {
   View, Text, StyleSheet, ScrollView,
   Pressable, ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
@@ -181,8 +182,8 @@ const s = StyleSheet.create({
 
   statsRow: { flexDirection: "row", gap: 16, marginBottom: 20 },
   statCard: {
-    flex: 1, backgroundColor: C.white, borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: C.surfaceAlt,
+    flex: 1, backgroundColor: C.glass, borderRadius: 20, padding: 20,
+    borderWidth: 1, borderColor: C.glassBorder,
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 0,
   },
   iconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 12 },
@@ -194,15 +195,15 @@ const s = StyleSheet.create({
 
   sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 16 },
 
-  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24, backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.border, borderStyle: "dashed" },
+  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24, backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, borderStyle: "dashed" },
   emptyText: { fontSize: 15, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
   emptySubtext: { fontSize: 14, color: C.borderStrong, marginTop: 6, textAlign: "center" },
 
   groupList: { gap: 16 },
   groupCard: {
-    backgroundColor: C.white,
+    backgroundColor: C.glass,
     borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: C.glassBorder,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04, shadowRadius: 12, elevation: 0,
   },

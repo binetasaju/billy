@@ -13,7 +13,8 @@ import {
   Pressable,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
@@ -151,10 +152,10 @@ const styles = StyleSheet.create({
 
   cards: { gap: 16 },
   card: {
-    backgroundColor: C.white,
+    backgroundColor: C.glass,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.glassBorder,
     padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

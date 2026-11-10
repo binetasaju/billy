@@ -37,6 +37,15 @@ export const C = {
   warningDark: "#C93400",
   warningSoft: "#FFF4E5",
 
+  // Glass (glassmorphism) — translucent white over the glow background
+  glass: "rgba(255,255,255,0.60)",       // cards, lists
+  glassStrong: "rgba(255,255,255,0.80)", // inputs, chips, secondary buttons
+  glassBorder: "rgba(255,255,255,0.90)", // bright edge that sells the glass
+  glassBase: "#ECEEFB",                  // screen base under the glows
+  glowIndigo: "#6366F1",
+  glowViolet: "#A78BFA",
+  glowMint: "#34D399",
+
   // On dark cards
   onDark: "#FFFFFF",
   onDarkMuted: "#D4D3F7",

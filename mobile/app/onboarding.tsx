@@ -21,7 +21,8 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../services/authStore";
@@ -149,7 +150,7 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 14, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 20, maxWidth: 300 },
 
   card: {
-    backgroundColor: "#fff", borderRadius: 20,
+    backgroundColor: C.glass, borderWidth: 1, borderColor: C.glassBorder, borderRadius: 20,
     padding: 24, marginBottom: 20,
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 12, elevation: 0,

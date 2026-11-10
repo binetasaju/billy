@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Alert, Share } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useState, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -829,7 +830,7 @@ const s = StyleSheet.create({
   progressText: { fontSize: 13, color: C.onDarkMuted, textAlign: "center", fontWeight: "500" },
 
   sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 16 },
-  listCard: { backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.border, marginBottom: 32, overflow: "hidden" },
+  listCard: { backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, marginBottom: 32, overflow: "hidden" },
   emptyTransactions: { padding: 20, color: C.textMuted, textAlign: "center" },
 
   txRow: { paddingHorizontal: 20, paddingVertical: 16 },
