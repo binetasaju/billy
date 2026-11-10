@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
 // app/(tabs)/_layout.tsx — bottom navigation
 //
-// A floating glass tab bar: rounded, translucent, hovering above the glow
-// background, with an indigo pill behind the active tab (filled icon) and
-// outline icons for the others.
+// A background-less tab bar: icons and labels float over each screen's glow
+// background, with a green pill behind the active tab (filled icon) and
+// outline icons for the others. Tab screens pad their scroll content by
+// TAB_BAR_CLEARANCE so nothing ends up hidden under the icons.
 // ---------------------------------------------------------------------------
 import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
@@ -55,6 +56,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: C.textMuted,
         tabBarShowLabel: true,
         tabBarStyle: {
+          // No background: the icons float over each screen's glow background.
           position: "absolute",
           left: 16,
           right: 16,
@@ -62,22 +64,13 @@ export default function TabLayout() {
           height: BAR_HEIGHT,
           paddingTop: 8,
           paddingBottom: 8,
-          borderRadius: 28,
+          backgroundColor: "transparent",
           borderTopWidth: 0,
-          borderWidth: 1,
-          borderColor: C.glassBorder,
-          backgroundColor: "rgba(255,255,255,0.78)",
           elevation: 0,
-          shadowColor: "#000",
-          shadowOpacity: 0.10,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0,
         },
         tabBarItemStyle: { paddingVertical: 0 },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginTop: 2 },
-        // Screens end above the floating bar; the strip behind it shows the
-        // same glass base colour so the bar floats over the theme.
-        sceneStyle: { paddingBottom: BAR_HEIGHT + bottom + 4, backgroundColor: C.glassBase },
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: icon("home", "home-outline") }} />

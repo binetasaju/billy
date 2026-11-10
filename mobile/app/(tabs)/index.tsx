@@ -20,6 +20,7 @@ import { billStore } from "../../services/billStore";
 import { authStore } from "../../services/authStore";
 import type { ParsedBill } from "../../types/bill";
 import { C } from "@/constants/colors";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 
 export default function HomeScreen() {
@@ -241,7 +242,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24 },
+  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: TAB_BAR_CLEARANCE },
   pressed: { opacity: 0.7 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 28 },

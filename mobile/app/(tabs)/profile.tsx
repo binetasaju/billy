@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
 import { C } from "@/constants/colors";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 
 export default function ProfileScreen() {
@@ -160,7 +161,7 @@ function Row({
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 16, paddingBottom: TAB_BAR_CLEARANCE },
 
   header: { marginTop: 24, marginBottom: 24 },
   title: { ...T.largeTitle, color: C.ink },

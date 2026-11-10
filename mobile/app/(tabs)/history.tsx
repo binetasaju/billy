@@ -19,6 +19,7 @@ import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
 import type { BillGroup } from "../../types/group";
 import { C } from "@/constants/colors";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 
 export default function HistoryScreen() {
@@ -178,7 +179,7 @@ const s = StyleSheet.create({
 
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
 
-  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE },
 
   statsRow: { flexDirection: "row", gap: 16, marginBottom: 20 },
   statCard: {

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
 import { C } from "@/constants/colors";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 
 export default function PayBillsScreen() {
@@ -79,7 +80,7 @@ const s = StyleSheet.create({
   title: { ...T.largeTitle, color: C.ink, marginBottom: 4 },
   subtitle: { fontSize: 16, color: C.textMuted },
 
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40, justifyContent: "center" },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: TAB_BAR_CLEARANCE, justifyContent: "center" },
   emptyState: { alignItems: "center", justifyContent: "center", marginTop: -60 },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40,
