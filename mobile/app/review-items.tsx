@@ -16,6 +16,7 @@ import {
   Alert, StatusBar, Dimensions, TextInput, Modal,
   KeyboardAvoidingView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -423,13 +424,18 @@ export default function ReviewItemsScreen() {
               <Pressable
                 onPress={() => setChargesExpanded((v) => !v)}
                 style={styles.chargesToggleRow}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={chargesExpanded ? "Hide taxes and charges" : "Show taxes and charges"}
               >
                 <Text style={styles.chargesToggleLabel}>
                   Taxes & Charges ({charges.length})
                 </Text>
-                <Text style={styles.chargesToggleChevron}>
-                  {chargesExpanded ? "▴" : "▾"}
-                </Text>
+                <Ionicons
+                  name={chargesExpanded ? "chevron-up" : "chevron-down"}
+                  size={22}
+                  color="#374151"
+                />
               </Pressable>
 
               {chargesExpanded && (
@@ -630,10 +636,9 @@ const styles = StyleSheet.create({
   totalValueDiscount: { color: "#16A34A" },
   chargesToggleRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
-  chargesToggleLabel: { fontSize: 13, color: "#374151", fontWeight: "500" },
-  chargesToggleChevron: { fontSize: 12, color: "#6B7280", fontWeight: "600" },
+  chargesToggleLabel: { fontSize: 14, color: "#374151", fontWeight: "500" },
   chargesDetail: { gap: 5, paddingTop: 4, paddingBottom: 2 },
   taxInclusiveText: { fontSize: 12, color: "#6B7280", marginTop: 6 },
   mismatchBox: {
