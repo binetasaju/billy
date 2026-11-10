@@ -1,9 +1,8 @@
 // ---------------------------------------------------------------------------
 // app/index.tsx
 //
-// Home screen — a payments-app style overview built from saved bills:
-//   balance card (you owe / you're owed) · quick actions · what to pay and
-//   receive · people you split with · recent activity.
+// Home screen — minimal: one balance card, one main action, and short
+// Pending / Recent lists built from saved bills.
 // Camera and gallery go directly to /preview (crop/auto-crop are available
 // there); "Enter Manually" opens an empty bill for review.
 // ---------------------------------------------------------------------------
@@ -14,14 +13,14 @@ import { Alert, View, Text, Pressable, StyleSheet, ScrollView } from "react-nati
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../hooks/useAuth";
 import { useGroups } from "../../hooks/useGroups";
-import { computeHomeSummary, type PendingRow } from "../../services/homeSummary";
+import { computeHomeSummary } from "../../services/homeSummary";
 import { billStore } from "../../services/billStore";
 import { authStore } from "../../services/authStore";
 import type { ParsedBill } from "../../types/bill";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -104,7 +103,7 @@ export default function HomeScreen() {
 
   const handleSplitAmount = () => {
     Alert.alert(
-      "Split an Amount",
+      "Split an amount",
       "Open a group (or create one), then tap “Split an Amount”.",
       [{ text: "Go to Groups", onPress: () => router.push("/(tabs)/groups" as any) }],
       { cancelable: true }
@@ -113,204 +112,125 @@ export default function HomeScreen() {
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const money = (n: number) => `₹${n.toFixed(2)}`;
 
-  const QUICK_ACTIONS: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void }[] = [
-    { icon: "camera", label: "Scan Bill", onPress: handleCameraPress },
-    { icon: "image", label: "Upload", onPress: handleGalleryPress },
-    { icon: "create", label: "Enter\nManually", onPress: handleManualEntry },
-    { icon: "calculator", label: "Split an\nAmount", onPress: handleSplitAmount },
-  ];
-
-  const renderPending = (row: PendingRow, kind: "pay" | "receive") => (
-    <Pressable
-      key={`${row.groupId}-${row.personId}`}
-      onPress={() => openBill(row.groupId)}
-      style={({ pressed }) => [styles.pendingRow, pressed && styles.pressed]}
-      accessibilityRole="button"
-    >
-      <View style={[styles.avatar, { backgroundColor: kind === "pay" ? "#FEE2E2" : "#D1FAE5" }]}>
-        <Text style={[styles.avatarText, { color: kind === "pay" ? C.dangerDark : C.successDark }]}>
-          {row.personName.charAt(0).toUpperCase()}
-        </Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {kind === "pay" ? `You owe ${row.personName}` : `${row.personName} owes you`}
-        </Text>
-        <Text style={styles.rowSub} numberOfLines={1}>{row.billTitle} · {formatDate(row.createdAt)}</Text>
-      </View>
-      <View style={styles.rowRight}>
-        <Text style={[styles.rowAmount, { color: kind === "pay" ? C.dangerDark : C.successDark }]}>
-          ₹{row.amount.toFixed(2)}
-        </Text>
-        <View style={[styles.chip, kind === "pay" ? styles.chipPay : styles.chipRequest]}>
-          <Text style={[styles.chipText, kind === "pay" ? styles.chipPayText : styles.chipRequestText]}>
-            {kind === "pay" ? "Pay" : "Request"}
-          </Text>
-        </View>
-      </View>
-    </Pressable>
-  );
+  const pending = [
+    ...summary.toPay.map((r) => ({ ...r, kind: "pay" as const })),
+    ...summary.toReceive.map((r) => ({ ...r, kind: "receive" as const })),
+  ]
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 3);
+  const recent = summary.recent.slice(0, 3);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ── Header ── */}
+        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerAvatar}>
-            <Text style={styles.headerAvatarText}>{(firstName ?? "B").charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>{firstName ? `Hi, ${firstName}` : "Hi there"} 👋</Text>
-            <Text style={styles.subtitle}>Split bills, settle up fast</Text>
+          <View>
+            <Text style={styles.hello}>Hello{firstName ? "," : ""}</Text>
+            <Text style={styles.name}>{firstName ?? "there"}</Text>
           </View>
           <Pressable
             onPress={() => router.push("/(tabs)/profile" as any)}
-            hitSlop={10}
-            style={styles.headerBtn}
+            style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
             accessibilityLabel="Profile"
           >
-            <Ionicons name="person-circle-outline" size={28} color={C.ink} />
+            <Text style={styles.avatarText}>{(firstName ?? "B").charAt(0).toUpperCase()}</Text>
           </Pressable>
         </View>
 
-        {/* ── Balance card ── */}
+        {/* Balance */}
         <Pressable
           onPress={() => router.push("/(tabs)/pay-bills" as any)}
           style={({ pressed }) => [styles.balanceCard, pressed && styles.pressed]}
           accessibilityRole="button"
-          accessibilityLabel="Open Pay Bills"
         >
-          <Text style={styles.balanceLabel}>Your balance</Text>
-          <Text style={styles.balanceNet}>
-            {net > 0 ? `You're owed ₹${net.toFixed(2)}` : net < 0 ? `You owe ₹${Math.abs(net).toFixed(2)}` : "All settled up ✓"}
+          <Text style={styles.caption}>Total balance</Text>
+          <Text style={[styles.balance, net > 0 && styles.positive, net < 0 && styles.negative]}>
+            {net > 0 ? "+" : net < 0 ? "−" : ""}{money(Math.abs(net))}
           </Text>
-          <View style={styles.balanceSplit}>
-            <View style={styles.balanceCol}>
-              <View style={styles.balanceColHead}>
-                <Ionicons name="arrow-up-circle" size={16} color="#FCA5A5" />
-                <Text style={styles.balanceColLabel}>You owe</Text>
-              </View>
-              <Text style={styles.balanceColValue}>₹{summary.youOwe.toFixed(2)}</Text>
-            </View>
-            <View style={styles.balanceDivider} />
-            <View style={styles.balanceCol}>
-              <View style={styles.balanceColHead}>
-                <Ionicons name="arrow-down-circle" size={16} color="#6EE7B7" />
-                <Text style={styles.balanceColLabel}>You&apos;re owed</Text>
-              </View>
-              <Text style={styles.balanceColValue}>₹{summary.owedToYou.toFixed(2)}</Text>
-            </View>
-          </View>
+          <Text style={styles.balanceSub}>
+            {net === 0 && summary.youOwe === 0
+              ? "You're all settled up"
+              : `Owed to you ${money(summary.owedToYou)}  ·  You owe ${money(summary.youOwe)}`}
+          </Text>
         </Pressable>
 
-        {/* ── Quick actions ── */}
-        <View style={styles.quickRow}>
-          {QUICK_ACTIONS.map((a) => (
-            <Pressable
-              key={a.label}
-              onPress={a.onPress}
-              style={({ pressed }) => [styles.quickItem, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel={a.label.replace("\n", " ")}
-            >
-              <View style={styles.quickIcon}>
-                <Ionicons name={a.icon} size={24} color={C.primary} />
-              </View>
-              <Text style={styles.quickLabel}>{a.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {/* Main action */}
+        <Pressable
+          onPress={handleScanBill}
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+        >
+          <Text style={styles.primaryBtnText}>Split a bill</Text>
+        </Pressable>
+        <Pressable onPress={handleSplitAmount} hitSlop={8} style={styles.linkBtn}>
+          <Text style={styles.linkText}>or split an amount without a bill</Text>
+        </Pressable>
 
-        {isNewUser ? (
-          /* ── First run ── */
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>How Billy works</Text>
-            {[
-              ["camera-outline", "Scan or upload a bill — Billy reads the items"],
-              ["people-outline", "Pick who shared it and how to split"],
-              ["paper-plane-outline", "Pay or request on UPI in one tap"],
-            ].map(([icon, text]) => (
-              <View key={text} style={styles.howRow}>
-                <Ionicons name={icon as any} size={20} color={C.primary} />
-                <Text style={styles.howText}>{text}</Text>
-              </View>
-            ))}
-            <Pressable onPress={handleScanBill} style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}>
-              <Text style={styles.primaryBtnText}>Split your first bill</Text>
-            </Pressable>
-          </View>
-        ) : (
+        {/* Pending */}
+        {pending.length > 0 && (
           <>
-            {/* ── To pay / To receive ── */}
-            {(summary.toPay.length > 0 || summary.toReceive.length > 0) && (
-              <>
-                <View style={styles.sectionHead}>
-                  <Text style={styles.sectionTitle}>Pending</Text>
-                  <Pressable onPress={() => router.push("/(tabs)/pay-bills" as any)} hitSlop={8}>
-                    <Text style={styles.seeAll}>See all</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.card}>
-                  {summary.toPay.slice(0, 3).map((r) => renderPending(r, "pay"))}
-                  {summary.toReceive.slice(0, 3).map((r) => renderPending(r, "receive"))}
-                </View>
-              </>
-            )}
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>Pending</Text>
+              <Pressable onPress={() => router.push("/(tabs)/pay-bills" as any)} hitSlop={8}>
+                <Text style={styles.seeAll}>See all</Text>
+              </Pressable>
+            </View>
+            <View style={styles.list}>
+              {pending.map((r, i) => (
+                <Pressable
+                  key={`${r.kind}-${r.groupId}-${r.personId}`}
+                  onPress={() => openBill(r.groupId)}
+                  style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && styles.pressed]}
+                >
+                  <View style={styles.rowMain}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{r.personName}</Text>
+                    <Text style={styles.rowSub} numberOfLines={1}>
+                      {r.kind === "pay" ? "You owe" : "Owes you"} · {r.billTitle}
+                    </Text>
+                  </View>
+                  <Text style={[styles.rowAmount, r.kind === "pay" ? styles.negative : styles.positive]}>
+                    {money(r.amount)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
 
-            {/* ── People ── */}
-            {summary.people.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>People</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
-                  {summary.people.map((p) => (
-                    <View key={p.id} style={styles.person}>
-                      <View style={[styles.personAvatar, { backgroundColor: p.color ?? C.textMuted }]}>
-                        <Text style={styles.personAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <Text style={styles.personName} numberOfLines={1}>{p.name}</Text>
-                      <Text
-                        style={[styles.personNet, p.net > 0 ? styles.positive : p.net < 0 ? styles.negative : null]}
-                        numberOfLines={1}
-                      >
-                        {p.net > 0 ? `owes ₹${p.net.toFixed(0)}` : p.net < 0 ? `you owe ₹${Math.abs(p.net).toFixed(0)}` : "settled"}
-                      </Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-
-            {/* ── Recent activity ── */}
-            <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>Recent activity</Text>
-            <View style={styles.card}>
-              {summary.recent.map((g, idx) => {
-                const pending = g.settlements.filter((t) => t.status !== "paid").length;
+        {/* Recent */}
+        {recent.length > 0 ? (
+          <>
+            <Text style={[styles.sectionTitle, styles.sectionTitleAlone]}>Recent</Text>
+            <View style={styles.list}>
+              {recent.map((g, i) => {
+                const open = g.settlements.filter((t) => t.status !== "paid").length;
                 return (
                   <Pressable
                     key={g.id}
                     onPress={() => openBill(g.id)}
-                    style={({ pressed }) => [styles.recentRow, idx > 0 && styles.rowBorder, pressed && styles.pressed]}
-                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && styles.pressed]}
                   >
-                    <View style={styles.recentIcon}>
-                      <Ionicons name={g.billSnapshot?.items?.length ? "receipt-outline" : "calculator-outline"} size={18} color={C.text} />
-                    </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.rowMain}>
                       <Text style={styles.rowTitle} numberOfLines={1}>{g.title}</Text>
-                      <Text style={styles.rowSub}>{formatDate(g.createdAt)} · {g.participants.length} people</Text>
-                    </View>
-                    <View style={styles.rowRight}>
-                      <Text style={styles.rowAmount}>₹{g.totalAmount.toFixed(2)}</Text>
-                      <Text style={[styles.statusText, g.status === "settled" ? styles.positive : styles.pending]}>
-                        {g.status === "settled" ? "Settled" : `${pending} pending`}
+                      <Text style={styles.rowSub}>
+                        {formatDate(g.createdAt)} · {g.status === "settled" ? "Settled" : `${open} pending`}
                       </Text>
                     </View>
+                    <Text style={styles.rowAmount}>{money(g.totalAmount)}</Text>
                   </Pressable>
                 );
               })}
             </View>
           </>
+        ) : (
+          isNewUser && (
+            <Text style={styles.emptyText}>
+              Scan a receipt or enter it manually — your bills will show up here.
+            </Text>
+          )
         )}
       </ScrollView>
     </SafeAreaView>
@@ -318,78 +238,46 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: C.surfaceAlt },
-  scroll: { paddingHorizontal: 16, paddingBottom: 32 },
-  pressed: { opacity: 0.75 },
+  safeArea: { flex: 1 },
+  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24 },
+  pressed: { opacity: 0.7 },
 
-  // Header
-  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 16, paddingBottom: 18 },
-  headerAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.primary, alignItems: "center", justifyContent: "center" },
-  headerAvatarText: { color: "#fff", fontWeight: "700", fontSize: 18 },
-  greeting: { fontSize: 20, fontWeight: "700", color: C.ink },
-  subtitle: { fontSize: 13, color: C.textMuted, marginTop: 1 },
-  headerBtn: { padding: 4 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 28 },
+  hello: { ...T.subhead, color: C.textMuted },
+  name: { ...T.title1, color: C.ink },
+  avatar: {
+    width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
+    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.glassBorder,
+  },
+  avatarText: { ...T.headline, color: C.primary },
 
-  // Balance card
-  balanceCard: { backgroundColor: C.primaryDark, borderRadius: 22, padding: 20, marginBottom: 20 },
-  balanceLabel: { fontSize: 13, color: C.onDarkMuted, fontWeight: "500" },
-  balanceNet: { fontSize: 26, fontWeight: "800", color: C.bg, marginTop: 4, letterSpacing: -0.5 },
-  balanceSplit: { flexDirection: "row", marginTop: 18, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 14, paddingVertical: 12 },
-  balanceCol: { flex: 1, paddingHorizontal: 14 },
-  balanceColHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-  balanceColLabel: { fontSize: 12, color: C.onDarkMuted, fontWeight: "500" },
-  balanceColValue: { fontSize: 17, color: "#fff", fontWeight: "700", marginTop: 4 },
-  balanceDivider: { width: 1, backgroundColor: C.onDarkLine },
-
-  // Quick actions
-  quickRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#fff", borderRadius: 18, paddingVertical: 16, paddingHorizontal: 8, marginBottom: 20 },
-  quickItem: { flex: 1, alignItems: "center", gap: 8 },
-  quickIcon: { width: 54, height: 54, borderRadius: 16, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
-  quickLabel: { fontSize: 12, color: C.ink, fontWeight: "600", textAlign: "center", lineHeight: 15 },
-
-  // Sections
-  sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: C.ink },
-  sectionTitleSpaced: { marginTop: 20, marginBottom: 10 },
-  seeAll: { fontSize: 13, fontWeight: "600", color: C.primary },
-  card: { backgroundColor: "#fff", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 6 },
-
-  // Pending rows
-  pendingRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontWeight: "700", fontSize: 16 },
-  rowTitle: { fontSize: 15, fontWeight: "600", color: C.ink },
-  rowSub: { fontSize: 12, color: C.textMuted, marginTop: 2 },
-  rowRight: { alignItems: "flex-end", gap: 4 },
-  rowAmount: { fontSize: 15, fontWeight: "700", color: C.ink },
-  chip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  chipPay: { backgroundColor: C.primary },
-  chipRequest: { backgroundColor: C.successSoft, borderWidth: 1, borderColor: "#A7F3D0" },
-  chipText: { fontSize: 12, fontWeight: "700" },
-  chipPayText: { color: "#fff" },
-  chipRequestText: { color: C.successDark },
-
-  // People
-  peopleRow: { gap: 14, paddingRight: 8 },
-  person: { width: 72, alignItems: "center" },
-  personAvatar: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
-  personAvatarText: { color: "#fff", fontWeight: "700", fontSize: 18 },
-  personName: { fontSize: 12, fontWeight: "600", color: C.ink, marginTop: 6, maxWidth: 72 },
-  personNet: { fontSize: 11, color: C.textMuted, marginTop: 1, maxWidth: 72 },
-
-  // Recent
-  recentRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.separator },
-  recentIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
-  statusText: { fontSize: 12, fontWeight: "600" },
+  balanceCard: {
+    backgroundColor: C.glass, borderRadius: 24, borderWidth: 1, borderColor: C.glassBorder,
+    paddingVertical: 28, paddingHorizontal: 24, marginBottom: 20,
+  },
+  caption: { ...T.footnote, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.6 },
+  balance: { fontSize: 40, fontWeight: "700", color: C.ink, letterSpacing: -0.5, marginTop: 6 },
+  balanceSub: { ...T.footnote, color: C.textMuted, marginTop: 8 },
   positive: { color: C.successDark },
-  negative: { color: C.dangerDark },
-  pending: { color: C.warningDark },
+  negative: { color: C.danger },
 
-  // First run
-  cardTitle: { fontSize: 16, fontWeight: "700", color: C.ink, marginTop: 10, marginBottom: 6 },
-  howRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  howText: { flex: 1, fontSize: 14, color: C.text },
-  primaryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 8, marginBottom: 12 },
-  primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  primaryBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 17, alignItems: "center" },
+  primaryBtnText: { ...T.headline, color: C.white },
+  linkBtn: { alignItems: "center", paddingVertical: 14 },
+  linkText: { ...T.subhead, color: C.primary },
+
+  sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 20, marginBottom: 10 },
+  sectionTitle: { ...T.headline, color: C.ink },
+  sectionTitleAlone: { marginTop: 20, marginBottom: 10 },
+  seeAll: { ...T.subhead, color: C.primary },
+
+  list: { backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, paddingHorizontal: 18 },
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: 15, gap: 12 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.separator },
+  rowMain: { flex: 1 },
+  rowTitle: { ...T.callout, fontWeight: "600", color: C.ink },
+  rowSub: { ...T.footnote, color: C.textMuted, marginTop: 2 },
+  rowAmount: { ...T.callout, fontWeight: "600", color: C.ink },
+
+  emptyText: { ...T.subhead, color: C.textMuted, textAlign: "center", marginTop: 24, paddingHorizontal: 24 },
 });
