@@ -127,6 +127,11 @@ export const groupStore = {
     const group = _state.groups.find((g) => g.id === groupId);
     if (!group) return;
 
+    // Idempotent: a double tap (or a second device later) must not re-record
+    // a payment or overwrite when it was originally paid.
+    const target = group.settlements.find((tx) => tx.fromUserId === fromId && tx.toUserId === toId);
+    if (!target || target.status === "paid") return;
+
     // Update the specific settlement
     const updatedSettlements = group.settlements.map((tx) => {
       if (tx.fromUserId === fromId && tx.toUserId === toId) {

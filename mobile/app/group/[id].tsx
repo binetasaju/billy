@@ -363,6 +363,25 @@ export default function GroupDetailsScreen() {
           <Text style={s.summaryLabel}>Total Bill Amount</Text>
           <Text style={s.summaryValue}>₹{group.totalAmount.toFixed(2)}</Text>
           <Text style={s.summarySubtext}>{group.participants.length} Participants</Text>
+          {group.settlements.length > 0 && (() => {
+            const paidCount = group.settlements.filter((t) => t.status === "paid").length;
+            const pct = Math.round((paidCount / group.settlements.length) * 100);
+            const outstanding = group.settlements
+              .filter((t) => t.status !== "paid")
+              .reduce((sum, t) => sum + t.amount, 0);
+            return (
+              <View style={s.progressWrap}>
+                <View style={s.progressTrack}>
+                  <View style={[s.progressFill, { width: `${pct}%` as any }]} />
+                </View>
+                <Text style={s.progressText}>
+                  {paidCount === group.settlements.length
+                    ? "Everyone has paid 🎉"
+                    : `${paidCount} of ${group.settlements.length} paid · ₹${outstanding.toFixed(2)} pending`}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
 
         {/* ── Who had what (bills with a receipt only) ── */}
@@ -801,6 +820,10 @@ const s = StyleSheet.create({
   summaryLabel: { fontSize: 14, color: "#9CA3AF", fontWeight: "500", marginBottom: 8 },
   summaryValue: { fontSize: 36, color: "#ffffff", fontWeight: "800", letterSpacing: -1 },
   summarySubtext: { fontSize: 14, color: "#9CA3AF", marginTop: 8 },
+  progressWrap: { alignSelf: "stretch", marginTop: 16, gap: 8 },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: "#374151", overflow: "hidden" },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: "#34D399" },
+  progressText: { fontSize: 13, color: "#D1D5DB", textAlign: "center", fontWeight: "500" },
 
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 16 },
   listCard: { backgroundColor: "#ffffff", borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 32, overflow: "hidden" },
