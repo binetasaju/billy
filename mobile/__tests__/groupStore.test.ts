@@ -44,8 +44,10 @@ describe("groupStore payments", () => {
     expect(get().settlements[0].paymentMethod).toBe("cash");
   });
 
-  it("settles the bill once everyone has paid", async () => {
+  it("settles the bill once everyone has paid (plain 'received' stores no method)", async () => {
     await groupStore.markSettlementPaid("b1", "anu", "me");
     expect(get().status).toBe("settled");
+    expect(get().settlements[1].status).toBe("paid");
+    expect(get().settlements[1].paymentMethod).toBeUndefined();
   });
 });

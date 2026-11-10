@@ -279,18 +279,18 @@ export default function GroupDetailsScreen() {
     });
   };
 
-  const handleConfirmReceived = async (method: "upi" | "cash" | "other") => {
+  // Payee confirms once — no payment-method question.
+  const handleConfirmReceived = async () => {
     // Re-check ownership at confirm time — never mark another pair's settlement.
     if (!receiveTx || !group || receiveTx.to !== currentUser?.uid) {
       setReceiveTx(null);
       return;
     }
-    await groupStore.markSettlementPaid(group.id, receiveTx.from, receiveTx.to, method);
-    const label = method === "cash" ? "Cash" : method === "upi" ? "UPI" : "Payment";
+    await groupStore.markSettlementPaid(group.id, receiveTx.from, receiveTx.to);
     if (Platform.OS === "android") {
-      ToastAndroid.show(`${label} payment marked as received.`, ToastAndroid.SHORT);
+      ToastAndroid.show("Marked as received.", ToastAndroid.SHORT);
     } else {
-      Alert.alert("Marked as Received", `${label} payment marked as received.`);
+      Alert.alert("Marked as received", "The payment is marked as received.");
     }
     setReceiveTx(null);
   };
@@ -489,54 +489,55 @@ export default function GroupDetailsScreen() {
                   {/* Actions: the item breakdown stays available once paid,
                       so a settled bill can still be inspected from History. */}
                   <View style={s.txActions}>
-                      {/* Info icon — always visible to all participants */}
+                    {/* Secondary actions — matching glass chips */}
+                    <View style={s.chipRow}>
                       <Pressable
-                        style={s.infoBtn}
+                        style={({ pressed }) => [s.chipBtn, pressed && s.pressedBtn]}
                         onPress={() => handleShowItems(
                           tx.fromUserId,
                           isCurrentUserFrom ? "Your" : `${personFromObj?.name ?? "Their"}'s`
                         )}
                       >
-                        <Ionicons name="receipt-outline" size={17} color={C.primaryMuted} />
-                        <Text style={s.infoBtnText}>Items</Text>
+                        <Ionicons name="receipt-outline" size={15} color={C.primary} />
+                        <Text style={s.chipBtnText}>Items</Text>
                       </Pressable>
+                      {!isPaid && isCurrentUserTo && (
+                        <Pressable
+                          style={({ pressed }) => [s.chipBtn, pressed && s.pressedBtn]}
+                          onPress={() => handleRequestPayment(tx, personFromObj)}
+                          accessibilityLabel={`Request payment from ${personFromObj?.name ?? "them"}`}
+                        >
+                          <Ionicons name="paper-plane-outline" size={15} color={C.primary} />
+                          <Text style={s.chipBtnText}>Request</Text>
+                        </Pressable>
+                      )}
+                    </View>
 
-                      {!isPaid && (isCurrentUserFrom ? (
-                        receiverHasUpi ? (
-                          <Pressable style={s.payBtn} onPress={() => handlePayClick(tx, personToObj)}>
-                            <Text style={s.payBtnText}>Pay ₹{tx.amount.toFixed(2)}</Text>
-                          </Pressable>
-                        ) : (
-                          <Pressable
-                            style={s.markPaidBtn}
-                            onPress={() => handleMarkPaidOtherClick(tx, personToObj)}
-                          >
-                            <Text style={s.markPaidBtnText}>Mark as Paid</Text>
-                          </Pressable>
-                        )
-                      ) : isCurrentUserTo ? (
-                        <>
-                          <Pressable
-                            style={s.infoBtn}
-                            onPress={() => handleRequestPayment(tx, personFromObj)}
-                            accessibilityLabel={`Request payment from ${personFromObj?.name ?? "them"}`}
-                          >
-                            <Ionicons name="paper-plane-outline" size={16} color={C.primaryMuted} />
-                            <Text style={s.infoBtnText}>Request</Text>
-                          </Pressable>
-                          <Pressable
-                            style={s.receivedBtn}
-                            onPress={() => handleMarkReceivedClick(tx, personFromObj)}
-                          >
-                            <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
-                            <Text style={s.receivedBtnText}>Received</Text>
-                          </Pressable>
-                        </>
-                      ) : (
-                        <View style={s.waitingBadge}>
-                          <Text style={s.waitingText}>Waiting for payment</Text>
-                        </View>
-                      ))}
+                    {/* Main action — one full-width button, same style for every role */}
+                    {!isPaid && (isCurrentUserFrom ? (
+                      <Pressable
+                        style={({ pressed }) => [s.mainBtn, pressed && s.pressedBtn]}
+                        onPress={() => receiverHasUpi ? handlePayClick(tx, personToObj) : handleMarkPaidOtherClick(tx, personToObj)}
+                      >
+                        <Ionicons name={receiverHasUpi ? "flash-outline" : "checkmark-done-outline"} size={17} color={C.white} />
+                        <Text style={s.mainBtnText}>
+                          {receiverHasUpi ? `Pay ₹${tx.amount.toFixed(2)} with UPI` : "Mark as paid"}
+                        </Text>
+                      </Pressable>
+                    ) : isCurrentUserTo ? (
+                      <Pressable
+                        style={({ pressed }) => [s.mainBtn, pressed && s.pressedBtn]}
+                        onPress={() => handleMarkReceivedClick(tx, personFromObj)}
+                      >
+                        <Ionicons name="checkmark-done-outline" size={17} color={C.white} />
+                        <Text style={s.mainBtnText}>Mark as received</Text>
+                      </Pressable>
+                    ) : (
+                      <View style={s.waitingRow}>
+                        <View style={s.waitingDot} />
+                        <Text style={s.waitingText}>Waiting for {personFromObj?.name ?? "them"} to pay</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
               );
@@ -735,21 +736,15 @@ export default function GroupDetailsScreen() {
       <Modal visible={!!receiveTx} transparent animationType="fade" statusBarTranslucent>
         <View style={s.modalBackdrop}>
           <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Mark as Received</Text>
+            <Text style={s.modalTitle}>Mark as received?</Text>
             {receiveTx && (
               <Text style={s.modalSubtitle}>
-                How did {receiveTx.payerName} pay you ₹{receiveTx.amount.toFixed(2)}?
+                Confirm you received ₹{receiveTx.amount.toFixed(2)} from {receiveTx.payerName}. This can&apos;t be undone.
               </Text>
             )}
             <View style={{ gap: 12, marginTop: 24 }}>
-              <Pressable style={s.modalBtnSuccess} onPress={() => handleConfirmReceived("upi")}>
-                <Text style={s.modalBtnSuccessText}>UPI received</Text>
-              </Pressable>
-              <Pressable style={s.modalBtnMethod} onPress={() => handleConfirmReceived("cash")}>
-                <Text style={s.modalBtnMethodText}>Cash received</Text>
-              </Pressable>
-              <Pressable style={s.modalBtnMethod} onPress={() => handleConfirmReceived("other")}>
-                <Text style={s.modalBtnMethodText}>Other</Text>
+              <Pressable style={s.modalBtnConfirm} onPress={handleConfirmReceived}>
+                <Text style={s.modalBtnSuccessText}>Yes, received</Text>
               </Pressable>
               <Pressable style={s.modalBtnCancel} onPress={() => setReceiveTx(null)}>
                 <Text style={s.modalBtnCancelText}>Cancel</Text>
@@ -843,27 +838,32 @@ const s = StyleSheet.create({
   txAmount: { fontSize: 16, fontWeight: "700", color: C.ink },
 
   // Actions row below transaction info
-  txActions: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12 },
-  infoBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: C.primarySoft, paddingVertical: 10, paddingHorizontal: 14,
-    borderRadius: 10, borderWidth: 1, borderColor: "#BFDBFE",
+  txActions: { marginTop: 12, gap: 10 },
+  chipRow: { flexDirection: "row", gap: 8 },
+  chipBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
+    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.border,
   },
-  infoBtnText: { color: C.primaryMuted, fontWeight: "600", fontSize: 13 },
-  payBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 11, borderRadius: 10, alignItems: "center" },
-  payBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  waitingBadge: { flex: 1, backgroundColor: C.surfaceAlt, paddingVertical: 11, borderRadius: 10, alignItems: "center" },
+  chipBtnText: { color: C.primary, fontWeight: "600", fontSize: 13 },
+  mainBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: C.primary, paddingVertical: 13, borderRadius: 14,
+  },
+  mainBtnText: { color: C.white, fontSize: 15, fontWeight: "600" },
+  pressedBtn: { opacity: 0.75 },
+  waitingRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: C.statusActiveBg, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14,
+  },
+  waitingDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.statusActiveDot },
   upiMissingRow: {
     flexDirection: "row", alignItems: "center", gap: 6,
     backgroundColor: C.warningSoft, borderWidth: 1, borderColor: "#FDE68A",
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginTop: 10,
   },
   upiMissingText: { flex: 1, fontSize: 12, fontWeight: "500", color: "#92400E" },
-  markPaidBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 11, borderRadius: 10, alignItems: "center" },
-  markPaidBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  receivedBtn: { flex: 1, flexDirection: "row", gap: 6, backgroundColor: C.success, paddingVertical: 11, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  receivedBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  waitingText: { color: C.textMuted, fontWeight: "500", fontSize: 13 },
+  waitingText: { color: C.statusActiveText, fontWeight: "600", fontSize: 13 },
 
   participantRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginRight: 12 },
@@ -927,6 +927,7 @@ const s = StyleSheet.create({
 
   // Payment modal
   modalBtnSuccess: { backgroundColor: C.success, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  modalBtnConfirm: { backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
   modalBtnSuccessText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   modalBtnFail: { backgroundColor: C.dangerSoft, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
   modalBtnFailText: { color: C.danger, fontWeight: "600", fontSize: 15 },

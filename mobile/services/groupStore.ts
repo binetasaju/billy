@@ -122,7 +122,8 @@ export const groupStore = {
     groupId: string,
     fromId: string,
     toId: string,
-    method: "upi" | "cash" | "other" = "upi"
+    /** How it was paid, when known. Omitted for a plain "received" confirmation. */
+    method?: "upi" | "cash" | "other"
   ): Promise<void> {
     const group = _state.groups.find((g) => g.id === groupId);
     if (!group) return;
@@ -139,7 +140,7 @@ export const groupStore = {
           ...tx,
           status: "paid" as const,
           paidAt: new Date().toISOString(),
-          paymentMethod: method,
+          ...(method ? { paymentMethod: method } : {}),
         };
       }
       return tx;
