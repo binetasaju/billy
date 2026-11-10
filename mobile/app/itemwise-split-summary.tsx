@@ -22,6 +22,7 @@ import type { ParticipantTotal, SettlementTransaction } from "../services/calcul
 import { Ionicons } from "@expo/vector-icons";
 import ItemAssignmentSection from "../components/ItemAssignmentSection";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -393,7 +394,7 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   header: { marginTop: 28, marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
+  title: { ...T.largeTitle, color: C.ink },
   restaurant: { fontSize: 15, fontWeight: "600", color: C.primary, marginTop: 4 },
 
   summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 20, marginBottom: 28 },
@@ -420,7 +421,7 @@ const s = StyleSheet.create({
   personRow: {
     flexDirection: "column",
   },
-  personRowBorder: { borderBottomWidth: 1, borderColor: C.surfaceAlt },
+  personRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
 
   personRowHeader: {
     flexDirection: "row",
@@ -446,7 +447,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: C.surfaceAlt,
   },
   expandedItemName: { flex: 1, fontSize: 14, color: C.ink, fontWeight: "500", paddingRight: 12 },
@@ -527,7 +528,7 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 24,
-    elevation: 20,
+    elevation: 6,
   },
   modalIconWrap: {
     width: 56,
@@ -567,7 +568,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 11,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: C.surfaceAlt,
     gap: 10,
   },
@@ -609,7 +610,7 @@ const s = StyleSheet.create({
   
   // Save Modal overrides
   saveModalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
-  saveModalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
+  saveModalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6 },
   saveModalTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6 },
   saveModalSubtitle: { fontSize: 15, color: C.textMuted, marginBottom: 20, lineHeight: 22 },
   inputWrap: { marginBottom: 24 },

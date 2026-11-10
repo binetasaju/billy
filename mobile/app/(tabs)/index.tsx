@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   // Quick actions
   quickRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#fff", borderRadius: 18, paddingVertical: 16, paddingHorizontal: 8, marginBottom: 20 },
   quickItem: { flex: 1, alignItems: "center", gap: 8 },
-  quickIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
+  quickIcon: { width: 54, height: 54, borderRadius: 16, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
   quickLabel: { fontSize: 12, color: C.ink, fontWeight: "600", textAlign: "center", lineHeight: 15 },
 
   // Sections
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
 
   // Recent
   recentRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-  rowBorder: { borderTopWidth: 1, borderTopColor: C.surfaceAlt },
+  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.separator },
   recentIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
   statusText: { fontSize: 12, fontWeight: "600" },
   positive: { color: C.successDark },

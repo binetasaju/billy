@@ -19,6 +19,7 @@ import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
 import type { ParsedBill } from "../services/parseBill";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -437,11 +438,9 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
+    ...T.largeTitle,
     color: C.ink,
     marginBottom: 6,
-    letterSpacing: -0.5,
   },
   subtitle: { fontSize: 14, color: C.textMuted, marginBottom: 20 },
   imageContainer: {

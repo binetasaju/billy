@@ -18,6 +18,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 type Method = "equal" | "itemwise";
 
@@ -138,10 +139,8 @@ const styles = StyleSheet.create({
 
   header: { marginTop: 28, marginBottom: 28 },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    ...T.largeTitle,
     color: C.ink,
-    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
@@ -161,7 +160,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 0,
     position: "relative",
   },
   cardPressed: {

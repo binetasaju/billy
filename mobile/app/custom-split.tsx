@@ -25,6 +25,7 @@ import {
 import type { BillItem, Person } from "../types/bill";
 import type { BillGroup } from "../types/group";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 export default function CustomSplitScreen() {
   const router = useRouter();
@@ -343,7 +344,7 @@ const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
   header: { marginTop: 28, marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
+  title: { ...T.largeTitle, color: C.ink },
   restaurant: { fontSize: 15, fontWeight: "600", color: C.primary, marginTop: 4 },
   hint: { fontSize: 13, color: C.textMuted, marginTop: 8, lineHeight: 18 },
   summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 20, marginBottom: 20 },
@@ -355,7 +356,7 @@ const s = StyleSheet.create({
   divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
   personList: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, marginBottom: 8, overflow: "hidden" },
   personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-  personRowBorder: { borderBottomWidth: 1, borderColor: C.surfaceAlt },
+  personRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   personInfo: { flex: 1 },
@@ -376,7 +377,7 @@ const s = StyleSheet.create({
   doneBtnDisabled: { backgroundColor: C.textSubtle },
   doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
-  modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, elevation: 10 },
+  modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, elevation: 6 },
   modalTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6 },
   modalSubtitle: { fontSize: 15, color: C.textMuted, marginBottom: 20, lineHeight: 22 },
   inputWrap: { marginBottom: 24 },

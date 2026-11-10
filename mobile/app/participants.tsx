@@ -38,6 +38,7 @@ import PrimaryButton from "../components/bill-split/PrimaryButton";
 import ParticipantCard from "../components/bill-split/ParticipantCard";
 import ParticipantCheckbox from "../components/bill-split/ParticipantCheckbox";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 const COLORS = [
   C.danger, "#F97316", C.warning, C.success,
@@ -509,10 +510,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    ...T.largeTitle,
     color: C.ink,
-    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
@@ -553,7 +552,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 0,
   },
   summaryTitle: {
     fontSize: 13,
@@ -603,7 +602,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingBottom: 32,
     backgroundColor: C.bg,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
   },
 
@@ -623,7 +622,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 10,
+    elevation: 6,
   },
   modalTitle: {
     fontSize: 20,
@@ -645,7 +644,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: C.surfaceAlt,
   },
   groupOptionName: { fontSize: 16, fontWeight: "600", color: C.ink },

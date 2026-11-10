@@ -13,6 +13,7 @@ import { buildPaymentRequestMessage, isValidUpiId, openUpiPayment } from "../../
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 /** One row of a person's share breakdown. */
 interface BreakdownLine {
@@ -814,7 +815,7 @@ const s = StyleSheet.create({
   reportBtnText: { color: C.danger, fontSize: 13, fontWeight: "600" },
 
   scroll: { paddingHorizontal: 24, paddingBottom: 40 },
-  title: { fontSize: 32, fontWeight: "800", color: C.ink, letterSpacing: -0.5, marginTop: 16, marginBottom: 4 },
+  title: { ...T.largeTitle, color: C.ink, marginTop: 16, marginBottom: 4 },
   subtitle: { fontSize: 16, color: C.text, fontWeight: "500", marginBottom: 2 },
   date: { fontSize: 15, color: C.textMuted, marginBottom: 32 },
 
@@ -833,7 +834,7 @@ const s = StyleSheet.create({
 
   txRow: { paddingHorizontal: 20, paddingVertical: 16 },
   txMain: { flexDirection: "row", alignItems: "center" },
-  txBorder: { borderBottomWidth: 1, borderColor: C.surfaceAlt },
+  txBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   txIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", marginRight: 12 },
   txTextContent: { flex: 1 },
   txText: { fontSize: 15, color: C.text },
@@ -884,7 +885,7 @@ const s = StyleSheet.create({
 
   // Modals shared
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 20 },
-  modalCard: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 20 },
+  modalCard: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 6 },
   modalHeader: { alignItems: "center", marginBottom: 20 },
   modalIconWrap: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center", marginBottom: 12 },
   modalTitle: { fontSize: 20, fontWeight: "700", color: C.ink, textAlign: "center", marginBottom: 4 },
@@ -896,7 +897,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.border, overflow: "hidden", marginBottom: 4,
   },
   itemBreakdownRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 11 },
-  itemBreakdownBorder: { borderBottomWidth: 1, borderColor: C.surfaceAlt },
+  itemBreakdownBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   itemBreakdownInfo: { flex: 1, paddingRight: 12 },
   itemBreakdownNote: { fontSize: 11, color: C.textMuted, marginTop: 2 },
   itemBreakdownName: { flex: 1, fontSize: 14, color: C.ink, fontWeight: "500", paddingRight: 12 },

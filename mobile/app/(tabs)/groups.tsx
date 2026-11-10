@@ -20,6 +20,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { contactGroupStore, MEMBER_COLORS } from "../../services/contactGroupStore";
 import type { GroupMember } from "../../types/group";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 export default function GroupsScreen() {
   const router = useRouter();
@@ -198,7 +199,7 @@ export default function GroupsScreen() {
 const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
   header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
-  title: { fontSize: 28, fontWeight: "800", color: C.ink, letterSpacing: -0.5, marginBottom: 4 },
+  title: { ...T.largeTitle, color: C.ink, marginBottom: 4 },
   subtitle: { fontSize: 16, color: C.textMuted },
 
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -216,7 +217,7 @@ const s = StyleSheet.create({
     backgroundColor: C.white, borderRadius: 20, padding: 20,
     borderWidth: 1, borderColor: C.border,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04, shadowRadius: 12, elevation: 3,
+    shadowOpacity: 0.04, shadowRadius: 12, elevation: 0,
   },
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },

@@ -25,6 +25,7 @@ import { computeGroupBalances, describeBalance, simplifyDebts } from "../../serv
 import ContactPickerModal, { ContactData } from "../../components/ContactPickerModal";
 import type { GroupMember } from "../../types/group";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 export default function ContactGroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -388,14 +389,14 @@ const s = StyleSheet.create({
   renameBtnText: { color: C.text, fontSize: 13, fontWeight: "600" },
 
   scroll: { paddingHorizontal: 24, paddingBottom: 40 },
-  title: { fontSize: 32, fontWeight: "800", color: C.ink, letterSpacing: -0.5, marginTop: 16, marginBottom: 4 },
+  title: { ...T.largeTitle, color: C.ink, marginTop: 16, marginBottom: 4 },
   subtitle: { fontSize: 15, color: C.textMuted, marginBottom: 28 },
 
   sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 12, marginTop: 8 },
   listCard: {
     backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: "hidden",
   },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceAlt },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.surfaceAlt },
 
   memberRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginRight: 12 },

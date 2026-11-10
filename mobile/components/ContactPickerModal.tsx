@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     // paddingTop is set inline via useSafeAreaInsets() — do not hardcode here
     paddingBottom: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
     backgroundColor: "#FFF",
   },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: C.surfaceAlt,
     backgroundColor: "#FFF",
   },

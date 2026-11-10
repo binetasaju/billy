@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FCD34D",
   },
   mismatchText: { fontSize: 13, color: "#92400E", lineHeight: 18 },
-  grandRow: { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 8, marginTop: 4 },
+  grandRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, paddingTop: 8, marginTop: 4 },
   grandLabel: { fontSize: 16, fontWeight: "700", color: C.ink },
   grandValue: { fontSize: 16, fontWeight: "700", color: C.ink },
 

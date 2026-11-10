@@ -1,4 +1,5 @@
 import { Tabs } from "expo-router";
+import { StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect } from "react";
@@ -21,16 +22,20 @@ export default function TabLayout() {
         tabBarActiveTintColor: C.primary,
         tabBarInactiveTintColor: C.textSubtle,
         tabBarStyle: {
-          backgroundColor: C.white,
-          borderTopColor: C.border,
+          backgroundColor: "rgba(249,249,249,0.97)",
+          borderTopColor: C.separator,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          elevation: 0,
+          shadowOpacity: 0,
           // Edge-to-edge: lift the tab bar above the system navigation bar.
           paddingBottom: 4 + insets.bottom,
           paddingTop: 4,
           height: 60 + insets.bottom,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: "500",
+          letterSpacing: 0.1,
         },
       }}
     >

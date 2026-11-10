@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -161,7 +162,7 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   header: { marginTop: 24, marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
+  title: { ...T.largeTitle, color: C.ink },
 
   avatarCard: { alignItems: "center", marginBottom: 24 },
   avatar: {
@@ -170,7 +171,7 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     marginBottom: 12,
     shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
+    shadowOpacity: 0.3, shadowRadius: 12, elevation: 0,
   },
   avatarText: { color: "#fff", fontSize: 32, fontWeight: "700" },
   name: { fontSize: 22, fontWeight: "700", color: C.ink, letterSpacing: -0.3 },

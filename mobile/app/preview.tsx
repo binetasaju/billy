@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { autoCropReceipt } from "../services/optimizer";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 const IMAGE_MAX_H = Math.round(SCREEN_H * 0.55);
@@ -142,11 +143,9 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
+    ...T.largeTitle,
     color: C.ink,
     marginBottom: 6,
-    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
