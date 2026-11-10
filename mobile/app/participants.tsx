@@ -50,6 +50,8 @@ export default function ParticipantsScreen() {
   const [participants, setParticipants] = useState<Person[]>([]);
   const [payerId, setPayerId] = useState<string | null>(null);
   const [sharingIds, setSharingIds] = useState<Set<string>>(new Set());
+  // Problems are only shown after the user tries to continue.
+  const [showValidation, setShowValidation] = useState(false);
   const [billTotal, setBillTotal] = useState(0);
 
   // Modals
@@ -278,7 +280,11 @@ export default function ParticipantsScreen() {
   }, [editingParticipant, editName, participants]);
 
   const handleContinue = useCallback(() => {
-    if (!canContinue || !payerId) return;
+    if (!canContinue || !payerId) {
+      setShowValidation(true);
+      Alert.alert("Can't split yet", validationStatus.text + ".");
+      return;
+    }
 
     // Save payer to store
     billStore.updatePayer(payerId);
@@ -290,7 +296,7 @@ export default function ParticipantsScreen() {
     }
 
     router.push("/choose-split-method" as any);
-  }, [canContinue, payerId, participants, sharingIds, router]);
+  }, [canContinue, payerId, participants, sharingIds, router, validationStatus]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -376,15 +382,20 @@ export default function ParticipantsScreen() {
               {payerId ? (participants.find((p) => p.id === payerId)?.name ?? "—") : "—"}
             </Text>
           </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryRow}>
-            <View style={styles.statusRow}>
-              <Ionicons name={validationStatus.icon} size={16} color={validationStatus.color} />
-              <Text style={[styles.statusText, { color: validationStatus.color }]}>
-                {validationStatus.text}
-              </Text>
-            </View>
-          </View>
+          {/* Status: "Ready" when valid; problems only after Continue was pressed */}
+          {(canContinue || showValidation) && (
+            <>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <View style={styles.statusRow}>
+                  <Ionicons name={validationStatus.icon} size={16} color={validationStatus.color} />
+                  <Text style={[styles.statusText, { color: validationStatus.color }]}>
+                    {validationStatus.text}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Bottom spacer for button */}
@@ -396,7 +407,6 @@ export default function ParticipantsScreen() {
         <PrimaryButton
           label="Continue to Split →"
           onPress={handleContinue}
-          disabled={!canContinue}
         />
       </View>
 

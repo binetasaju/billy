@@ -44,7 +44,7 @@ Run `npx expo start --dev-client` (from `mobile/`) with the phone connected, the
 - [ ] Review: items and prices correct, Taxes & Charges arrow easy to tap, totals match the bill (or a clear warning)
 - [ ] Review: add a tax/charge/discount; long-press a charge to remove it
 - [ ] Home → Add Bill → **Enter Manually** → add items + GST → continue
-- [ ] Participants: Continue disabled until 2+ people; ⋮ → Edit name / Remove
+- [ ] Participants: no warning at first; pressing Continue with fewer than 2 people shows "Select at least 2 people sharing"; ⋮ → Edit name / Remove
 - [ ] Split **Equally** → Save
 - [ ] Split **Item-wise** → totals update live while assigning → Done (unassigned warning) → Save
 - [ ] Split **Custom amounts** → type one amount, others re-balance; payer at ₹0 works → Save
