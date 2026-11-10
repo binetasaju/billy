@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // app/index.tsx
 //
-// Home screen. Both camera and gallery go directly to /preview.
-// No crop step here — editing is available on the preview screen.
+// Home screen. Camera and gallery go directly to /preview (crop/auto-crop
+// are available there); "Enter Manually" opens an empty bill for review.
 // ---------------------------------------------------------------------------
 
 import { Alert, View, Text, Pressable, StyleSheet } from "react-native";
@@ -11,6 +11,9 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../hooks/useAuth";
+import { billStore } from "../../services/billStore";
+import { authStore } from "../../services/authStore";
+import type { ParsedBill } from "../../types/bill";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -23,9 +26,28 @@ export default function HomeScreen() {
       [
         { text: "Take Photo",          onPress: handleCameraPress },
         { text: "Choose From Gallery", onPress: handleGalleryPress },
-        { text: "Cancel", style: "cancel" },
-      ]
+        { text: "Enter Manually",      onPress: handleManualEntry },
+      ],
+      // Android shows at most 3 buttons — tap outside to cancel.
+      { cancelable: true }
     );
+  };
+
+  // ── Manual entry (no photo, no AI) ───────────────────────────────────────
+  const handleManualEntry = () => {
+    const emptyBill: ParsedBill = {
+      isBill: true,
+      restaurant: "Manual Bill",
+      billNumber: "",
+      date: new Date().toISOString().slice(0, 10),
+      items: [],
+      subtotal: 0,
+      charges: [],
+      total: 0,
+      printedTotal: null,
+    };
+    billStore.set(emptyBill, "", null, authStore.get().user);
+    router.push("/review-items");
   };
 
   // ── Camera ─────────────────────────────────────────────────────────────────

@@ -153,6 +153,82 @@ function EditTitleModal({
 }
 
 // ---------------------------------------------------------------------------
+// Add charge modal (tax / service charge / discount)
+// ---------------------------------------------------------------------------
+const CHARGE_PRESETS = ["CGST", "SGST", "Service Charge", "Discount"];
+
+function AddChargeModal({
+  visible, onSave, onCancel,
+}: {
+  visible: boolean;
+  onSave: (charge: { name: string; amount: number }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+
+  useEffect(() => {
+    if (visible) { setName(""); setAmount(""); }
+  }, [visible]);
+
+  const save = () => {
+    const trimmed = name.trim();
+    const value = parseFloat(amount.replace(/,/g, ""));
+    if (!trimmed) { Alert.alert("Missing name", "Enter a name, e.g. CGST or Service Charge."); return; }
+    if (!Number.isFinite(value) || value === 0) { Alert.alert("Invalid amount", "Enter an amount, e.g. 25.50."); return; }
+    // Discounts always reduce the bill.
+    const isDiscount = /discount|round.?off|coupon|offer/i.test(trimmed);
+    onSave({ name: trimmed, amount: isDiscount ? -Math.abs(value) : value });
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <KeyboardAvoidingView style={styles.modalBackdrop} behavior="padding">
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Add Tax or Charge</Text>
+          <View style={styles.presetRow}>
+            {CHARGE_PRESETS.map((p) => (
+              <Pressable
+                key={p}
+                onPress={() => setName(p)}
+                style={[styles.presetChip, name === p && styles.presetChipActive]}
+              >
+                <Text style={[styles.presetChipText, name === p && styles.presetChipTextActive]}>{p}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.modalLabel}>Name</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. CGST 2.5%"
+          />
+          <Text style={styles.modalLabel}>Amount (₹)</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="0.00"
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+            onSubmitEditing={save}
+          />
+          <View style={styles.modalActions}>
+            <Pressable onPress={onCancel} style={styles.modalCancelBtn}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={save} style={styles.modalSaveBtn}>
+              <Text style={styles.modalSaveText}>Add</Text>
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Remove item modal
 // ---------------------------------------------------------------------------
 function RemoveItemModal({
@@ -265,6 +341,20 @@ export default function ReviewItemsScreen() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [chargesExpanded, setChargesExpanded] = useState(false);
   const [titleModalVisible, setTitleModalVisible] = useState(false);
+  const [chargeModalVisible, setChargeModalVisible] = useState(false);
+
+  const handleAddCharge = (charge: { name: string; amount: number }) => {
+    billStore.addCharge(charge);
+    setChargeModalVisible(false);
+    setChargesExpanded(true);
+  };
+
+  const confirmRemoveCharge = (index: number, name: string) => {
+    Alert.alert("Remove charge?", `Remove "${name}" from this bill?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: () => billStore.removeCharge(index) },
+    ]);
+  };
   const listRef = useRef<FlatList>(null);
 
   // Derived state
@@ -344,11 +434,7 @@ export default function ReviewItemsScreen() {
             height={IMAGE_PANEL_H}
             onTap={() => setViewerOpen(true)}
           />
-        ) : (
-          <View style={{ height: IMAGE_PANEL_H, justifyContent: "center", alignItems: "center", backgroundColor: "#E5E7EB" }}>
-            <Text style={{ color: "#9CA3AF" }}>No bill image available</Text>
-          </View>
-        )}
+        ) : null /* manual bill — no photo */}
 
         {/* ── Header ── */}
         <View style={styles.headerRow}>
@@ -447,7 +533,12 @@ export default function ReviewItemsScreen() {
               {chargesExpanded && (
                 <View style={styles.chargesDetail}>
                   {charges.map((charge, i) => (
-                    <View key={i} style={styles.totalRow}>
+                    <Pressable
+                      key={i}
+                      style={styles.totalRow}
+                      onLongPress={() => confirmRemoveCharge(i, charge.name)}
+                      accessibilityHint="Long-press to remove"
+                    >
                       <Text style={styles.totalLabel}>{charge.name}</Text>
                       <Text
                         style={[
@@ -459,12 +550,22 @@ export default function ReviewItemsScreen() {
                           ? `-₹${Math.abs(charge.amount).toFixed(2)}`
                           : `₹${charge.amount.toFixed(2)}`}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
               )}
             </>
           )}
+
+          <Pressable
+            onPress={() => setChargeModalVisible(true)}
+            hitSlop={6}
+            style={styles.addChargeBtn}
+            accessibilityRole="button"
+          >
+            <Ionicons name="add-circle-outline" size={18} color="#1D4ED8" />
+            <Text style={styles.addChargeText}>Add tax / charge / discount</Text>
+          </Pressable>
 
           {/* Grand total */}
           <View style={[styles.totalRow, styles.grandRow]}>
@@ -512,6 +613,13 @@ export default function ReviewItemsScreen() {
         currentName={restaurantName}
         onSave={handleSaveTitle}
         onCancel={() => setTitleModalVisible(false)}
+      />
+
+      {/* ── Add charge modal ── */}
+      <AddChargeModal
+        visible={chargeModalVisible}
+        onSave={handleAddCharge}
+        onCancel={() => setChargeModalVisible(false)}
       />
 
       {/* ── Edit item modal ── */}
@@ -646,6 +754,13 @@ const styles = StyleSheet.create({
   },
   chargesToggleLabel: { fontSize: 14, color: "#374151", fontWeight: "500" },
   chargesDetail: { gap: 5, paddingTop: 4, paddingBottom: 2 },
+  addChargeBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8 },
+  addChargeText: { fontSize: 14, color: "#1D4ED8", fontWeight: "600" },
+  presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  presetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: "#D1D5DB" },
+  presetChipActive: { backgroundColor: "#111827", borderColor: "#111827" },
+  presetChipText: { fontSize: 13, color: "#374151" },
+  presetChipTextActive: { color: "#fff" },
   taxInclusiveText: { fontSize: 12, color: "#6B7280", marginTop: 6 },
   mismatchBox: {
     marginTop: 8, padding: 10, borderRadius: 10,

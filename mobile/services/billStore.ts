@@ -102,6 +102,20 @@ export const billStore = {
     _notify();
   },
 
+  addCharge(charge: { name: string; amount: number }) {
+    if (!_state) return;
+    const newBill = { ..._state.bill, charges: [...(_state.bill.charges ?? []), charge] };
+    _state = { ..._state, bill: recalculateBillTotals(newBill) };
+    _notify();
+  },
+
+  removeCharge(index: number) {
+    if (!_state) return;
+    const newCharges = (_state.bill.charges ?? []).filter((_, i) => i !== index);
+    _state = { ..._state, bill: recalculateBillTotals({ ..._state.bill, charges: newCharges }) };
+    _notify();
+  },
+
   removeItem(itemId: string) {
     if (!_state) return;
     const newItems = _state.bill.items.filter((it) => it.id !== itemId);
