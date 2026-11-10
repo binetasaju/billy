@@ -1,168 +1,123 @@
 // ---------------------------------------------------------------------------
 // app/(tabs)/history.tsx
 //
-// Settled bills, read from groupStore via useGroups().
-// Every figure on this screen is derived from existing BillGroup settlement
-// records — no separate storage, no recalculated splits.
+// Month-by-month history: pick a month (‹ This month ›), see what you spent
+// and received that month, and the bills settled in it. Every figure is
+// derived from saved bills (services/monthlyStats.ts) — nothing is stored.
 // ---------------------------------------------------------------------------
 
-import { useMemo } from "react";
-import {
-  View, Text, StyleSheet, ScrollView,
-  Pressable, ActivityIndicator,
-} from "react-native";
+import { useMemo, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
-import type { BillGroup } from "../../types/group";
+import { browsableMonths, monthKey, monthLabel, settledAt, summarizeMonth } from "../../services/monthlyStats";
 import { C } from "@/constants/colors";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
+
+const money = (n: number) => `₹${n.toFixed(2)}`;
 
 export default function HistoryScreen() {
   const router = useRouter();
   const { groups, isLoading } = useGroups();
   const { user } = useAuth();
 
-  // ── Settled bills, newest first ───────────────────────────────────────────
-  const settledGroups = useMemo(
-    () =>
-      groups
-        .filter((g) => g.status === "settled")
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        ),
-    [groups]
-  );
+  const months = useMemo(() => browsableMonths(groups), [groups]);
+  const [month, setMonth] = useState(() => monthKey(new Date()));
+  const idx = Math.max(0, months.indexOf(month));
+  const canGoNewer = idx > 0;
+  const canGoOlder = idx < months.length - 1;
 
-  // ── Statistics, derived from settlement records ───────────────────────────
-  // "Me" is resolved per group: participants carry an isCurrentUser flag, and
-  // the auth uid is the fallback for groups created before that flag existed.
-  const stats = useMemo(() => {
-    let totalSpent = 0;
-    let totalReceived = 0;
+  const summary = useMemo(() => summarizeMonth(groups, user?.uid, month), [groups, user?.uid, month]);
+  const net = Math.round((summary.received - summary.spent) * 100) / 100;
+  const label = monthLabel(month);
+  const inLabel = label === "This month" || label === "Last month" ? label.toLowerCase() : `in ${label}`;
 
-    settledGroups.forEach((g: BillGroup) => {
-      const myId =
-        g.participants.find((p) => p.isCurrentUser)?.id ?? user?.uid;
-      if (!myId) return;
-
-      g.settlements.forEach((tx) => {
-        if (tx.status !== "paid") return;
-        if (tx.fromUserId === myId) totalSpent += tx.amount;
-        else if (tx.toUserId === myId) totalReceived += tx.amount;
-      });
-    });
-
-    return { totalSpent, totalReceived, billsSettled: settledGroups.length };
-  }, [settledGroups, user]);
-
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-
-  // ── Loading ───────────────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
-        <View style={s.header}>
-          <Text style={s.title}>History</Text>
-          <Text style={s.subtitle}>Your settled bills</Text>
-        </View>
-        <View style={s.loader}>
-          <ActivityIndicator size="large" color={C.textSubtle} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const hasHistory = settledGroups.length > 0;
+  const formatDay = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
   return (
     <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
-      <View style={s.header}>
-        <Text style={s.title}>History</Text>
-        <Text style={s.subtitle}>Your settled bills</Text>
-      </View>
-
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        {/* Stats are shown only once there is something to summarise */}
-        {hasHistory && (
-          <>
-            <View style={s.statsRow}>
-              <View style={s.statCard}>
-                <View style={[s.iconWrap, { backgroundColor: C.dangerSoft }]}>
-                  <Ionicons name="arrow-down-outline" size={20} color={C.danger} />
-                </View>
-                <Text style={s.statLabel}>Total Spent</Text>
-                <Text style={s.statValue}>₹{stats.totalSpent.toFixed(2)}</Text>
-              </View>
-              <View style={s.statCard}>
-                <View style={[s.iconWrap, { backgroundColor: C.successSoft }]}>
-                  <Ionicons name="arrow-up-outline" size={20} color={C.success} />
-                </View>
-                <Text style={s.statLabel}>Total Received</Text>
-                <Text style={s.statValue}>₹{stats.totalReceived.toFixed(2)}</Text>
-              </View>
-            </View>
+        <Text style={s.title}>History</Text>
 
-            <View style={s.statsBadge}>
-              <Text style={s.badgeText}>
-                {stats.billsSettled} bill{stats.billsSettled !== 1 ? "s" : ""} settled
+        {/* Month switcher */}
+        <View style={s.monthBar}>
+          <Pressable
+            onPress={() => canGoOlder && setMonth(months[idx + 1])}
+            disabled={!canGoOlder}
+            hitSlop={10}
+            style={[s.arrow, !canGoOlder && s.arrowDisabled]}
+            accessibilityLabel="Previous month"
+          >
+            <Ionicons name="chevron-back" size={20} color={C.ink} />
+          </Pressable>
+          <Text style={s.monthLabel}>{label}</Text>
+          <Pressable
+            onPress={() => canGoNewer && setMonth(months[idx - 1])}
+            disabled={!canGoNewer}
+            hitSlop={10}
+            style={[s.arrow, !canGoNewer && s.arrowDisabled]}
+            accessibilityLabel="Next month"
+          >
+            <Ionicons name="chevron-forward" size={20} color={C.ink} />
+          </Pressable>
+        </View>
+
+        {isLoading ? (
+          <ActivityIndicator size="large" color={C.textSubtle} style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            {/* Month totals */}
+            <View style={s.statsCard}>
+              <View style={s.statsRow}>
+                <View style={s.statCol}>
+                  <Text style={s.statLabel}>Spent</Text>
+                  <Text style={[s.statValue, s.spent]}>{money(summary.spent)}</Text>
+                </View>
+                <View style={s.statDivider} />
+                <View style={s.statCol}>
+                  <Text style={s.statLabel}>Received</Text>
+                  <Text style={[s.statValue, s.received]}>{money(summary.received)}</Text>
+                </View>
+              </View>
+              <Text style={s.statFoot}>
+                {summary.paymentCount === 0
+                  ? `No payments ${inLabel}`
+                  : `Net ${net > 0 ? "+" : net < 0 ? "−" : ""}${money(Math.abs(net))}  ·  ${summary.paymentCount} payment${summary.paymentCount !== 1 ? "s" : ""}`}
               </Text>
             </View>
+
+            {/* Bills settled this month */}
+            <Text style={s.sectionTitle}>Settled {inLabel}</Text>
+            {summary.settledBills.length === 0 ? (
+              <Text style={s.emptyText}>No bills were settled {inLabel}.</Text>
+            ) : (
+              <View style={s.list}>
+                {summary.settledBills.map((g, i) => (
+                  <Pressable
+                    key={g.id}
+                    onPress={() => router.push(`/group/${g.id}` as any)}
+                    style={({ pressed }) => [s.row, i > 0 && s.rowDivider, pressed && s.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${g.title}`}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle} numberOfLines={1}>{g.title}</Text>
+                      <Text style={s.rowSub}>
+                        Settled {formatDay(settledAt(g))} · {g.participants.length} people
+                      </Text>
+                    </View>
+                    <Text style={s.rowAmount}>{money(g.totalAmount)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </>
-        )}
-
-        {/* List */}
-        <Text style={s.sectionTitle}>Settled Groups</Text>
-
-        {!hasHistory ? (
-          <View style={s.emptyState}>
-            <Ionicons name="folder-open-outline" size={32} color={C.borderStrong} />
-            <Text style={s.emptyText}>No settled bills yet</Text>
-            <Text style={s.emptySubtext}>
-              Your completed bills will appear here.
-            </Text>
-          </View>
-        ) : (
-          <View style={s.groupList}>
-            {settledGroups.map((group) => (
-              <Pressable
-                key={group.id}
-                style={({ pressed }) => [s.groupCard, pressed && s.groupCardPressed]}
-                onPress={() => router.push(`/group/${group.id}` as any)}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${group.title}`}
-              >
-                <View style={s.groupHeader}>
-                  <Text style={s.groupTitle} numberOfLines={1}>{group.title}</Text>
-                  <StatusBadge status="settled" />
-                </View>
-
-                <Text style={s.groupDate}>{formatDate(group.createdAt)}</Text>
-
-                <View style={s.groupFooter}>
-                  <View style={s.footerItem}>
-                    <Ionicons name="people" size={16} color={C.textMuted} />
-                    <Text style={s.footerText}>
-                      {group.participants.length} participant
-                      {group.participants.length !== 1 ? "s" : ""}
-                    </Text>
-                  </View>
-                  <Text style={s.groupAmount}>₹{group.totalAmount.toFixed(2)}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -170,49 +125,36 @@ export default function HistoryScreen() {
 }
 
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: C.bg },
-  header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
-  title: { ...T.largeTitle, color: C.ink, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: C.textMuted },
+  safeArea: { flex: 1 },
+  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: TAB_BAR_CLEARANCE },
+  pressed: { opacity: 0.7 },
+  title: { ...T.largeTitle, color: C.ink, marginBottom: 16 },
 
-  loader: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  scroll: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE },
-
-  statsRow: { flexDirection: "row", gap: 16, marginBottom: 20 },
-  statCard: {
-    flex: 1, backgroundColor: C.glass, borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: C.glassBorder,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 0,
+  monthBar: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: C.glass, borderWidth: 1, borderColor: C.glassBorder,
+    borderRadius: 999, paddingVertical: 6, paddingHorizontal: 8, marginBottom: 16,
   },
-  iconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  statLabel: { fontSize: 13, color: C.textMuted, fontWeight: "500", marginBottom: 4 },
-  statValue: { fontSize: 24, fontWeight: "800", color: C.ink, letterSpacing: -0.5 },
+  arrow: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: C.glassStrong },
+  arrowDisabled: { opacity: 0.3 },
+  monthLabel: { ...T.headline, color: C.ink },
 
-  statsBadge: { alignSelf: "flex-start", backgroundColor: C.surfaceAlt, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginBottom: 32 },
-  badgeText: { fontSize: 13, fontWeight: "600", color: C.text },
+  statsCard: { backgroundColor: C.primaryDark, borderRadius: 28, paddingVertical: 22, paddingHorizontal: 22, marginBottom: 24 },
+  statsRow: { flexDirection: "row", alignItems: "center" },
+  statCol: { flex: 1 },
+  statDivider: { width: 1, alignSelf: "stretch", backgroundColor: C.onDarkLine, marginHorizontal: 18 },
+  statLabel: { ...T.footnote, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.6 },
+  statValue: { fontSize: 26, fontWeight: "700", letterSpacing: -0.3, marginTop: 6 },
+  spent: { color: "#FB7185" },
+  received: { color: "#10B981" },
+  statFoot: { ...T.footnote, color: C.onDarkMuted, marginTop: 16 },
 
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 16 },
-
-  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24, backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, borderStyle: "dashed" },
-  emptyText: { fontSize: 15, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
-  emptySubtext: { fontSize: 14, color: C.borderStrong, marginTop: 6, textAlign: "center" },
-
-  groupList: { gap: 16 },
-  groupCard: {
-    backgroundColor: C.glass,
-    borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: C.glassBorder,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04, shadowRadius: 12, elevation: 0,
-  },
-  groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
-  groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  groupTitle: { fontSize: 18, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
-  groupDate: { fontSize: 13, color: C.textSubtle, marginBottom: 20 },
-
-  groupFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
-  footerItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  footerText: { fontSize: 14, color: C.text, fontWeight: "500" },
-  groupAmount: { fontSize: 20, fontWeight: "800", color: C.ink, letterSpacing: -0.5 },
+  sectionTitle: { ...T.headline, color: C.ink, marginBottom: 10 },
+  emptyText: { ...T.subhead, color: C.textMuted, marginTop: 4 },
+  list: { backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, paddingHorizontal: 18 },
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: 15, gap: 12 },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.separator },
+  rowTitle: { ...T.callout, fontWeight: "600", color: C.ink },
+  rowSub: { ...T.footnote, color: C.textMuted, marginTop: 2 },
+  rowAmount: { ...T.callout, fontWeight: "600", color: C.ink },
 });
