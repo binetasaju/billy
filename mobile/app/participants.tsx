@@ -128,23 +128,30 @@ export default function ParticipantsScreen() {
   }, []);
 
   // ── Derived values ────────────────────────────────────────────────────────
+  // Rules: someone paid, at least 2 people share, and the payer is one of
+  // them (downstream screens, saved bills and UPI pay look the payer up in
+  // the sharing list — "paid for others" is handled by custom amounts).
   const hasPayerSelected = !!payerId;
-  const hasAtLeastOneSharer = sharingIds.size > 0;
-  const canContinue = hasPayerSelected && hasAtLeastOneSharer;
+  const hasEnoughSharers = sharingIds.size >= 2;
+  const payerIsSharing = !!payerId && sharingIds.has(payerId);
+  const canContinue = hasPayerSelected && hasEnoughSharers && payerIsSharing;
   const sharerCount = sharingIds.size;
 
   // ── Validation status label ───────────────────────────────────────────────
   const validationStatus = useMemo(() => {
     if (!hasPayerSelected) return { icon: "alert-circle" as const, text: "Select who paid", color: "#EF4444" };
-    if (!hasAtLeastOneSharer) return { icon: "alert-circle" as const, text: "Select who's sharing", color: "#EF4444" };
+    if (!hasEnoughSharers) return { icon: "alert-circle" as const, text: "Select at least 2 people sharing", color: "#EF4444" };
+    if (!payerIsSharing) return { icon: "alert-circle" as const, text: "Who paid must also be sharing", color: "#EF4444" };
     return { icon: "checkmark-circle" as const, text: "Ready to split", color: "#059669" };
-  }, [hasPayerSelected, hasAtLeastOneSharer]);
+  }, [hasPayerSelected, hasEnoughSharers, payerIsSharing]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handlePayerSelect = useCallback((id: string) => {
     setPayerId(id);
     billStore.updatePayer(id);
+    // The payer always shares the bill — tick them automatically.
+    setSharingIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   }, []);
 
   const handleToggleSharing = useCallback((id: string) => {
@@ -242,6 +249,14 @@ export default function ParticipantsScreen() {
     setEditName(person.name);
   }, []);
 
+  const handleParticipantOptions = useCallback((person: Person) => {
+    Alert.alert(person.name, undefined, [
+      { text: "Edit name", onPress: () => handleEditName(person) },
+      { text: "Remove", style: "destructive", onPress: () => handleRemoveParticipant(person) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [handleEditName, handleRemoveParticipant]);
+
   const saveEditName = useCallback(() => {
     if (!editingParticipant) return;
     const name = editName.trim();
@@ -317,6 +332,7 @@ export default function ParticipantsScreen() {
               phone={p.phone}
               isChecked={sharingIds.has(p.id)}
               onToggle={() => handleToggleSharing(p.id)}
+              onOptions={() => handleParticipantOptions(p)}
             />
           ))}
 

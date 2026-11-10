@@ -14,6 +14,8 @@ interface ParticipantCheckboxProps {
   phone?: string;
   isChecked: boolean;
   onToggle: () => void;
+  /** Opens per-person options (edit name / remove). Also triggered by long-press. */
+  onOptions?: () => void;
 }
 
 export default function ParticipantCheckbox({
@@ -22,6 +24,7 @@ export default function ParticipantCheckbox({
   phone,
   isChecked,
   onToggle,
+  onOptions,
 }: ParticipantCheckboxProps) {
   return (
     <Pressable
@@ -30,6 +33,7 @@ export default function ParticipantCheckbox({
         pressed && styles.rowPressed,
       ]}
       onPress={onToggle}
+      onLongPress={onOptions}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: isChecked }}
       accessibilityLabel={`${isChecked ? "Deselect" : "Select"} ${name}`}
@@ -47,14 +51,29 @@ export default function ParticipantCheckbox({
           {phone && <Text style={styles.phone}>{phone}</Text>}
         </View>
       </View>
-      <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-        {isChecked && <Ionicons name="checkmark" size={16} color="#FFF" />}
+      <View style={styles.right}>
+        {onOptions && (
+          <Pressable
+            onPress={onOptions}
+            hitSlop={10}
+            style={styles.optionsBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Options for ${name}`}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color="#6B7280" />
+          </Pressable>
+        )}
+        <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+          {isChecked && <Ionicons name="checkmark" size={16} color="#FFF" />}
+        </View>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  right: { flexDirection: "row", alignItems: "center", gap: 8 },
+  optionsBtn: { paddingHorizontal: 6, paddingVertical: 4 },
   row: {
     flexDirection: "row",
     alignItems: "center",
