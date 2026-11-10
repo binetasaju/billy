@@ -17,7 +17,7 @@ import { C } from "@/constants/colors";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
-const BAR_HEIGHT = 64;
+const BAR_HEIGHT = 60;
 const BAR_GAP = 10; // space between the bar and the bottom edge / system bar
 
 function TabIcon({ focused, color, active, inactive }: {
@@ -58,8 +58,8 @@ export default function TabLayout() {
         tabBarStyle: {
           // Floating black capsule — matches the black balance card on Home.
           position: "absolute",
-          left: 20,
-          right: 20,
+          left: 40,
+          right: 40,
           bottom,
           height: BAR_HEIGHT,
           paddingTop: 8,
@@ -87,6 +87,6 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  iconPill: { width: 46, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  iconPill: { width: 42, height: 26, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   iconPillActive: { backgroundColor: C.primaryMuted }, // a touch brighter so it reads on black
 });
