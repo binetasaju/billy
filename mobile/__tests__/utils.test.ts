@@ -1,4 +1,4 @@
-import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
+import { isValidPhoneNumber, normalizePhoneNumber } from "../utils/normalizePhoneNumber";
 import { isValidUpiId } from "../services/upi";
 import { recalculateBillTotals } from "../services/recalculateBillTotals";
 import type { ParsedBill } from "../types/bill";
@@ -19,6 +19,17 @@ describe("normalizePhoneNumber", () => {
   it.each([undefined, null, "", "   ", "abc", "000"])("returns undefined for %p", (input) => {
     expect(normalizePhoneNumber(input as any)).toBeUndefined();
   });
+});
+
+describe("isValidPhoneNumber", () => {
+  it.each(["9876543210", "98765 43210", "+91 98765-43210", "098765 43210", "919876543210", "6000000000", "+1 415 555 0100"])(
+    "accepts %s",
+    (v) => expect(isValidPhoneNumber(v)).toBe(true)
+  );
+  it.each(["", "1234567", "987654321", "98765432101", "5876543210", "0000000000", "+91 12345", "+12345", "abc"])(
+    "rejects %p",
+    (v) => expect(isValidPhoneNumber(v)).toBe(false)
+  );
 });
 
 describe("isValidUpiId", () => {

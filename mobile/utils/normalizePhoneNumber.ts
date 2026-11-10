@@ -48,3 +48,21 @@ export function normalizePhoneNumber(phone?: string | null): string | undefined 
   // Fallback MVP logic: assume Indian number if no country code provided
   return `+91${national}`;
 }
+
+/**
+ * Validates a phone number a user typed in.
+ *
+ * - Indian numbers (+91 or no country code) must be a 10-digit mobile number
+ *   starting with 6–9.
+ * - Other countries (entered with "+") must be a plausible E.164 number
+ *   (8–15 digits including the country code).
+ */
+export function isValidPhoneNumber(phone?: string | null): boolean {
+  const norm = normalizePhoneNumber(phone);
+  if (!norm) return false;
+  const digits = norm.slice(1);
+  if (digits.startsWith("91")) {
+    return /^91[6-9]\d{9}$/.test(digits);
+  }
+  return /^[1-9]\d{7,14}$/.test(digits);
+}

@@ -26,7 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../services/authStore";
-import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
+import { isValidPhoneNumber } from "../utils/normalizePhoneNumber";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -45,9 +45,8 @@ export default function LoginScreen() {
     if (!phone.trim()) {
       newErrors.phone = "Please enter your phone number.";
     } else {
-      const norm = normalizePhoneNumber(phone);
-      if (!norm || norm.length < 10) {
-        newErrors.phone = "Please enter a valid phone number.";
+      if (!isValidPhoneNumber(phone)) {
+        newErrors.phone = "Enter a valid 10-digit mobile number.";
       }
     }
     setErrors(newErrors);
