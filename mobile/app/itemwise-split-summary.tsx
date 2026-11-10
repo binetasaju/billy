@@ -1,12 +1,13 @@
 // ---------------------------------------------------------------------------
 // app/itemwise-split-summary.tsx
 //
-// Item-wise split result screen.
-// Reads each participant's assigned itemIds from billStore, computes their
-// items subtotal, then distributes charges (taxes, fees) proportionally.
+// Item-wise split — assignment AND live result on one screen.
+// The assignment section at the top writes each participant's itemIds to
+// billStore; every change re-runs calculateSettlement so the per-person
+// breakdown below is always current.
 // ---------------------------------------------------------------------------
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput
 } from "react-native";
@@ -20,7 +21,7 @@ import type { BillGroup } from "../types/group";
 import type { BillItem } from "../types/bill";
 import type { ParticipantTotal, SettlementTransaction } from "../services/calculateSettlement";
 import { Ionicons } from "@expo/vector-icons";
-// Removed inline computeRows ent
+import ItemAssignmentSection from "../components/ItemAssignmentSection";
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -40,18 +41,17 @@ export default function ItemwiseSplitSummaryScreen() {
   const [groupTitle, setGroupTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const recompute = useCallback(() => {
     const store = billStore.get();
-    if (!store) { router.replace("/"); return; }
+    if (!store) return;
 
     const allItems = (store.bill.items || []) as BillItem[];
 
-    // Detect unassigned items
+    // Detect unassigned items (warned about on Done, not on every change)
     const assignedItemIds = new Set<string>();
     store.participants.forEach((p) => p.itemIds.forEach((id) => assignedItemIds.add(id)));
     const unassigned = allItems.filter((it) => !assignedItemIds.has(it.id));
     setUnassignedItems(unassigned);
-    if (unassigned.length > 0) setShowUnassignedModal(true);
 
     const gstAmount = store.bill.gst ?? 0;
     const serviceCharge = store.bill.serviceCharge ?? 0;
@@ -103,16 +103,24 @@ export default function ItemwiseSplitSummaryScreen() {
     setTransactions(result.settlements);
     setBillTotal(store.bill.total ?? 0);
     setRestaurantName(store.bill.restaurant ?? "");
-    setGroupTitle(store.bill.restaurant || "Untitled Bill");
+    setGroupTitle((prev) => prev || store.bill.restaurant || "Untitled Bill");
     setChargesTotal(totalCharges);
   }, []);
 
-  // Back → return to the inline item-wise assignment on the split-method screen.
-  // The screen is still mounted below us in the stack, so its assignment state
-  // (and the store) is preserved; the replace() branch only covers deep links.
-  const goBackToAssignment = () => {
+  useEffect(() => {
+    if (!billStore.get()) { router.replace("/"); return; }
+    recompute();
+  }, [recompute]);
+
+  const goBackToMethod = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/choose-split-method" as any);
+  };
+
+  // Done: warn once about unassigned items, otherwise go straight to saving.
+  const handleDone = () => {
+    if (unassignedItems.length > 0) setShowUnassignedModal(true);
+    else setShowSaveModal(true);
   };
 
   const handleCreateGroup = async () => {
@@ -148,6 +156,9 @@ export default function ItemwiseSplitSummaryScreen() {
           <Text style={s.title}>Item-wise Split</Text>
           {restaurantName ? <Text style={s.restaurant}>{restaurantName}</Text> : null}
         </View>
+
+        {/* Assignment — tap a person, tick what they had. Totals below update live. */}
+        <ItemAssignmentSection onChange={recompute} />
 
 
 
@@ -263,11 +274,11 @@ export default function ItemwiseSplitSummaryScreen() {
 
         {/* Actions */}
         <View style={s.actions}>
-          <Pressable style={s.changeBtn} onPress={goBackToAssignment}>
+          <Pressable style={s.changeBtn} onPress={goBackToMethod}>
             <Ionicons name="swap-horizontal" size={16} color="#374151" />
-            <Text style={s.changeBtnText}>Back to Assignment</Text>
+            <Text style={s.changeBtnText}>Change Method</Text>
           </Pressable>
-          <Pressable style={s.doneBtn} onPress={() => setShowSaveModal(true)}>
+          <Pressable style={s.doneBtn} onPress={handleDone}>
             <Text style={s.doneBtnText}>Done ✓</Text>
           </Pressable>
         </View>
@@ -316,13 +327,13 @@ export default function ItemwiseSplitSummaryScreen() {
             <View style={s.modalActions}>
               <Pressable
                 style={s.modalBtnSecondary}
-                onPress={() => { setShowUnassignedModal(false); goBackToAssignment(); }}
+                onPress={() => setShowUnassignedModal(false)}
               >
-                <Text style={s.modalBtnSecondaryText}>Go Back & Assign</Text>
+                <Text style={s.modalBtnSecondaryText}>Assign Them</Text>
               </Pressable>
               <Pressable
                 style={s.modalBtnPrimary}
-                onPress={() => setShowUnassignedModal(false)}
+                onPress={() => { setShowUnassignedModal(false); setShowSaveModal(true); }}
               >
                 <Text style={s.modalBtnPrimaryText}>Split Equally</Text>
               </Pressable>

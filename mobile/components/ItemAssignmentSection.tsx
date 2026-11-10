@@ -24,10 +24,13 @@ import { billStore } from "../services/billStore";
 import type { BillItem, Person } from "../types/bill";
 
 interface ItemAssignmentSectionProps {
-  onDone: () => void;
+  /** Shows a "View Settlement" button when provided. */
+  onDone?: () => void;
+  /** Called after every assignment change (already saved to billStore). */
+  onChange?: () => void;
 }
 
-export default function ItemAssignmentSection({ onDone }: ItemAssignmentSectionProps) {
+export default function ItemAssignmentSection({ onDone, onChange }: ItemAssignmentSectionProps) {
   const router = useRouter();
 
   // ── States ────────────────────────────────────────────────────────────────
@@ -106,7 +109,8 @@ export default function ItemAssignmentSection({ onDone }: ItemAssignmentSectionP
     if (store) {
       store.participants = nextParticipants;
     }
-  }, [activePerson, activePersonIndex, participants]);
+    onChange?.();
+  }, [activePerson, activePersonIndex, participants, onChange]);
 
   const handlePrev = () => {
     if (activePersonIndex > 0) {
@@ -296,11 +300,13 @@ export default function ItemAssignmentSection({ onDone }: ItemAssignmentSectionP
       </View>
 
       {/* Continue Action */}
-      <View style={styles.footer}>
-        <Pressable style={styles.continueBtn} onPress={onDone}>
-          <Text style={styles.continueBtnText}>View Settlement →</Text>
-        </Pressable>
-      </View>
+      {onDone && (
+        <View style={styles.footer}>
+          <Pressable style={styles.continueBtn} onPress={onDone}>
+            <Text style={styles.continueBtnText}>View Settlement →</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

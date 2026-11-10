@@ -17,7 +17,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
-import ItemAssignmentSection from "../components/ItemAssignmentSection";
 
 type Method = "equal" | "itemwise";
 
@@ -55,7 +54,6 @@ const CARDS: MethodCard[] = [
 export default function ChooseSplitMethodScreen() {
   const router = useRouter();
   const [selectedMethod, setSelectedMethod] = useState<Method | null>(null);
-  const isItemwise = selectedMethod === "itemwise";
 
   useEffect(() => {
     const store = billStore.get();
@@ -71,14 +69,9 @@ export default function ChooseSplitMethodScreen() {
   const handleSelect = (method: Method) => {
     billStore.setSplitMethod(method);
     setSelectedMethod(method);
-    if (method === "equal") {
-      router.push("/equal-split-summary" as any);
-    }
-    // Item-wise → the method cards give way to the inline assignment UI below.
-  };
-
-  const handleItemwiseDone = () => {
-    router.push("/itemwise-split-summary" as any);
+    router.push(
+      (method === "equal" ? "/equal-split-summary" : "/itemwise-split-summary") as any
+    );
   };
 
   return (
@@ -88,21 +81,12 @@ export default function ChooseSplitMethodScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ── */}
-        {/* Once item-wise is picked the method is settled, so the picker steps
-            aside for a compact header and the screen becomes assignment-only. */}
-        <View style={[styles.header, isItemwise && styles.headerCompact]}>
-          <Text style={styles.title}>
-            {isItemwise ? "Item-wise Split" : "Split Method"}
-          </Text>
-          <Text style={styles.subtitle}>
-            {isItemwise
-              ? "Assign each item to the people who had it."
-              : "How would you like to split this bill?"}
-          </Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Split Method</Text>
+          <Text style={styles.subtitle}>How would you like to split this bill?</Text>
         </View>
 
         {/* ── Method Cards ── */}
-        {!isItemwise && (
         <View style={styles.cards}>
           {CARDS.map(({ method, icon, iconBg, iconColor, title, description, badge }) => (
             <Pressable
@@ -141,10 +125,7 @@ export default function ChooseSplitMethodScreen() {
             </Pressable>
           ))}
         </View>
-        )}
 
-        {/* ── Inline Item Assignment for Item-wise Split ── */}
-        {isItemwise && <ItemAssignmentSection onDone={handleItemwiseDone} />}
       </ScrollView>
     </SafeAreaView>
   );
@@ -155,7 +136,6 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   header: { marginTop: 28, marginBottom: 28 },
-  headerCompact: { marginBottom: 20 },
   title: {
     fontSize: 28,
     fontWeight: "700",
