@@ -37,6 +37,15 @@ export const C = {
   warningDark: "#B45309",
   warningSoft: "#FFFBEB",
 
+  // Bill / payment status — one rule everywhere:
+  //   Active / Pending (money still owed) = amber · Settled / Paid = green
+  statusActiveBg: "#FEF3C7",
+  statusActiveText: "#92400E",
+  statusActiveDot: "#F59E0B",
+  statusSettledBg: "#E3F0EA",
+  statusSettledText: "#065F46",
+  statusSettledDot: "#059669",
+
   // Glass (glassmorphism) — translucent white over a soft emerald glow
   glass: "rgba(255,255,255,0.62)",       // cards, lists
   glassStrong: "rgba(255,255,255,0.82)", // inputs, chips, secondary buttons

@@ -26,6 +26,7 @@ import { computeGroupBalances, describeBalance, simplifyDebts } from "../../serv
 import ContactPickerModal, { ContactData } from "../../components/ContactPickerModal";
 import type { GroupMember } from "../../types/group";
 import { C } from "@/constants/colors";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { T } from "@/constants/typography";
 
 export default function ContactGroupDetailScreen() {
@@ -318,9 +319,18 @@ export default function ContactGroupDetailScreen() {
                 </View>
                 <View style={s.billRight}>
                   <Text style={s.billAmount}>₹{bg.totalAmount.toFixed(2)}</Text>
-                  <Text style={bg.status === "settled" ? s.billSettled : s.billActive}>
-                    {bg.status === "settled" ? "Settled" : "Active"}
-                  </Text>
+                  {bg.status === "settled" ? (
+                    <StatusBadge status="settled" size="sm" />
+                  ) : (
+                    <StatusBadge
+                      status="active"
+                      size="sm"
+                      label={(() => {
+                        const paid = bg.settlements.filter((t) => t.status === "paid").length;
+                        return paid > 0 ? `${paid} of ${bg.settlements.length} paid` : "Active";
+                      })()}
+                    />
+                  )}
                 </View>
               </Pressable>
             ))}
@@ -440,8 +450,6 @@ const s = StyleSheet.create({
   billRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   billRight: { alignItems: "flex-end" },
   billAmount: { fontSize: 15, fontWeight: "700", color: C.ink },
-  billSettled: { fontSize: 12, fontWeight: "600", color: C.successDark, marginTop: 2 },
-  billActive: { fontSize: 12, fontWeight: "600", color: C.warning, marginTop: 2 },
 
   deleteBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,

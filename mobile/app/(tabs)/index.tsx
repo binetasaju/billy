@@ -219,7 +219,10 @@ export default function HomeScreen() {
                     <View style={styles.rowMain}>
                       <Text style={styles.rowTitle} numberOfLines={1}>{g.title}</Text>
                       <Text style={styles.rowSub}>
-                        {formatDate(g.createdAt)} · {g.status === "settled" ? "Settled" : `${open} pending`}
+                        {formatDate(g.createdAt)} ·{" "}
+                        <Text style={g.status === "settled" ? styles.statusSettled : styles.statusActive}>
+                          {g.status === "settled" ? "Settled" : `${open} pending`}
+                        </Text>
                       </Text>
                     </View>
                     <Text style={styles.rowAmount}>{money(g.totalAmount)}</Text>
@@ -264,6 +267,9 @@ const styles = StyleSheet.create({
   positive: { color: C.successDark },
   negative: { color: C.danger },
   // Brighter variants that stay readable on the black card
+  // Status colours — amber = still owed, green = settled
+  statusActive: { color: C.statusActiveText, fontWeight: "600" },
+  statusSettled: { color: C.statusSettledText, fontWeight: "600" },
   positiveOnDark: { color: "#10B981" },
   negativeOnDark: { color: "#FB7185" },
 

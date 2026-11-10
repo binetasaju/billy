@@ -19,6 +19,7 @@ import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
 import type { BillGroup } from "../../types/group";
 import { C } from "@/constants/colors";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 
@@ -144,10 +145,7 @@ export default function HistoryScreen() {
               >
                 <View style={s.groupHeader}>
                   <Text style={s.groupTitle} numberOfLines={1}>{group.title}</Text>
-                  <View style={s.settledBadge}>
-                    <Ionicons name="checkmark-circle" size={13} color={C.successDark} />
-                    <Text style={s.settledText}>Settled</Text>
-                  </View>
+                  <StatusBadge status="settled" />
                 </View>
 
                 <Text style={s.groupDate}>{formatDate(group.createdAt)}</Text>
@@ -211,8 +209,6 @@ const s = StyleSheet.create({
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   groupTitle: { fontSize: 18, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
-  settledBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.successSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  settledText: { color: C.successDark, fontSize: 12, fontWeight: "600" },
   groupDate: { fontSize: 13, color: C.textSubtle, marginBottom: 20 },
 
   groupFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },

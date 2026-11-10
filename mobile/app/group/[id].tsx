@@ -14,6 +14,7 @@ import { buildPaymentRequestMessage, isValidUpiId, openUpiPayment } from "../../
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { T } from "@/constants/typography";
 
 /** One row of a person's share breakdown. */
@@ -340,15 +341,11 @@ export default function GroupDetailsScreen() {
               <Text style={s.editBtnText}>Edit</Text>
             </Pressable>
           )}
+          <StatusBadge status={group.status === "settled" ? "settled" : "active"} />
           <Pressable style={s.reportBtn} onPress={() => setShowReportModal(true)}>
             <Ionicons name="flag-outline" size={15} color={C.danger} />
             <Text style={s.reportBtnText}>Report Error</Text>
           </Pressable>
-          <View style={[s.statusBadge, group.status === "settled" && s.statusBadgeSettled]}>
-            <Text style={[s.statusText, group.status === "settled" && s.statusTextSettled]}>
-              {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -800,10 +797,6 @@ const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
-  statusBadge: { backgroundColor: C.dangerSoft, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  statusBadgeSettled: { backgroundColor: C.successSoft },
-  statusText: { color: C.danger, fontSize: 13, fontWeight: "600" },
-  statusTextSettled: { color: C.success },
 
   editBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: C.primarySoft },
   editBtnText: { fontSize: 13, fontWeight: "600", color: C.primary },
@@ -845,8 +838,8 @@ const s = StyleSheet.create({
   whoAvatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   whoItems: { fontSize: 12, color: C.textMuted, marginTop: 2, lineHeight: 16 },
   whoTotal: { fontSize: 15, fontWeight: "700", color: C.ink },
-  txPaidStatus: { fontSize: 12, color: C.success, fontWeight: "600", marginTop: 2 },
-  txPendingStatus: { fontSize: 12, color: C.textSubtle, fontWeight: "500", marginTop: 2 },
+  txPaidStatus: { fontSize: 12, color: C.statusSettledText, fontWeight: "600", marginTop: 2 },
+  txPendingStatus: { fontSize: 12, color: C.statusActiveText, fontWeight: "600", marginTop: 2 },
   txAmount: { fontSize: 16, fontWeight: "700", color: C.ink },
 
   // Actions row below transaction info

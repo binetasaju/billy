@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
 import { C } from "@/constants/colors";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 
@@ -47,9 +48,11 @@ export default function PayBillsScreen() {
               >
                 <View style={s.groupHeader}>
                   <Text style={s.groupTitle} numberOfLines={1}>{group.title}</Text>
-                  <View style={s.statusBadge}>
-                    <Text style={s.statusText}>Active</Text>
-                  </View>
+                  {(() => {
+                    const paid = group.settlements.filter((t) => t.status === "paid").length;
+                    const n = group.settlements.length;
+                    return <StatusBadge status="active" label={paid > 0 ? `${paid} of ${n} paid` : "Active"} />;
+                  })()}
                 </View>
                 
                 <Text style={s.groupDate}>
@@ -111,8 +114,6 @@ const s = StyleSheet.create({
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   groupTitle: { fontSize: 18, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
-  statusBadge: { backgroundColor: C.successSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  statusText: { color: C.successDark, fontSize: 12, fontWeight: "600" },
   groupDate: { fontSize: 13, color: C.textSubtle, marginBottom: 20 },
   
   groupFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
