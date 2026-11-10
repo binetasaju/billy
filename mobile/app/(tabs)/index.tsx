@@ -263,13 +263,13 @@ const styles = StyleSheet.create({
   positive: { color: C.successDark },
   negative: { color: C.danger },
   // Brighter variants that stay readable on the black card
-  positiveOnDark: { color: "#34D399" },
+  positiveOnDark: { color: "#10B981" },
   negativeOnDark: { color: "#FB7185" },
 
   primaryBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 17, alignItems: "center" },
   primaryBtnText: { ...T.headline, color: C.white },
   linkBtn: { alignItems: "center", paddingVertical: 14 },
-  linkText: { ...T.subhead, color: "#6EE7B7" },
+  linkText: { ...T.subhead, color: "#34D399" },
 
   sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 20, marginBottom: 10 },
   sectionTitle: { ...T.headline, color: C.ink },

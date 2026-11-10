@@ -7,10 +7,10 @@
 
 export const C = {
   // Brand — emerald green, black & white
-  primary: "#059669",        // emerald — buttons, active tab, links, selected
+  primary: "#065F46",        // deep emerald — buttons, active tab, links, selected
   primaryDark: "#0A0A0A",    // black — dark cards (login / summary)
-  primarySoft: "#E6F6EF",    // light emerald highlights
-  primaryMuted: "#10B981",   // lighter emerald accents / info icons
+  primarySoft: "#E3F0EA",    // light emerald highlights
+  primaryMuted: "#047857",   // emerald accents / info icons
 
   // Text — black & greys
   ink: "#0A0A0A",            // headings and main text
@@ -27,9 +27,9 @@ export const C = {
   separator: "#D4D4D4",
 
   // Money / status
-  success: "#10B981",        // owed to you, paid, settled
-  successDark: "#047857",    // green text on light backgrounds
-  successSoft: "#E6F6EF",
+  success: "#059669",        // owed to you, paid, settled
+  successDark: "#065F46",    // green text on light backgrounds
+  successSoft: "#E3F0EA",
   danger: "#E11D48",         // you owe, delete, errors
   dangerDark: "#BE123C",
   dangerSoft: "#FFF1F2",
@@ -42,8 +42,8 @@ export const C = {
   glassStrong: "rgba(255,255,255,0.82)", // inputs, chips, secondary buttons
   glassBorder: "rgba(255,255,255,0.95)", // bright edge that sells the glass
   glassBase: "#F1F5F3",                  // screen base under the glows
-  glowPrimary: "#10B981",                // emerald
-  glowSecondary: "#6EE7B7",              // mint
+  glowPrimary: "#047857",                // deep emerald
+  glowSecondary: "#10B981",              // emerald
   glowTertiary: "#D1D5DB",               // soft grey
 
   // On dark (black) cards
