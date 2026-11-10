@@ -1,11 +1,41 @@
+// ---------------------------------------------------------------------------
+// app/(tabs)/_layout.tsx — bottom navigation
+//
+// A floating glass tab bar: rounded, translucent, hovering above the glow
+// background, with an indigo pill behind the active tab (filled icon) and
+// outline icons for the others.
+// ---------------------------------------------------------------------------
 import { Tabs } from "expo-router";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect } from "react";
 import { groupStore } from "../../services/groupStore";
 import { contactGroupStore } from "../../services/contactGroupStore";
 import { C } from "@/constants/colors";
+
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
+
+const BAR_HEIGHT = 64;
+const BAR_GAP = 10; // space between the bar and the bottom edge / system bar
+
+function TabIcon({ focused, color, active, inactive }: {
+  focused: boolean; color: string; active: IconName; inactive: IconName;
+}) {
+  return (
+    <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+      <Ionicons name={focused ? active : inactive} size={22} color={focused ? C.white : color} />
+    </View>
+  );
+}
+
+const icon = (active: IconName, inactive: IconName) => {
+  const Icon = ({ focused, color }: { focused: boolean; color: string }) => (
+    <TabIcon focused={focused} color={color} active={active} inactive={inactive} />
+  );
+  Icon.displayName = `TabIcon(${active})`;
+  return Icon;
+};
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -15,75 +45,51 @@ export default function TabLayout() {
     contactGroupStore.restore();
   }, []);
 
+  const bottom = insets.bottom + BAR_GAP;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: C.primary,
-        tabBarInactiveTintColor: C.textSubtle,
+        tabBarInactiveTintColor: C.textMuted,
+        tabBarShowLabel: true,
         tabBarStyle: {
-          backgroundColor: "rgba(249,249,249,0.97)",
-          borderTopColor: C.separator,
-          borderTopWidth: StyleSheet.hairlineWidth,
+          position: "absolute",
+          left: 16,
+          right: 16,
+          bottom,
+          height: BAR_HEIGHT,
+          paddingTop: 8,
+          paddingBottom: 8,
+          borderRadius: 28,
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: C.glassBorder,
+          backgroundColor: "rgba(255,255,255,0.78)",
           elevation: 0,
-          shadowOpacity: 0,
-          // Edge-to-edge: lift the tab bar above the system navigation bar.
-          paddingBottom: 4 + insets.bottom,
-          paddingTop: 4,
-          height: 60 + insets.bottom,
+          shadowColor: C.glowIndigo,
+          shadowOpacity: 0.18,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 8 },
         },
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: "500",
-          letterSpacing: 0.1,
-        },
+        tabBarItemStyle: { paddingVertical: 0 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginTop: 2 },
+        // Screens end above the floating bar; the strip behind it shows the
+        // same glass base colour so the bar floats over the theme.
+        sceneStyle: { paddingBottom: BAR_HEIGHT + bottom + 4, backgroundColor: C.glassBase },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="pay-bills"
-        options={{
-          title: "Pay Bills",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="groups"
-        options={{
-          title: "Groups",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: "History",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: icon("home", "home-outline") }} />
+      <Tabs.Screen name="pay-bills" options={{ title: "Pay", tabBarIcon: icon("wallet", "wallet-outline") }} />
+      <Tabs.Screen name="groups" options={{ title: "Groups", tabBarIcon: icon("people", "people-outline") }} />
+      <Tabs.Screen name="history" options={{ title: "History", tabBarIcon: icon("time", "time-outline") }} />
+      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: icon("person", "person-outline") }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconPill: { width: 46, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  iconPillActive: { backgroundColor: C.primary },
+});
