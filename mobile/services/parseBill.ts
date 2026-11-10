@@ -152,6 +152,19 @@ ${ocrText
 // Parser
 // ---------------------------------------------------------------------------
 
+/** Gemini refused the request because the (daily) quota is used up. */
+class QuotaExceededError extends Error {}
+
+function fallbackNote(err: unknown): string {
+  if (err instanceof QuotaExceededError) {
+    return "Today's AI limit is reached, so items were read offline. Please check them carefully.";
+  }
+  if (err instanceof Error && /API key not set/i.test(err.message)) {
+    return "AI reading isn't set up, so items were read offline. Please check them carefully.";
+  }
+  return "Couldn't reach the AI service, so items were read offline. Please check them carefully.";
+}
+
 export async function parseBill(ocrText: string): Promise<ParsedBill> {
   const parseStart = Date.now();
   let retryCount = 0;
@@ -187,7 +200,12 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
       });
 
       if (!response.ok) {
-        const isRetryable = [503, 429, 500].includes(response.status);
+        // 429 = quota exhausted. A daily limit won't reset in a few seconds,
+        // so retrying only adds delay — go straight to the offline parser.
+        if (response.status === 429) {
+          throw new QuotaExceededError("Gemini quota exceeded (429)");
+        }
+        const isRetryable = [503, 500].includes(response.status);
         if (isRetryable && attempt < maxRetries) {
           const delayMs = RETRY_DELAYS[attempt - 1];
           console.warn(`[parseBill] Gemini ${response.status}. Retrying in ${delayMs}ms... (${attempt}/${maxRetries})`);
@@ -375,6 +393,7 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
     
     fallbackUsed = true;
     const parsed = localFallbackParser(ocrText);
+    parsed.extractionNote = fallbackNote(err);
     
     console.log(`[parseBill] ✓ Fallback parsed ${parsed.items.length} items, total ₹${parsed.total}`);
     console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);

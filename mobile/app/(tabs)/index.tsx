@@ -42,7 +42,7 @@ export default function HomeScreen() {
     });
 
     if (!result.canceled) {
-      router.push({ pathname: "/optimizing", params: { uri: result.assets[0].uri } });
+      router.push({ pathname: "/preview", params: { uri: result.assets[0].uri } });
     }
   };
 
@@ -61,7 +61,7 @@ export default function HomeScreen() {
     });
 
     if (!result.canceled) {
-      router.push({ pathname: "/optimizing", params: { uri: result.assets[0].uri } });
+      router.push({ pathname: "/preview", params: { uri: result.assets[0].uri } });
     }
   };
 

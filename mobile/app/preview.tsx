@@ -12,11 +12,12 @@
 // latest (possibly edited) image.
 // ---------------------------------------------------------------------------
 
-import { useEffect } from "react";
-import { View, Text, Image, Pressable, StyleSheet, Dimensions } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, Image, Pressable, StyleSheet, Dimensions, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { optimizeReceipt } from "../services/optimizer";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 const IMAGE_MAX_H = Math.round(SCREEN_H * 0.55);
@@ -24,6 +25,23 @@ const IMAGE_MAX_H = Math.round(SCREEN_H * 0.55);
 export default function PreviewScreen() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
   const router  = useRouter();
+  const [autoCropping, setAutoCropping] = useState(false);
+
+  // AI auto-crop costs one Gemini request, so it only runs when asked.
+  const handleAutoCrop = async () => {
+    if (!uri || autoCropping) return;
+    setAutoCropping(true);
+    try {
+      const cropped = await optimizeReceipt(uri);
+      if (cropped === uri) {
+        Alert.alert("Auto-crop", "Couldn't find a tighter crop. Use Adjust Crop to crop by hand.");
+      } else {
+        router.setParams({ uri: cropped });
+      }
+    } finally {
+      setAutoCropping(false);
+    }
+  };
 
   useEffect(() => {
     if (uri) console.log("[Preview] URI:", uri);
@@ -67,6 +85,20 @@ export default function PreviewScreen() {
           style={({ pressed }) => [styles.retakeBtn, pressed && { opacity: 0.6 }]}
         >
           <Text style={styles.retakeBtnText}>← Retake / Choose Again</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleAutoCrop}
+          disabled={autoCropping}
+          style={({ pressed }) => [styles.retakeBtn, (pressed || autoCropping) && { opacity: 0.6 }]}
+          accessibilityRole="button"
+        >
+          <View style={styles.btnInner}>
+            {autoCropping
+              ? <ActivityIndicator size="small" color="#6B7280" />
+              : <Ionicons name="sparkles-outline" size={16} color="#6B7280" />}
+            <Text style={styles.retakeBtnText}>{autoCropping ? "Finding the receipt…" : "Auto-crop (AI)"}</Text>
+          </View>
         </Pressable>
 
         <View style={styles.mainButtons}>

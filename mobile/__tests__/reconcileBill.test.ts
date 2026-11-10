@@ -107,3 +107,28 @@ describe("parseBill — no phantom GST", () => {
     expect(bill.taxInclusive).toBe(false);
   });
 });
+
+describe("parseBill — quota exhausted", () => {
+  const originalKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  const originalFetch = global.fetch;
+  beforeAll(() => {
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY = "test-key";
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY = originalKey;
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it("does not retry on 429 and falls back offline with an explanation", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 429, text: async () => "RESOURCE_EXHAUSTED" });
+    global.fetch = fetchMock as any;
+    const bill = await parseBill("Tea  30.00\nSamosa  40.00");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(bill.items.map((i) => i.name)).toEqual(["Tea", "Samosa"]);
+    expect(bill.extractionNote).toMatch(/AI limit/);
+  });
+});

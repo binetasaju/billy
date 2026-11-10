@@ -377,6 +377,12 @@ export default function ReviewItemsScreen() {
 
 
         {/* ── Generic verification hint (non-fallback low-confidence items) ── */}
+        {bill?.extractionNote ? (
+          <View style={styles.verificationHint}>
+            <Text style={styles.verificationHintText}>{bill.extractionNote}</Text>
+          </View>
+        ) : null}
+
         {!isFallback && hasSuspiciousItems && (
           <View style={styles.verificationHint}>
             <Text style={styles.verificationHintText}>Some items may need verification.</Text>
