@@ -79,4 +79,9 @@ export interface BillGroup {
    * frozen record for settlement and are never re-read from the group.
    */
   contactGroupId?: string;
+
+  /** How the bill was split. Older bills omit it (inferred from itemIds). */
+  splitMethod?: "equal" | "itemwise" | "custom";
+  /** splitMethod "custom": the amount each person agreed to pay, by person id. */
+  customAmounts?: Record<string, number>;
 }

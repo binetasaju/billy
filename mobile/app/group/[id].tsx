@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Alert, Share } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -7,7 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import { groupStore } from "../../services/groupStore";
 import { useGroups } from "../../hooks/useGroups";
 import { authStore } from "../../services/authStore";
-import { openUpiPayment } from "../../services/upi";
+import { buildPaymentRequestMessage, isValidUpiId, openUpiPayment } from "../../services/upi";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 
@@ -74,6 +74,17 @@ export default function GroupDetailsScreen() {
   // Stored settlement amounts are never altered here; they stay authoritative
   // for what is owed.
   const getPersonBreakdown = (personId: string) => {
+    // Custom-amount bills: the agreed amount IS the breakdown.
+    if (group?.splitMethod === "custom") {
+      const amount = group.customAmounts?.[personId] ?? 0;
+      return {
+        lines: [{ key: "__custom", name: "Agreed amount", amount, note: "custom split" }] as BreakdownLine[],
+        itemsTotal: amount,
+        chargesShare: 0,
+        total: amount,
+      };
+    }
+
     const participants = group?.participants ?? [];
     const allItems = (group?.billSnapshot?.items ?? []) as BillItem[];
     const person = participants.find((p) => p.id === personId);
@@ -218,6 +229,27 @@ export default function GroupDetailsScreen() {
       Alert.alert("Marked as Paid", `${label} payment marked as completed.`);
     }
     setPayOtherTx(null);
+  };
+
+  // ── Payee-side request ("please pay me") ──────────────────────────────────
+  const handleRequestPayment = async (tx: any, sender: Person | undefined) => {
+    const me = authStore.get().user;
+    if (!me || tx.toUserId !== me.uid) return;
+    const message = buildPaymentRequestMessage({
+      payerName: sender?.name ?? "there",
+      requesterName: me.name,
+      requesterUpiId: me.upiId,
+      amount: tx.amount,
+      billTitle: group?.title ?? "our bill",
+    });
+    try {
+      await Share.share({ message });
+    } catch (err) {
+      console.error("[Group] Share failed:", err);
+    }
+    if (!me.upiId || !isValidUpiId(me.upiId)) {
+      Alert.alert("Tip", "Add your UPI ID in Profile so requests include a one-tap payment link.");
+    }
   };
 
   // ── Payee-side confirmation ────────────────────────────────────────────────
@@ -410,13 +442,23 @@ export default function GroupDetailsScreen() {
                           </Pressable>
                         )
                       ) : isCurrentUserTo ? (
-                        <Pressable
-                          style={s.receivedBtn}
-                          onPress={() => handleMarkReceivedClick(tx, personFromObj)}
-                        >
-                          <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
-                          <Text style={s.receivedBtnText}>Mark as Received</Text>
-                        </Pressable>
+                        <>
+                          <Pressable
+                            style={s.infoBtn}
+                            onPress={() => handleRequestPayment(tx, personFromObj)}
+                            accessibilityLabel={`Request payment from ${personFromObj?.name ?? "them"}`}
+                          >
+                            <Ionicons name="paper-plane-outline" size={16} color="#3B82F6" />
+                            <Text style={s.infoBtnText}>Request</Text>
+                          </Pressable>
+                          <Pressable
+                            style={s.receivedBtn}
+                            onPress={() => handleMarkReceivedClick(tx, personFromObj)}
+                          >
+                            <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+                            <Text style={s.receivedBtnText}>Received</Text>
+                          </Pressable>
+                        </>
                       ) : (
                         <View style={s.waitingBadge}>
                           <Text style={s.waitingText}>Waiting for payment</Text>

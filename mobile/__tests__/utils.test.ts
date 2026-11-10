@@ -1,5 +1,5 @@
 import { isValidPhoneNumber, normalizePhoneNumber } from "../utils/normalizePhoneNumber";
-import { isValidUpiId } from "../services/upi";
+import { buildPaymentRequestMessage, buildUpiUri, isValidUpiId } from "../services/upi";
 import { recalculateBillTotals } from "../services/recalculateBillTotals";
 import type { ParsedBill } from "../types/bill";
 
@@ -71,5 +71,33 @@ describe("recalculateBillTotals", () => {
 
   it("never returns a negative total", () => {
     expect(recalculateBillTotals(bill([10], [{ name: "Discount", amount: -50 }])).total).toBe(0);
+  });
+});
+
+describe("buildUpiUri", () => {
+  it("follows the UPI deep-link format", () => {
+    expect(buildUpiUri({ upiId: " ravi@okaxis ", receiverName: "Ravi K", amount: 250, note: "Dinner & drinks" })).toBe(
+      "upi://pay?pa=ravi%40okaxis&pn=Ravi%20K&am=250.00&cu=INR&tn=Dinner%20%26%20drinks"
+    );
+  });
+  it("omits the note when there is none", () => {
+    expect(buildUpiUri({ upiId: "a@ybl", receiverName: "A", amount: 1.5 })).toBe("upi://pay?pa=a%40ybl&pn=A&am=1.50&cu=INR");
+  });
+});
+
+describe("buildPaymentRequestMessage", () => {
+  const base = { payerName: "Anu", requesterName: "Ravi", amount: 340, billTitle: "Pizza Hut" };
+  it("includes a one-tap UPI link when the requester has a UPI ID", () => {
+    const msg = buildPaymentRequestMessage({ ...base, requesterUpiId: "ravi@okaxis" });
+    expect(msg).toContain('Hi Anu, your share for "Pizza Hut" is ₹340.00.');
+    expect(msg).toContain("Pay Ravi on UPI: ravi@okaxis");
+    expect(msg).toContain("upi://pay?pa=ravi%40okaxis&pn=Ravi&am=340.00&cu=INR&tn=Pizza%20Hut");
+  });
+  it("still works without a (valid) UPI ID", () => {
+    for (const upi of [undefined, null, "not-a-upi"]) {
+      const msg = buildPaymentRequestMessage({ ...base, requesterUpiId: upi });
+      expect(msg).toContain("₹340.00");
+      expect(msg).not.toContain("upi://");
+    }
   });
 });

@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
 
-type Method = "equal" | "itemwise";
+type Method = "equal" | "itemwise" | "custom";
 
 interface MethodCard {
   method: Method;
@@ -49,6 +49,15 @@ const CARDS: MethodCard[] = [
     description: "Assign individual items to participants for a precise split.",
     badge: "Precise",
   },
+  {
+    method: "custom",
+    icon: "create-outline",
+    iconBg: "#FEF3C7",
+    iconColor: "#D97706",
+    title: "Custom Amounts",
+    description: "Type how much each person pays — the rest re-balances automatically.",
+    badge: "Flexible",
+  },
 ];
 
 export default function ChooseSplitMethodScreen() {
@@ -69,9 +78,11 @@ export default function ChooseSplitMethodScreen() {
   const handleSelect = (method: Method) => {
     billStore.setSplitMethod(method);
     setSelectedMethod(method);
-    router.push(
-      (method === "equal" ? "/equal-split-summary" : "/itemwise-split-summary") as any
-    );
+    const route =
+      method === "equal" ? "/equal-split-summary"
+      : method === "itemwise" ? "/itemwise-split-summary"
+      : "/custom-split";
+    router.push(route as any);
   };
 
   return (

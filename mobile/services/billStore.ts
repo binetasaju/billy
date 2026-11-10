@@ -25,7 +25,7 @@ interface StoreState {
   // Split Session State
   payerId: string | null;
   participants: Person[];
-  splitMethod: "equal" | "itemwise" | null;
+  splitMethod: "equal" | "itemwise" | "custom" | null;
   /**
    * The reusable ContactGroup these participants were prefilled from, if any.
    * Carried through to the BillGroup as a backward reference — participants
@@ -150,7 +150,7 @@ export const billStore = {
       _notify();
     }
   },
-  setSplitMethod(method: "equal" | "itemwise") {
+  setSplitMethod(method: "equal" | "itemwise" | "custom") {
     if (_state) {
       _state = { ..._state, splitMethod: method };
       _notify();
