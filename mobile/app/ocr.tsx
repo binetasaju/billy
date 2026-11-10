@@ -129,10 +129,14 @@ export default function OcrScreen() {
       console.log("[PIPELINE] Original dimensions:", compressed.width, "×", compressed.height);
 
       // ── Step 3: Read base64 ────────────────────────────────────────────────
+      // base64 is only needed by the optional Vision API — skip it otherwise.
+      const visionConfigured = !!process.env.EXPO_PUBLIC_VISION_API_KEY;
       const base64Start = Date.now();
-      const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
-        encoding: "base64" as FileSystem.EncodingType,
-      });
+      const base64 = visionConfigured
+        ? await FileSystem.readAsStringAsync(compressed.uri, {
+            encoding: "base64" as FileSystem.EncodingType,
+          })
+        : "";
       const base64DurationMs = Date.now() - base64Start;
       const compressedSizeKB = ((base64.length * 0.75) / 1024).toFixed(1);
       console.log("[PIPELINE] Original size:", originalSizeKB, "KB");
@@ -141,7 +145,7 @@ export default function OcrScreen() {
       console.log("[PIPELINE] Base64 read duration:", base64DurationMs, "ms");
       console.log(`[PIPELINE] Size reduction: ${originalSizeKB} KB → ${compressedSizeKB} KB`);
 
-      if (!base64 || base64.length === 0) {
+      if (visionConfigured && base64.length === 0) {
         throw new Error("Image read failed. File may be corrupt.");
       }
 

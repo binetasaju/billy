@@ -15,6 +15,8 @@ import { isTaxCharge, reconcileCharges } from "./reconcileBill";
 export type { ParsedBill };
 
 const GEMINI_MODEL = "gemini-flash-lite-latest";
+/** Per-attempt limit for the Gemini call (normal replies take ~2–3 s). */
+const ATTEMPT_TIMEOUT_MS = 15_000;
 const GEMINI_BASE_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -159,6 +161,9 @@ function fallbackNote(err: unknown): string {
   if (err instanceof QuotaExceededError) {
     return "Today's AI limit is reached, so items were read offline. Please check them carefully.";
   }
+  if (err instanceof Error && err.name === "AbortError") {
+    return "The AI service was too slow, so items were read offline. Please check them carefully.";
+  }
   if (err instanceof Error && /API key not set/i.test(err.message)) {
     return "AI reading isn't set up, so items were read offline. Please check them carefully.";
   }
@@ -180,13 +185,20 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
 
     let response: Response | null = null;
     let attempt = 1;
-    const maxRetries = 3;
-    const RETRY_DELAYS = [2000, 4000, 8000]; // progressive backoff
+    // Speed over persistence: a normal reply takes ~2–3 s. If Google is
+    // overloaded, give each attempt 15 s, retry once, then fall back to the
+    // offline parser — worst case ≈ 30 s instead of a minute or more.
+    const maxRetries = 2;
+    const RETRY_DELAYS = [1500];
 
     while (attempt <= maxRetries) {
       console.log(`[parseBill] Gemini call (Attempt ${attempt}/${maxRetries})`);
-      response = await fetch(url, {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+      try {
+        response = await fetch(url, {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: PARSE_PROMPT(ocrText) }] }],
@@ -197,7 +209,19 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
             maxOutputTokens: 8192,
           },
         }),
-      });
+        });
+      } catch (err) {
+        // Timed out (or network error): retry once, then fall back offline.
+        if (attempt < maxRetries) {
+          console.warn(`[parseBill] Gemini attempt ${attempt} failed (${(err as Error)?.name}). Retrying…`);
+          retryCount++;
+          attempt++;
+          continue;
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (!response.ok) {
         // 429 = quota exhausted. A daily limit won't reset in a few seconds,

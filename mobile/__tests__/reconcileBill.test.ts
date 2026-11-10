@@ -132,3 +132,37 @@ describe("parseBill — quota exhausted", () => {
     expect(bill.extractionNote).toMatch(/AI limit/);
   });
 });
+
+describe("parseBill — Gemini too slow", () => {
+  const originalKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  const originalFetch = global.fetch;
+  beforeAll(() => {
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY = "test-key";
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterAll(() => {
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY = originalKey;
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it("tries twice, then reads the bill offline with an explanation", async () => {
+    const timeout = Object.assign(new Error("Aborted"), { name: "AbortError" });
+    const fetchMock = jest.fn().mockRejectedValue(timeout);
+    global.fetch = fetchMock as any;
+    const bill = await parseBill("Tea  30.00\nSamosa  40.00\nGrand Total  70.00");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(bill.items.map((i) => i.name)).toEqual(["Tea", "Samosa"]);
+    expect(bill.total).toBe(70);
+    expect(bill.extractionNote).toMatch(/too slow/);
+  });
+
+  it("passes an abort signal so a hung request is cut off", async () => {
+    const fetchMock = jest.fn().mockRejectedValue(Object.assign(new Error("x"), { name: "AbortError" }));
+    global.fetch = fetchMock as any;
+    await parseBill("Tea  30.00");
+    expect(fetchMock.mock.calls[0][1].signal).toBeDefined();
+  });
+});
