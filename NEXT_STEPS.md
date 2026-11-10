@@ -1,174 +1,162 @@
 # Billy — Next Steps
 
-_Last updated: 10 Nov 2026. Checked against the code, not just past notes._
+_Last updated: 10 Nov 2026. Checked against the code on branch `feat/local-mvp-next`._
 
 **Goal right now:** finish the **local, single-phone MVP** before adding Firebase.
 
 > Can one person take a real receipt, correct it, add friends, split it, see exactly what everyone owes, send the UPI payment, mark payments, and find that bill later?
 
-Once that whole journey works reliably on a real phone, move to cloud / multi-user Billy.
+Almost every piece of that journey is now built. What's left is **proving it works on a real phone**, making receipt extraction reliable, and then moving to cloud / multi-user Billy.
 
+---
 
-
-## 1. Where Billy actually is
+## 1. Where Billy is now
 
 | Area | Status | Notes |
 |---|---|---|
-| Project setup, Expo dev client, TypeScript, Expo Router | 🟢 Done | Runs on a real Android phone over USB (see `CONNECT_PHONE.md`) |
-| Bill capture + OCR | 🟢 Mostly done | ML Kit on-device OCR + Gemini parsing |
-| Review / edit items | 🟢 Done | Add / edit / delete items, edit title, charges |
-| Participants + equal split + item-wise split | 🟢 Done | Item assignment lives on the *Choose split method* screen |
-| Settlement engine (`services/calculateSettlement.ts`) | 🟢 Done + **tested** | Jest tests cover rounding (₹100/3), shared items, GST, service charge, unassigned items |
-| UPI pay (deep link) + manual "mark as paid" | 🟡 MVP | No automatic payment verification |
-| History | 🟡 Partial | |
-| Groups + group balances (`services/groupBalances.ts`) | 🟡 Partial | Net balances per group **already exist**; no "minimum payments" simplification yet |
+| Project setup (Expo dev client, TypeScript, Expo Router) | 🟢 Done | Runs on a real Android phone over USB — see `CONNECT_PHONE.md` |
+| Bill capture | 🟢 Done | Camera / gallery → Preview → manual crop (fixed) or **AI auto-crop button** |
+| OCR + parsing | 🟡 Works, needs real-receipt testing | ML Kit on-device → rows rebuilt from positions → Gemini (1 call per scan). Offline parser fallback keeps items, GST, charges and total |
+| Receipt checks | 🟢 Done | Totals checked against the printed total; tax-inclusive bills don't get GST added twice; GSTIN ignored; mismatch warning on Review |
+| Manual bill entry | 🟢 Done | Home → Add Bill → Enter Manually; add/remove tax, charge, discount lines |
+| Participants | 🟢 Done | 2+ sharers, payer always sharing, edit name / remove (⋮ or long-press) |
+| Split methods | 🟢 Done | **Equal**, **Item-wise** (one screen, live totals), **Custom amounts** (GPay-style re-balance) |
+| Settlement engine (`services/calculateSettlement.ts`) | 🟢 Done + tested | Rounding, shared/unassigned items, GST, service charge, custom amounts |
+| Saved bills | 🟢 Done | Who had what, payment progress, edit until first payment, Request (WhatsApp/SMS + UPI link) |
+| Payments | 🟡 MVP | UPI deep link + manual "mark as paid" (duplicate taps ignored). **No automatic confirmation yet** |
+| "Owe someone" (debt without a bill) | 🟢 Done | Home → Owe someone?, or saved group → Record Money Owed |
+| Groups + balances | 🟢 Done | Net balances + "Settle up in N payments" suggestion |
+| History | 🟢 Done | Settled bills → full bill detail |
 | Auth | 🟡 Local only | Firebase phone OTP not switched on |
 | Firebase / Firestore / sync / push | 🔴 Not started | |
-| Android status-bar overlap | 🟢 Fixed | All screens now use `react-native-safe-area-context` |
+| Tests | 🟢 149 Jest tests | `cd mobile && npm test` |
 
-**Corrections to the older roadmap notes:**
-- State is plain service stores (`billStore`, `groupStore`, `authStore`) + AsyncStorage — **not Zustand**.
-- Group balances are **partly built** (Phase 9 is not "future").
-- Settlement unit tests are **done**; parser tests are still missing.
-- Each scan currently makes **2 Gemini calls**: `optimizer.ts` (find the receipt edges, `gemini-2.0-flash`) and `parseBill.ts` (structure the text, `gemini-flash-lite-latest`). OCR itself is on-device (ML Kit).
+**Not yet tested on the phone:** everything on `feat/local-mvp-next` (see step 1 below).
 
 ---
 
-## 2. Your list — what each item means and what to do
+## 2. What to do next (in order)
 
-Ordered from quickest / most important to biggest.
+### Step 1 — Test the whole journey on the phone ⬅ **do this first**
+Run `npx expo start --dev-client` (from `mobile/`) with the phone connected, then go through this checklist and note anything wrong:
 
-### 2.1 GST ▾ toggle is too small — _tiny_
-- **Where:** `app/review-items.tsx` (~line 425) — the charges section uses a text `▴ / ▾` character.
-- **Do:** replace it with an `Ionicons` `chevron-down` / `chevron-up` icon (size ~20) and make the whole row tappable with a `hitSlop`.
+- [ ] Scan a receipt → Preview → Adjust Crop → crop is exactly what you selected
+- [ ] Auto-crop (AI) button works / says when it can't find a tighter crop
+- [ ] Review: items and prices correct, Taxes & Charges arrow easy to tap, totals match the bill (or a clear warning)
+- [ ] Review: add a tax/charge/discount; long-press a charge to remove it
+- [ ] Home → Add Bill → **Enter Manually** → add items + GST → continue
+- [ ] Participants: Continue disabled until 2+ people; ⋮ → Edit name / Remove
+- [ ] Split **Equally** → Save
+- [ ] Split **Item-wise** → totals update live while assigning → Done (unassigned warning) → Save
+- [ ] Split **Custom amounts** → type one amount, others re-balance; payer at ₹0 works → Save
+- [ ] Saved bill: Who had what, progress bar, **Request** (WhatsApp message has UPI link), **Pay**, **Received**
+- [ ] Saved bill: **Edit** → change a price → save → shares recalculated; Edit disappears after a payment
+- [ ] Home → **Owe someone?** → shows in Pay Bills / group balances
+- [ ] Saved group: balances + "Settle up in N payments"
+- [ ] Fully paid bill appears in **History**
+- [ ] Login rejects short / invalid numbers
+- [ ] No screen content under the status bar or navigation bar
 
-### 2.2 10-digit phone number issue — _small_
-- **Where:** `app/login.tsx` line ~49 checks `norm.length < 10`, but `norm` is `+91XXXXXXXXXX`, so a **7-digit** number passes and too-long numbers are also accepted.
-- **Do:**
-  - Add `isValidIndianMobile(phone)` in `utils/normalizePhoneNumber.ts`: after normalising, must be exactly `+91` + 10 digits starting with 6–9.
-  - Use it on login, in the contact picker, and when adding a person manually.
-  - Show a clear inline error ("Enter a 10-digit mobile number").
-  - Add Jest tests next to the existing `normalizePhoneNumber` tests.
-- _Already fixed:_ numbers saved as `098765…`, `0091…` or `91…` now normalise to the same `+91…`.
+For any receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill] Response` lines from the Metro terminal.
 
-### 2.3 Minimum 2 people to split — _small_
-- **Problem:** `app/participants.tsx` only requires `sharingIds.size > 0`, so you can "split" a bill with just one person. The 2-person check only exists in the **remove participant** handler, and that handler is **not wired to any button**.
-- **Do:**
-  - Require **at least 2 people sharing** before *Continue* is enabled (show "Add at least 2 people to split").
-  - Wire up the existing `handleRemoveParticipant` and `handleEditName` (the edit-name modal already exists) to the participant card — e.g. long-press → Edit name / Remove.
-  - Decide: can the payer be someone who isn't sharing? (e.g. you pay for 2 friends). Recommended: **yes**, but there must still be ≥ 2 people involved in total.
+### Step 2 — Merge to `main` and push
+See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local-mvp-next`.
 
-### 2.4 Manually add items (bill without scanning) — _small/medium_
-- **Today:** "+ Add Item Manually" exists, but only *after* a scan on the review screen.
-- **Do:** add an **"Enter manually"** option on Home next to Camera / Gallery that opens the review screen with an empty bill (title, items, prices, GST, service charge). No Gemini call → also saves quota.
+### Step 3 — Automatic UPI payment confirmation (Android)
+- Billy **cannot move money itself** without becoming an NPCI-approved UPI app (a licensing process, not code).
+- What it *can* do: launch the UPI app as an **intent for result**. Most UPI apps return `Status=SUCCESS / FAILURE` + a transaction ID → Billy auto-marks **"Paid (via UPI)"** and stores the reference.
+- Needs a small native Android module (or a maintained UPI-intent library) → one `npx expo run:android` rebuild → test with GPay / PhonePe / Paytm.
+- Also possible: show a **UPI QR** (amount filled in) for the person paying you.
 
-### 2.5 Combine "assign items" and "item-wise split" into one page — _medium_
-- **Today:** items are assigned on `choose-split-method.tsx` (via `ItemAssignmentSection`), then you go to a separate `itemwise-split-summary.tsx`.
-- **Do:** one screen: items list with people chips on top, **live per-person totals** updating at the bottom as you assign, then *Save / Pay*. Keep `calculateSettlement` as the only place doing the maths (call it on every change). Then remove the extra step.
+### Step 4 — Make receipt extraction reliable
+1. **Collect a test set:** 10–30 real receipts (restaurant, grocery, handwritten, long) with the correct items/total written down → a script that scores extraction. This makes "is it better?" measurable.
+2. **ML Kit Document Scanner** for capture: edge detection, perspective correction, clean-up — fixes bad photos at the source (free, on-device, needs a rebuild).
+3. **Send the photo directly to Gemini** (one call, image → JSON) instead of OCR text → Gemini. Gemini sees the real columns and "incl. GST" notes.
+4. **Gemini structured output** (`responseSchema`) — no more broken JSON or prices as text.
+5. Keep ML Kit + the offline parser as the no-internet / quota-exhausted fallback.
 
-### 2.6 Group: show what items each person had — _small_
-- **Today:** `app/group/[id].tsx` already has an items breakdown modal per person (`itemsModal`).
-- **Do:** make it obvious — show a short item list under each person in the bill detail ("Rahul — Burger, ½ Fries") instead of hiding it behind a tap. For equal-split bills show "Equal share".
+### Step 5 — Gemini quota & key safety
+- ✅ Done: 1 call per scan, no retries on 429, offline note on Review.
+- Optional: try the offline parser first and only call Gemini when its result doesn't match the printed total (saves more quota).
+- **Before any public release:** move the Gemini key to a server proxy (`backend/`). Keys in `EXPO_PUBLIC_*` can be extracted from the APK.
 
-### 2.7 "Owe someone" (record a debt without a bill) — _medium_
-- **Meaning:** "I owe Rahul ₹300" / "Anu owes me ₹200" without scanning anything (like a cash loan or a cab fare).
-- **Do:** create it as a small `BillGroup` with no items and a single settlement row. That way **group balances, History and UPI pay all work automatically** with no new data model.
-- UI: a "+ Add expense / I owe / Owes me" button on the group screen and on Home.
-
-### 2.8 "Split exactly like GPay" — _medium_
-GPay's split works like this: enter one total → pick people → it splits equally → you can **edit each person's amount** (the rest re-balances) → each person gets a request to pay you.
-- **Do (Billy's own version, not a copy of GPay's screens):**
-  - Add a third split method: **"Custom amounts"** next to Equal and Item-wise. Each person's amount is editable; show "₹X left to assign" until it adds up to the total; *Continue* only when it matches exactly.
-  - Add `splitMethod: "custom"` support to `calculateSettlement` + tests.
-  - **"Request"** button per person → shares a message on WhatsApp/SMS with the amount and a UPI link (`upi://pay?pa=you@bank&am=…`) so they can pay you in one tap.
-
-### 2.9 "Make Billy a UPI payment app" — _important to understand first_
-- Billy **cannot move money itself** unless it becomes an NPCI-approved UPI app (TPAP) with a sponsor bank — that's a company-level licensing process, not code.
-- What Billy *can* do (and mostly does already): open GPay / PhonePe / Paytm with the amount filled in.
-- **Realistic upgrade (Android):** launch UPI as an *intent for result*. Most UPI apps return `Status=SUCCESS / FAILURE` plus a transaction ID. Billy can then **auto-mark the payment as "Paid (via UPI)"** and store the reference — still self-reported, but much smoother. Needs a small native module or a maintained UPI intent library.
-- Also: when you're the one being paid, let the payer **scan a Billy QR** (UPI QR with amount) — easy with `upi://pay` encoded into a QR code.
-
----
-
-## 3. Gemini quota (429 RESOURCE_EXHAUSTED)
-
-The free tier is about **20 requests/day per model**, and each scan uses 2 calls.
-
-Short-term:
-- Restart with a fresh key if needed: update `EXPO_PUBLIC_GEMINI_API_KEY` in `mobile/.env`, then `npx expo start --dev-client --clear`.
-
-Fix properly (in this order):
-1. ✅ **Skip the Gemini crop step by default** — the user already has a manual crop in *Edit Image*. Only call `optimizer.ts` when the user taps "Auto-crop".
-2. **Try the local parser first**; call Gemini only when the local result looks bad (no items, or items don't add up to the total).
-3. ✅ **Show a friendly message on 429** ("Daily AI limit reached — enter items manually or try later") and drop straight into manual entry (2.4).
-4. Before any public release: move the key to a **server proxy** (`backend/`), since keys in `EXPO_PUBLIC_*` can be extracted from the APK.
-
----
-
-## 4. Order to do things in
-
-### Now — finish the local MVP
-_Branch `feat/local-mvp-next` — ✅ done and tested with Jest (149 tests), **not yet checked on the phone**._
-
-1. ✅ Quick fixes: bigger GST toggle, real 10-digit mobile check, 2+ sharers incl. payer, edit/remove participant
-2. ✅ Gemini quota: 1 call per scan (AI auto-crop is now a button), no retries on 429, offline note on Review
-3. ✅ Manual bill entry (Home → Add Bill → Enter Manually) + add/remove taxes, charges, discounts on Review
-4. ✅ One-page item-wise split with live per-person totals
-5. ✅ Custom-amount split (type anyone's share, the rest re-balances) + **Request** payment via WhatsApp/SMS with a UPI link
-6. ✅ "Owe someone" debts (Home → Owe someone?, or a saved group → Record Money Owed)
-7. ✅ "Who had what" on saved bills
-8. ✅ Edit a saved bill until the first payment (locked afterwards)
-9. ✅ Payment progress ("2 of 3 paid · ₹X pending"); duplicate "paid" taps ignored; bills auto-settle
-10. ✅ History → bill detail (items, people, settlements, payments) — covered by the above
-11. ⏳ **UPI intent-for-result auto-confirmation (2.9)** — needs a native Android module + rebuild + testing with real UPI apps
-12. ✅ Group "Settle up in N payments" (A→B→C becomes A→C) — shown as a suggestion
-13. ✅ Offline parser tests with realistic receipts (+ fix: offline parsing now keeps GST/charges/total)
-
-**Next:** test the whole journey on the phone (scan → review → split → save → pay/request → history), then 11, then the extraction upgrade (Document Scanner + photo-direct Gemini).
-
-### After the local MVP works end-to-end
-14. Firebase phone OTP (real auth)
-15. Gemini server proxy (`backend/`)
-16. Firestore data model + sync
-17. Group invites (phone number + link/QR)
-18. Real-time updates + push notifications
+### Step 6 — Cloud / multi-user Billy (after the local MVP is solid)
+1. Firebase phone OTP (real auth)
+2. Gemini server proxy (`backend/`)
+3. Firestore data model + sync (offline-first: store locally, sync when online)
+4. Group invites (phone number + link/QR)
+5. Real-time updates ("Rahul ✓ Paid") + push notifications
 
 ### Later
-19. Better auto receipt crop (on-device edge detection)
-20. Receipt dataset → custom receipt model
-21. Analytics (spent / owed / received per month)
-22. Multi-currency
-23. Production hardening + Play Store release
+- Receipt dataset → custom receipt model
+- Analytics (spent / owed / received per month)
+- Multi-currency
+- UI redesign (design system first — see rules below)
+- Production hardening + Play Store release
+
+---
+
+## 3. Product decisions already made
+
+- **The payer always shares the bill** (auto-ticked). For "I paid for my friends", use **Custom amounts** and set the payer's share to ₹0.
+- **Bills can be edited only by their creator, and only until the first payment.** After that: delete & rescan.
+- **Debts without a bill** are stored as normal saved bills (one settlement), so balances/history/pay work the same.
+- **"Settle up in N payments"** is a suggestion only — payments are still marked per bill.
+- **Payments are self-reported** (Pay → UPI app → Mark as paid / Received) until Step 3 is done.
+- **Tax-inclusive receipts:** if items already add up to the printed total, GST lines are treated as a breakdown and not added on top.
+
+## 4. Known limitations
+
+- Android pop-ups show at most 3 buttons, so **Add Bill has no Cancel** — tap outside to close.
+- When editing a saved bill, the Save pop-up suggests the restaurant name, not the group name you chose before.
+- Editing a bill that came from a photo doesn't keep the photo (the bill data is kept).
+- Contacts can't be added from inside a custom split — add everyone on the Participants screen first.
 
 ---
 
 ## 5. Rules for working with AI on Billy (so it doesn't break things)
 
 1. **Commit before every big change.** If something breaks: `git restore .` (or `git reset --hard` to the last commit) and retry with a stricter prompt.
-2. **Logic stays in `services/`.** UI screens should only call services and render. All money maths goes through `calculateSettlement.ts`.
+2. **Logic stays in `services/`.** Screens only call services and render. All money maths goes through `calculateSettlement.ts`.
 3. **Run checks after every change** (from `mobile/`):
    ```bash
    npx tsc --noEmit   # types
    npm run lint       # lint
-   npm test           # settlement / balance / phone tests
+   npm test           # 149 tests: settlement, balances, parsing, crop, debts, editing…
    ```
 4. **One feature per prompt.** Name the files it may touch.
-5. **UI redesign later = design system first:** build `components/ui/` (`Card`, `Button`, `TextInput`, …), test them on one screen, then swap screens over one at a time.
+5. **UI redesign = design system first:** build `components/ui/` (`Card`, `Button`, `TextInput`, …), test on one screen, then swap screens over one at a time.
 6. **Style-only prompts for visual work**, e.g.:
    > "Update `app/login.tsx` to the new theme. Only change JSX layout, wrappers and `StyleSheet.create`. Do **not** change any `useState`, `useEffect`, `onPress` or service calls."
 
 ---
 
-## 6. Recently done
+## 6. Done so far
 
-- Fixed TypeScript + ESLint errors
-- Jest set up with 40 tests (settlement, group balances, phone numbers, UPI ID, bill totals) — run `npm test`
-- Phone numbers like `098765…` / `91…` now match the same contact
-- Removed the `test-models` debug screen and unused imports
-- Fixed status bar / navigation bar overlap on every screen (Android edge-to-edge)
-- Added `CONNECT_PHONE.md` (USB / Wi-Fi debugging guide)
+**Branch `chore/fixes-tests-cleanup`**
+- Fixed TypeScript + ESLint errors; Jest test setup
+- Phone numbers like `098765…` / `91…` match the same contact
+- Status bar / navigation bar overlap fixed on every screen
+- Receipt rows rebuilt from ML Kit positions (names stay with their prices)
+- Gemini numbers cleaned up; totals checked against the printed total; no phantom GST
+- Crop now matches exactly what you select (incl. after rotating)
+- `CONNECT_PHONE.md`, `GITHUB_STEPS.md`, this file
 
-**Open housekeeping:**
+**Branch `feat/local-mvp-next`**
+- Bigger GST toggle · real 10-digit login check · 2+ sharers · edit/remove participant
+- 1 Gemini call per scan · AI auto-crop button · no retries on quota errors · offline note
+- Manual bill entry · add/remove taxes, charges, discounts
+- Item-wise split on one screen with live totals
+- Custom-amount split · payment Request with UPI link
+- "Owe someone" debts
+- Who had what · payment progress · duplicate "paid" taps ignored
+- Edit a bill until the first payment
+- "Settle up in N payments"
+- Offline parser keeps GST / charges / total + realistic receipt tests
+
+## 7. Housekeeping
+
 - Delete the empty nested repo: `rm -rf mobile/.git`
-- `app/split.tsx` is not used by any screen — delete or reuse
-- 64 `console.log` calls to clean up before release
+- `app/split.tsx` isn't used by any screen — delete or reuse
+- ~64 `console.log` calls to clean up before release
+- 13 lint warnings left (mostly "missing `router` dependency" — left on purpose)
