@@ -263,15 +263,6 @@ export default function ContactGroupDetailScreen() {
           );
         })()}
 
-        <Pressable
-          style={s.addBtn}
-          onPress={() => router.push({ pathname: "/add-debt", params: { contactGroupId: group.id } } as any)}
-          accessibilityRole="button"
-        >
-          <Ionicons name="swap-horizontal" size={18} color="#111827" />
-          <Text style={s.addBtnText}>Record Money I Owe</Text>
-        </Pressable>
-
         {/* ── Bills from this group ── */}
         <Text style={s.sectionTitle}>Bills</Text>
         {linkedBills.length === 0 ? (
