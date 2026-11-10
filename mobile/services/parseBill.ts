@@ -506,9 +506,18 @@ function localFallbackParser(ocrText: string): ParsedBill {
     return true;
   });
 
-  const total = deduped.reduce((s, it) => s + it.price, 0);
+  const itemsSum = Math.round(deduped.reduce((s, it) => s + it.price, 0) * 100) / 100;
 
-  console.log(`[localFallback] Matched ${deduped.length} items from ${lines.length} lines`);
+  // Taxes / charges / printed total, checked against each other so GST is
+  // neither lost nor double-counted.
+  const found = extractChargesAndTotal(lines);
+  const reconciled = reconcileCharges(itemsSum, found.charges, found.printedTotal);
+  const charges = reconciled.charges;
+  const total = Math.round((itemsSum + charges.reduce((s, c) => s + c.amount, 0)) * 100) / 100;
+  const sumOf = (re: RegExp) =>
+    charges.filter((c) => re.test(c.name)).reduce((s, c) => s + c.amount, 0) || null;
+
+  console.log(`[localFallback] Matched ${deduped.length} items, ${charges.length} charges from ${lines.length} lines`);
 
   return {
     isBill:     true, // local fallback cannot classify; let the user review
@@ -517,14 +526,60 @@ function localFallbackParser(ocrText: string): ParsedBill {
     billNumber: "",
     date:       "",
     items:      deduped,
-    subtotal:   total,
-    charges:    [],
+    subtotal:   itemsSum,
+    charges,
     taxes:      [],
-    gst:        0,
-    serviceCharge: 0,
-    tip:        0,
+    gst:        charges.filter((c) => isTaxCharge(c.name)).reduce((s, c) => s + c.amount, 0) || null,
+    serviceCharge: sumOf(/service.?charge|packaging|packing|delivery|convenience/i),
+    tip:        sumOf(/\btip\b/i),
+    discount:   sumOf(/discount|round.?off|rounding/i),
     total,
+    printedTotal: found.printedTotal,
+    taxInclusive: reconciled.taxInclusive,
   };
+}
+
+/**
+ * Offline extraction of charge lines (CGST, service charge, round off, ...)
+ * and the printed grand total from receipt rows like "CGST 2.5%  26.25".
+ */
+export function extractChargesAndTotal(lines: string[]): {
+  charges: { name: string; amount: number }[];
+  printedTotal: number | null;
+} {
+  const CHARGE = /(^|[^a-z])(c|s|i|ut)?gst(?!in)|\bvat\b|\bcess\b|service\s*charge|\bs\.?c\.?\b|packing|packaging|delivery|convenience|round.?off|rounding|discount|\btip\b/i;
+  const NOT_A_CHARGE = /taxable|gstin|\bon\b|\bincl/i;
+  const STRONG_TOTAL = /grand\s*total|net\s*(amount|total|payable)|amount\s*payable|total\s*payable|bill\s*amount|total\s*amount/i;
+  const WEAK_TOTAL = /\btotal\b/i;
+  const NOT_TOTAL = /sub.?total|taxable|total\s*(qty|quantity|items?)|\bno\.?\s*of/i;
+
+  const charges: { name: string; amount: number }[] = [];
+  const seen = new Set<string>();
+  let strongTotal: number | null = null;
+  let weakTotal: number | null = null;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    // name … amount   (amount may be "-0.50", "(20.00)", "₹ 1,102.00")
+    const m = line.match(/^(.*?[A-Za-z%).].*?)[\s:=]+((?:-\s*)?(?:₹|Rs\.?|INR)?\s*\(?-?[\d,]*\.?\d+\)?)$/i);
+    if (!m) continue;
+    const name = m[1].replace(/[:\-–]+$/, "").trim();
+    const amount = toAmount(m[2]);
+    if (amount === null || !name) continue;
+
+    if (!NOT_TOTAL.test(name) && STRONG_TOTAL.test(name)) { strongTotal = amount; continue; }
+    if (!NOT_TOTAL.test(name) && WEAK_TOTAL.test(name) && !CHARGE.test(name)) { weakTotal = amount; continue; }
+
+    if (CHARGE.test(name) && !NOT_A_CHARGE.test(name) && amount !== 0) {
+      const signed = /discount/i.test(name) ? -Math.abs(amount) : amount;
+      const key = `${name.toLowerCase()}|${signed}`;
+      if (seen.has(key)) continue; // tax summary tables often repeat lines
+      seen.add(key);
+      charges.push({ name, amount: signed });
+    }
+  }
+
+  return { charges, printedTotal: strongTotal ?? weakTotal };
 }
 
 function isMetadataOrTax(name: string): boolean {
