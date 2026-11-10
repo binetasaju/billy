@@ -140,14 +140,15 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Balance */}
+        {/* Balance + main action — one black card with curved corners */}
+        <View style={styles.heroCard}>
         <Pressable
           onPress={() => router.push("/(tabs)/pay-bills" as any)}
-          style={({ pressed }) => [styles.balanceCard, pressed && styles.pressed]}
+          style={({ pressed }) => pressed && styles.pressed}
           accessibilityRole="button"
         >
           <Text style={styles.caption}>Total balance</Text>
-          <Text style={[styles.balance, net > 0 && styles.positive, net < 0 && styles.negative]}>
+          <Text style={[styles.balance, net > 0 && styles.positiveOnDark, net < 0 && styles.negativeOnDark]}>
             {net > 0 ? "+" : net < 0 ? "−" : ""}{money(Math.abs(net))}
           </Text>
           <Text style={styles.balanceSub}>
@@ -168,6 +169,7 @@ export default function HomeScreen() {
         <Pressable onPress={handleSplitAmount} hitSlop={8} style={styles.linkBtn}>
           <Text style={styles.linkText}>or split an amount without a bill</Text>
         </Pressable>
+        </View>
 
         {/* Pending */}
         {pending.length > 0 && (
@@ -251,20 +253,23 @@ const styles = StyleSheet.create({
   },
   avatarText: { ...T.headline, color: C.primary },
 
-  balanceCard: {
-    backgroundColor: C.glass, borderRadius: 24, borderWidth: 1, borderColor: C.glassBorder,
-    paddingVertical: 28, paddingHorizontal: 24, marginBottom: 20,
+  heroCard: {
+    backgroundColor: C.primaryDark, borderRadius: 28,
+    paddingTop: 26, paddingHorizontal: 22, paddingBottom: 8, marginBottom: 8,
   },
-  caption: { ...T.footnote, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.6 },
-  balance: { fontSize: 40, fontWeight: "700", color: C.ink, letterSpacing: -0.5, marginTop: 6 },
-  balanceSub: { ...T.footnote, color: C.textMuted, marginTop: 8 },
+  caption: { ...T.footnote, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.6 },
+  balance: { fontSize: 40, fontWeight: "700", color: C.onDark, letterSpacing: -0.5, marginTop: 6 },
+  balanceSub: { ...T.footnote, color: C.onDarkMuted, marginTop: 8, marginBottom: 22 },
   positive: { color: C.successDark },
   negative: { color: C.danger },
+  // Brighter variants that stay readable on the black card
+  positiveOnDark: { color: "#34D399" },
+  negativeOnDark: { color: "#FB7185" },
 
   primaryBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 17, alignItems: "center" },
   primaryBtnText: { ...T.headline, color: C.white },
   linkBtn: { alignItems: "center", paddingVertical: 14 },
-  linkText: { ...T.subhead, color: C.primary },
+  linkText: { ...T.subhead, color: "#6EE7B7" },
 
   sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 20, marginBottom: 10 },
   sectionTitle: { ...T.headline, color: C.ink },
