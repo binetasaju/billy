@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
 // app/(tabs)/_layout.tsx — bottom navigation
 //
-// A background-less tab bar: icons and labels float over each screen's glow
-// background, with a green pill behind the active tab (filled icon) and
-// outline icons for the others. Tab screens pad their scroll content by
-// TAB_BAR_CLEARANCE so nothing ends up hidden under the icons.
+// A floating black capsule tab bar (matches the black balance card on Home):
+// grey outline icons, and a deep-green pill with a white filled icon for the
+// active tab. Tab screens pad their scroll content by TAB_BAR_CLEARANCE so
+// their last items scroll clear of the bar.
 // ---------------------------------------------------------------------------
 import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
@@ -52,22 +52,26 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: C.primary,
-        tabBarInactiveTintColor: C.textMuted,
+        tabBarActiveTintColor: C.white,
+        tabBarInactiveTintColor: "#8A8A8A",
         tabBarShowLabel: true,
         tabBarStyle: {
-          // No background: the icons float over each screen's glow background.
+          // Floating black capsule — matches the black balance card on Home.
           position: "absolute",
-          left: 16,
-          right: 16,
+          left: 20,
+          right: 20,
           bottom,
           height: BAR_HEIGHT,
           paddingTop: 8,
           paddingBottom: 8,
-          backgroundColor: "transparent",
+          borderRadius: 32,
           borderTopWidth: 0,
-          elevation: 0,
-          shadowOpacity: 0,
+          backgroundColor: C.primaryDark,
+          elevation: 12,
+          shadowColor: "#000",
+          shadowOpacity: 0.25,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
         },
         tabBarItemStyle: { paddingVertical: 0 },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginTop: 2 },
@@ -84,5 +88,5 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   iconPill: { width: 46, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  iconPillActive: { backgroundColor: C.primary },
+  iconPillActive: { backgroundColor: C.primaryMuted }, // a touch brighter so it reads on black
 });
