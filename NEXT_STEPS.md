@@ -14,7 +14,7 @@ Once that whole journey works reliably on a real phone, move to cloud / multi-us
 
 | Area | Status | Notes |
 |---|---|---|
-| Project setup, Expo dev client, TypeScript, Expo Router | 🟢 Done | Runs on a real Android phone over USB (see `mobile/CONNECT_PHONE.md`) |
+| Project setup, Expo dev client, TypeScript, Expo Router | 🟢 Done | Runs on a real Android phone over USB (see `CONNECT_PHONE.md`) |
 | Bill capture + OCR | 🟢 Mostly done | ML Kit on-device OCR + Gemini parsing |
 | Review / edit items | 🟢 Done | Add / edit / delete items, edit title, charges |
 | Participants + equal split + item-wise split | 🟢 Done | Item assignment lives on the *Choose split method* screen |
@@ -162,7 +162,7 @@ Fix properly (in this order):
 - Phone numbers like `098765…` / `91…` now match the same contact
 - Removed the `test-models` debug screen and unused imports
 - Fixed status bar / navigation bar overlap on every screen (Android edge-to-edge)
-- Added `mobile/CONNECT_PHONE.md` (USB / Wi-Fi debugging guide)
+- Added `CONNECT_PHONE.md` (USB / Wi-Fi debugging guide)
 
 **Open housekeeping:**
 - Delete the empty nested repo: `rm -rf mobile/.git`
