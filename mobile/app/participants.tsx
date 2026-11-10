@@ -15,16 +15,14 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Pressable,
   Alert,
   LayoutAnimation,
-  Platform,
-  UIManager,
   Modal,
   TextInput,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
@@ -39,10 +37,6 @@ import SectionHeader from "../components/bill-split/SectionHeader";
 import PrimaryButton from "../components/bill-split/PrimaryButton";
 import ParticipantCard from "../components/bill-split/ParticipantCard";
 import ParticipantCheckbox from "../components/bill-split/ParticipantCheckbox";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const COLORS = [
   "#EF4444", "#F97316", "#F59E0B", "#10B981",

@@ -16,6 +16,7 @@ import {
   Alert, StatusBar, Dimensions, TextInput, Modal,
   KeyboardAvoidingView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { billStore } from "../services/billStore";
@@ -307,12 +308,18 @@ export default function ReviewItemsScreen() {
   const grandTotal: number = bill?.total    ?? 0;
   const charges: ChargeInfo[] = bill?.charges ?? [];
 
+  // Compare against the total printed on the receipt so a missing item or an
+  // extra (e.g. double-counted GST) charge is visible before splitting.
+  const printedTotal = bill?.printedTotal ?? null;
+  const totalMismatch =
+    printedTotal != null && printedTotal > 0 && Math.abs(grandTotal - printedTotal) > 1;
+
   // Keep internally for conditional hint — never shown as a number
   const hasSuspiciousItems = items.some((it) => (it.confidence ?? 1) < 0.8);
 
   if (!storeState) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <Text style={styles.title}>Review Items</Text>
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>No bill data. Please go back and scan again.</Text>
@@ -320,14 +327,14 @@ export default function ReviewItemsScreen() {
             <Text style={styles.backBtnText}>← Go Back</Text>
           </Pressable>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
 
         {/* ── Bill image thumbnail (tap to expand) ── */}
         {imageUri ? (
@@ -453,6 +460,21 @@ export default function ReviewItemsScreen() {
             <Text style={styles.grandValue}>₹{grandTotal.toFixed(2)}</Text>
           </View>
 
+          {bill?.taxInclusive && (
+            <Text style={styles.taxInclusiveText}>
+              Prices on this bill already include GST, so no tax is added on top.
+            </Text>
+          )}
+
+          {totalMismatch && (
+            <View style={styles.mismatchBox}>
+              <Text style={styles.mismatchText}>
+                This adds up to ₹{grandTotal.toFixed(2)}, but the bill says ₹{printedTotal!.toFixed(2)}.
+                Check for missing items, wrong prices or extra charges.
+              </Text>
+            </View>
+          )}
+
         </View>
 
         {/* ── Continue ── */}
@@ -470,7 +492,7 @@ export default function ReviewItemsScreen() {
           </Text>
         </Pressable>
 
-      </View>
+      </SafeAreaView>
 
       {/* ── Edit title modal ── */}
       <EditTitleModal
@@ -613,6 +635,12 @@ const styles = StyleSheet.create({
   chargesToggleLabel: { fontSize: 13, color: "#374151", fontWeight: "500" },
   chargesToggleChevron: { fontSize: 12, color: "#6B7280", fontWeight: "600" },
   chargesDetail: { gap: 5, paddingTop: 4, paddingBottom: 2 },
+  taxInclusiveText: { fontSize: 12, color: "#6B7280", marginTop: 6 },
+  mismatchBox: {
+    marginTop: 8, padding: 10, borderRadius: 10,
+    backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FCD34D",
+  },
+  mismatchText: { fontSize: 13, color: "#92400E", lineHeight: 18 },
   grandRow: { borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: 8, marginTop: 4 },
   grandLabel: { fontSize: 16, fontWeight: "700", color: "#111827" },
   grandValue: { fontSize: 16, fontWeight: "700", color: "#111827" },

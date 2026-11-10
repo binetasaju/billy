@@ -9,6 +9,8 @@
 // ---------------------------------------------------------------------------
 
 import type { ParsedBill } from "../types/bill";
+import { toAmount } from "./receiptLayout";
+import { isTaxCharge, reconcileCharges } from "./reconcileBill";
 
 export type { ParsedBill };
 
@@ -85,6 +87,11 @@ FIELD DEFINITIONS:
   - Include Service Charge, Packaging Charge, Convenience Fee, Tip.
   - Discounts/Round Off: use NEGATIVE amounts (e.g. -0.48 for Round Off).
   - Do NOT include Subtotal or Total rows. Do NOT include 0.00 rows.
+  - ONLY include charges that are printed with an amount on THIS receipt. Never invent or estimate tax.
+    If the receipt shows no tax/charge lines, return "charges": [].
+  - If the receipt says prices are INCLUSIVE of tax ("incl. of GST", "inclusive of all taxes",
+    "Taxable value" breakdown inside the total), do NOT put those tax lines in charges.
+  - GSTIN, FSSAI, HSN/SAC codes are identifiers, never charges.
 "total": Grand total / amount payable (numeric).
 
 PARENT-CHILD RULES:
@@ -232,21 +239,40 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
   if (!Array.isArray(parsed.items)) {
     throw new Error("Parser returned malformed data (missing items array).");
   }
-  if (typeof parsed.total !== "number") {
+
+  // The model sometimes returns money as strings ("1,250.00", "₹250").
+  // Coerce everything to numbers so totals never string-concatenate.
+  const total = toAmount(parsed.total);
+  if (total === null) {
     throw new Error("Parser returned malformed data (missing total).");
   }
+  parsed.total = total;
+  parsed.subtotal = toAmount(parsed.subtotal) as any;
 
   // Normalise item fields
-  parsed.items = (parsed.items as any[]).map((item) => ({
-    ...item,
-    amount:   item.amount   ?? item.price ?? 0,
-    price:    item.amount   ?? item.price ?? 0,
-    quantity: item.quantity ?? 1,
-    // Ensure children is always a string array
-    children: Array.isArray(item.children)
-      ? (item.children as any[]).map(String).filter(Boolean)
-      : [],
-  }));
+  parsed.items = (parsed.items as any[])
+    .map((item) => {
+      const rawQty = toAmount(item.quantity);
+      const quantity = rawQty && rawQty > 0 ? rawQty : 1;
+      const unitPrice = toAmount(item.unitPrice);
+      const amount =
+        toAmount(item.amount) ??
+        toAmount(item.price) ??
+        (unitPrice !== null ? Math.round(unitPrice * quantity * 100) / 100 : 0);
+      return {
+        ...item,
+        name: String(item.name ?? "").trim(),
+        unitPrice: unitPrice ?? (quantity ? amount / quantity : amount),
+        amount,
+        price: amount,
+        quantity,
+        // Ensure children is always a string array
+        children: Array.isArray(item.children)
+          ? (item.children as any[]).map(String).filter(Boolean)
+          : [],
+      };
+    })
+    .filter((item) => item.name.length > 0);
 
   // Normalise restaurant / legalName
   // Deduplicate repeated brand names ("PLAN B PLAN B" -> "PLAN B")
@@ -291,16 +317,28 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
       rawCharges.push({ name: "Discount", amount: -Math.abs(parsed.discount) });
   }
 
-  parsed.charges = rawCharges.filter((c) => c.amount !== 0);
+  const extractedCharges = rawCharges
+    .map((c) => ({ name: String(c?.name ?? "").trim(), amount: toAmount(c?.amount) ?? 0 }))
+    .filter((c) => c.name && c.amount !== 0 && !/gstin/i.test(c.name));
+
+  // Check charges against the printed total: drops tax lines that are only a
+  // breakdown of tax-inclusive prices, so GST is never added twice.
+  const itemsSum = parsed.items.reduce((sum, it) => sum + it.price, 0);
+  const reconciled = reconcileCharges(itemsSum, extractedCharges, parsed.total);
+  parsed.charges = reconciled.charges;
+  parsed.printedTotal = parsed.total;
+  parsed.taxInclusive = reconciled.taxInclusive;
+  if (reconciled.taxInclusive) {
+    console.log("[parseBill] Tax lines are included in item prices — not adding them on top");
+  }
 
   // Back-fill legacy scalar fields from charges[] so split.tsx / any
   // downstream code that reads gst/serviceCharge still works.
-  const TAX_NAMES = /cgst|sgst|igst|gst|vat|cess/i;
   const SC_NAMES  = /service.?charge|packaging|delivery|convenience/i;
   const DISC_NAMES = /discount|round.?off|rounding/i;
 
   parsed.gst = parsed.charges
-    .filter((c) => TAX_NAMES.test(c.name))
+    .filter((c) => isTaxCharge(c.name))
     .reduce((s, c) => s + c.amount, 0) || null;
 
   parsed.serviceCharge = parsed.charges
@@ -318,6 +356,14 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
   parsed.charges.forEach((c) =>
     console.log(`[Charge] ${c.name}: ${c.amount}`)
   );
+
+    // Sanity check: items + charges should add up to the printed total.
+    const computed =
+      parsed.items.reduce((sum, it) => sum + it.price, 0) +
+      parsed.charges.reduce((sum, c) => sum + c.amount, 0);
+    if (Math.abs(computed - parsed.total) > 1) {
+      console.warn(`[parseBill] ⚠ Items + charges = ₹${computed.toFixed(2)} but printed total = ₹${parsed.total}`);
+    }
 
     console.log(`[parseBill] ✓ ${parsed.items.length} items, total ₹${parsed.total}`);
     console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);

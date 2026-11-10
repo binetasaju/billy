@@ -1,10 +1,12 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect } from "react";
 import { groupStore } from "../../services/groupStore";
 import { contactGroupStore } from "../../services/contactGroupStore";
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
   // Restore persisted stores when the tab layout mounts
   useEffect(() => {
     groupStore.restore();
@@ -20,9 +22,10 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: "#ffffff",
           borderTopColor: "#E5E7EB",
-          paddingBottom: 4,
+          // Edge-to-edge: lift the tab bar above the system navigation bar.
+          paddingBottom: 4 + insets.bottom,
           paddingTop: 4,
-          height: 60,
+          height: 60 + insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 12,

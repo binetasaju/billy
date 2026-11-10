@@ -8,6 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ParsedBill } from "../types/bill";
+import { isTaxCharge } from "./reconcileBill";
 
 export function recalculateBillTotals(bill: ParsedBill): ParsedBill {
   // 1. Calculate new subtotal from all current items
@@ -32,7 +33,7 @@ export function recalculateBillTotals(bill: ParsedBill): ParsedBill {
 
   // 5. Update legacy scalar fields just in case they are used elsewhere
   const gst = (bill.charges || [])
-    .filter((c) => /cgst|sgst|igst|gst|vat|cess/i.test(c.name))
+    .filter((c) => isTaxCharge(c.name))
     .reduce((s, c) => s + c.amount, 0) || null;
 
   const serviceCharge = (bill.charges || [])

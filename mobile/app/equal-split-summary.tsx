@@ -2,7 +2,8 @@
 // app/equal-split-summary.tsx — Equal split result screen
 // ---------------------------------------------------------------------------
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, SafeAreaView, ScrollView, Modal, TextInput } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";

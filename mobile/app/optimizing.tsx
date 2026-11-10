@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { optimizeReceipt } from "../services/optimizer";
 

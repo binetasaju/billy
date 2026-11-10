@@ -8,9 +8,10 @@
 
 import { useMemo, useState } from "react";
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   Pressable, ActivityIndicator, Modal, TextInput, Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useContactGroups } from "../../hooks/useContactGroups";
@@ -86,7 +87,7 @@ export default function GroupsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={s.safeArea}>
+      <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
         <View style={s.header}>
           <Text style={s.title}>Groups</Text>
           <Text style={s.subtitle}>People you split with often</Text>
@@ -99,7 +100,7 @@ export default function GroupsScreen() {
   }
 
   return (
-    <SafeAreaView style={s.safeArea}>
+    <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
       <View style={s.header}>
         <Text style={s.title}>Groups</Text>
         <Text style={s.subtitle}>People you split with often</Text>

@@ -16,29 +16,27 @@
 //   This prevents the compounding-delta shrink bug.
 // ---------------------------------------------------------------------------
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   View, Text, Image, Pressable, StyleSheet, ActivityIndicator,
-  SafeAreaView, StatusBar, PanResponder, Platform,
+  StatusBar, PanResponder,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImageManipulator from "expo-image-manipulator";
-
-// Extra top padding for Android where SafeAreaView doesn't account for the
-// status bar the same way iOS does.
-const ANDROID_STATUS_BAR_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 24) : 0;
+import { cropToPixels, fitContain, rotatedSize } from "../services/cropGeometry";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 interface CropRect {
-  /** 0–1 fractions of the display canvas */
+  /** 0–1 fractions of the displayed (rotated) IMAGE — not the canvas */
   x: number; y: number; w: number; h: number;
 }
 
 type Handle = "tl" | "tr" | "bl" | "br" | "move";
 
-const MIN_FRAC = 0.08; // minimum 8% of canvas dimension
+const MIN_FRAC = 0.08; // minimum 8% of image dimension
 
 // ---------------------------------------------------------------------------
 // CropOverlay
@@ -59,6 +57,10 @@ function CropOverlay({
   const startCrop = useRef<CropRect>(crop);
   const cropRef   = useRef<CropRect>(crop);
   cropRef.current = crop;
+  // PanResponders below are created once; read the latest size from a ref so
+  // drags stay correct after layout or rotation changes.
+  const sizeRef   = useRef({ w: displayW, h: displayH });
+  sizeRef.current = { w: displayW, h: displayH };
 
   const makePR = (handle: Handle) =>
     PanResponder.create({
@@ -70,8 +72,8 @@ function CropOverlay({
       },
       onPanResponderMove: (_, gs) => {
         // Cumulative delta from gesture start (NOT incremental)
-        const dx = gs.dx / displayW;
-        const dy = gs.dy / displayH;
+        const dx = gs.dx / sizeRef.current.w;
+        const dy = gs.dy / sizeRef.current.h;
         const s  = startCrop.current; // immutable snapshot
 
         let { x, y, w, h } = s;
@@ -172,6 +174,7 @@ const ov = StyleSheet.create({
 // Main screen
 // ---------------------------------------------------------------------------
 export default function EditImageScreen() {
+  const insets = useSafeAreaInsets();
   const { uri }  = useLocalSearchParams<{ uri: string }>();
   const router   = useRouter();
 
@@ -180,6 +183,25 @@ export default function EditImageScreen() {
   const [cropEnabled, setCropEnabled] = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [canvasSize,  setCanvasSize]  = useState({ w: 1, h: 1 });
+  // Pixel size of the photo as expo-image-manipulator sees it (EXIF applied),
+  // i.e. the same coordinate space the crop is applied in.
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    if (!uri) return;
+    let cancelled = false;
+    ImageManipulator.manipulateAsync(uri, [], { format: ImageManipulator.SaveFormat.JPEG })
+      .then((info) => { if (!cancelled) setNaturalSize({ w: info.width, h: info.height }); })
+      .catch((err) => console.error("[EditImage] Could not read image size:", err));
+    return () => { cancelled = true; };
+  }, [uri]);
+
+  // Where the (rotated) photo actually sits inside the canvas.
+  const shown = naturalSize ? rotatedSize(naturalSize.w, naturalSize.h, rotation) : null;
+  const imageRect = shown
+    ? fitContain(shown.w, shown.h, canvasSize.w, canvasSize.h)
+    : { left: 0, top: 0, width: canvasSize.w, height: canvasSize.h };
+  const quarterTurn = rotation % 180 !== 0;
 
   const onCanvasLayout = useCallback((e: any) => {
     const { width, height } = e.nativeEvent.layout;
@@ -206,23 +228,16 @@ export default function EditImageScreen() {
       }
 
       if (cropEnabled) {
-        // Get real pixel dimensions
-        const info = await ImageManipulator.manipulateAsync(uri, [], {
-          format: ImageManipulator.SaveFormat.JPEG,
-        });
-        // After rotation, width/height may swap — account for 90/270 cases
-        const rotated = rotation === 90 || rotation === 270;
-        const realW = rotated ? info.height : info.width;
-        const realH = rotated ? info.width  : info.height;
-
-        actions.push({
-          crop: {
-            originX: Math.max(0, Math.round(crop.x * realW)),
-            originY: Math.max(0, Math.round(crop.y * realH)),
-            width:   Math.min(realW, Math.round(crop.w * realW)),
-            height:  Math.min(realH, Math.round(crop.h * realH)),
-          },
-        });
+        let size = naturalSize;
+        if (!size) {
+          const info = await ImageManipulator.manipulateAsync(uri, [], {
+            format: ImageManipulator.SaveFormat.JPEG,
+          });
+          size = { w: info.width, h: info.height };
+        }
+        // Crop runs after the rotate action, so use the rotated dimensions.
+        const real = rotatedSize(size.w, size.h, rotation);
+        actions.push({ crop: cropToPixels(crop, real.w, real.h) });
       }
 
       if (actions.length === 0) {
@@ -245,11 +260,11 @@ export default function EditImageScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
 
       {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: ANDROID_STATUS_BAR_H + 14 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
         <Pressable onPress={() => router.back()} style={styles.headerBtn} hitSlop={12}>
           <Text style={styles.headerBtnText}>Cancel</Text>
         </Pressable>
@@ -273,16 +288,40 @@ export default function EditImageScreen() {
           <>
             <Image
               source={{ uri }}
-              style={[styles.image, { transform: [{ rotate: `${rotation}deg` }] }]}
+              style={
+                naturalSize
+                  ? {
+                      position: "absolute",
+                      // Before the rotate transform the view has the photo's
+                      // un-rotated shape; after it, it fills imageRect exactly.
+                      width:  quarterTurn ? imageRect.height : imageRect.width,
+                      height: quarterTurn ? imageRect.width  : imageRect.height,
+                      left: imageRect.left + (imageRect.width - (quarterTurn ? imageRect.height : imageRect.width)) / 2,
+                      top:  imageRect.top + (imageRect.height - (quarterTurn ? imageRect.width : imageRect.height)) / 2,
+                      transform: [{ rotate: `${rotation}deg` }],
+                    }
+                  : [styles.image, { transform: [{ rotate: `${rotation}deg` }] }]
+              }
               resizeMode="contain"
             />
-            {cropEnabled && (
-              <CropOverlay
-                crop={crop}
-                onCropChange={setCrop}
-                displayW={canvasSize.w}
-                displayH={canvasSize.h}
-              />
+            {cropEnabled && naturalSize && (
+              <View
+                pointerEvents="box-none"
+                style={{
+                  position: "absolute",
+                  left: imageRect.left,
+                  top: imageRect.top,
+                  width: imageRect.width,
+                  height: imageRect.height,
+                }}
+              >
+                <CropOverlay
+                  crop={crop}
+                  onCropChange={setCrop}
+                  displayW={imageRect.width}
+                  displayH={imageRect.height}
+                />
+              </View>
             )}
           </>
         ) : (

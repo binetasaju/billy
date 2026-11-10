@@ -8,9 +8,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  View, Text, StyleSheet, Pressable, SafeAreaView,
-  ScrollView, Modal, TextInput
+  View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";

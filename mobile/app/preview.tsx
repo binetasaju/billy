@@ -13,7 +13,8 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect } from "react";
-import { View, Text, Image, Pressable, StyleSheet, SafeAreaView, Dimensions } from "react-native";
+import { View, Text, Image, Pressable, StyleSheet, Dimensions } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 

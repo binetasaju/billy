@@ -1,5 +1,6 @@
 import { NativeModules } from "react-native";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
+import { rebuildReceiptRows } from "./receiptLayout";
 
 console.log("[MLKIT] Module loaded");
 console.log("[MLKIT] Package version: 2.0.0");
@@ -33,7 +34,11 @@ export async function extractTextWithMLKit(
 
   try {
     const result = await TextRecognition.recognize(imageUri);
-    const text = result.text;
+    // Re-pair item names with their qty/price columns using line positions;
+    // fall back to ML Kit's block-ordered text if positions are missing.
+    const rows = rebuildReceiptRows(result.blocks);
+    const text = rows ?? result.text;
+    console.log("[MLKIT] Row rebuild:", rows ? "used" : "unavailable (plain text)");
     console.log("[MLKIT] OCR success");
     console.log("[MLKIT] Final text length:", text.length);
     console.log("[MLKIT] OCR Text:");

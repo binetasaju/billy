@@ -8,9 +8,10 @@
 
 import { useMemo } from "react";
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   Pressable, ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
@@ -66,7 +67,7 @@ export default function HistoryScreen() {
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <SafeAreaView style={s.safeArea}>
+      <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
         <View style={s.header}>
           <Text style={s.title}>History</Text>
           <Text style={s.subtitle}>Your settled bills</Text>
@@ -81,7 +82,7 @@ export default function HistoryScreen() {
   const hasHistory = settledGroups.length > 0;
 
   return (
-    <SafeAreaView style={s.safeArea}>
+    <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
       <View style={s.header}>
         <Text style={s.title}>History</Text>
         <Text style={s.subtitle}>Your settled bills</Text>

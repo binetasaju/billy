@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import { compressImage } from "../services/ocr";
@@ -284,7 +285,7 @@ export default function OcrScreen() {
   // Render
   // -------------------------------------------------------------------------
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Title — always "Extract Bill" */}
       <Text style={styles.title}>Extract Bill</Text>
       <Text style={styles.subtitle}>{stepLabel["idle"]}</Text>
@@ -414,7 +415,7 @@ export default function OcrScreen() {
           )}
         </Pressable>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -426,7 +427,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F9FAFB",
     padding: 24,
-    paddingTop: 60,
   },
   title: {
     fontSize: 28,

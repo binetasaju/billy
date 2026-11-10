@@ -5,8 +5,9 @@
 // ---------------------------------------------------------------------------
 
 import {
-  View, Text, StyleSheet, Pressable, SafeAreaView, ScrollView, Alert, Modal, TextInput, KeyboardAvoidingView,
+  View, Text, StyleSheet, Pressable, ScrollView, Alert, Modal, TextInput, KeyboardAvoidingView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
@@ -48,7 +49,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Header ── */}

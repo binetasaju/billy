@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, SafeAreaView, Pressable, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
@@ -8,7 +9,7 @@ export default function PayBillsScreen() {
   const { groups } = useGroups();
   const activeGroups = groups.filter((g) => g.status === "active");
   return (
-    <SafeAreaView style={s.safeArea}>
+    <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
       <View style={s.header}>
         <Text style={s.title}>Pay Bills</Text>
         <Text style={s.subtitle}>Active groups & settlements</Text>
