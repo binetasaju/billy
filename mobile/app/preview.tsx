@@ -17,7 +17,7 @@ import { View, Text, Image, Pressable, StyleSheet, Dimensions, Alert, ActivityIn
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { optimizeReceipt } from "../services/optimizer";
+import { autoCropReceipt } from "../services/optimizer";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 const IMAGE_MAX_H = Math.round(SCREEN_H * 0.55);
@@ -32,11 +32,11 @@ export default function PreviewScreen() {
     if (!uri || autoCropping) return;
     setAutoCropping(true);
     try {
-      const cropped = await optimizeReceipt(uri);
-      if (cropped === uri) {
-        Alert.alert("Auto-crop", "Couldn't find a tighter crop. Use Adjust Crop to crop by hand.");
+      const result = await autoCropReceipt(uri);
+      if (result.status === "cropped") {
+        router.setParams({ uri: result.uri });
       } else {
-        router.setParams({ uri: cropped });
+        Alert.alert("Auto-crop", result.message);
       }
     } finally {
       setAutoCropping(false);
