@@ -98,9 +98,9 @@ Short-term:
 - Restart with a fresh key if needed: update `EXPO_PUBLIC_GEMINI_API_KEY` in `mobile/.env`, then `npx expo start --dev-client --clear`.
 
 Fix properly (in this order):
-1. **Skip the Gemini crop step by default** — the user already has a manual crop in *Edit Image*. Only call `optimizer.ts` when the user taps "Auto-crop".
+1. ✅ **Skip the Gemini crop step by default** — the user already has a manual crop in *Edit Image*. Only call `optimizer.ts` when the user taps "Auto-crop".
 2. **Try the local parser first**; call Gemini only when the local result looks bad (no items, or items don't add up to the total).
-3. **Show a friendly message on 429** ("Daily AI limit reached — enter items manually or try later") and drop straight into manual entry (2.4).
+3. ✅ **Show a friendly message on 429** ("Daily AI limit reached — enter items manually or try later") and drop straight into manual entry (2.4).
 4. Before any public release: move the key to a **server proxy** (`backend/`), since keys in `EXPO_PUBLIC_*` can be extracted from the APK.
 
 ---
@@ -108,19 +108,23 @@ Fix properly (in this order):
 ## 4. Order to do things in
 
 ### Now — finish the local MVP
-1. Quick fixes: GST toggle (2.1), 10-digit phone (2.2), minimum 2 people + edit/remove participant (2.3)
-2. Gemini quota fixes (section 3, steps 1–3)
-3. Manual bill entry (2.4)
-4. One-page item-wise split (2.5)
-5. Custom-amount split + payment request (2.8)
-6. "Owe someone" debts (2.7)
-7. Group: who ate what (2.6)
-8. **Bill editing before the first payment** — edit an item price → settlement recalculated; lock editing once any payment is marked paid
-9. **Payment tracking polish** — clear Paid / Pending per person, prevent double "mark as paid", bill auto-settles when all are paid
-10. **History** — bill list → bill detail (items, people, settlement, payments)
-11. UPI intent-for-result auto-confirmation (2.9)
-12. Group "minimum payments" (simplify debts: A→B→C becomes A→C)
-13. Parser tests (`parseBill` local fallback) with real receipt text samples
+_Branch `feat/local-mvp-next` — ✅ done and tested with Jest (149 tests), **not yet checked on the phone**._
+
+1. ✅ Quick fixes: bigger GST toggle, real 10-digit mobile check, 2+ sharers incl. payer, edit/remove participant
+2. ✅ Gemini quota: 1 call per scan (AI auto-crop is now a button), no retries on 429, offline note on Review
+3. ✅ Manual bill entry (Home → Add Bill → Enter Manually) + add/remove taxes, charges, discounts on Review
+4. ✅ One-page item-wise split with live per-person totals
+5. ✅ Custom-amount split (type anyone's share, the rest re-balances) + **Request** payment via WhatsApp/SMS with a UPI link
+6. ✅ "Owe someone" debts (Home → Owe someone?, or a saved group → Record Money Owed)
+7. ✅ "Who had what" on saved bills
+8. ✅ Edit a saved bill until the first payment (locked afterwards)
+9. ✅ Payment progress ("2 of 3 paid · ₹X pending"); duplicate "paid" taps ignored; bills auto-settle
+10. ✅ History → bill detail (items, people, settlements, payments) — covered by the above
+11. ⏳ **UPI intent-for-result auto-confirmation (2.9)** — needs a native Android module + rebuild + testing with real UPI apps
+12. ✅ Group "Settle up in N payments" (A→B→C becomes A→C) — shown as a suggestion
+13. ✅ Offline parser tests with realistic receipts (+ fix: offline parsing now keeps GST/charges/total)
+
+**Next:** test the whole journey on the phone (scan → review → split → save → pay/request → history), then 11, then the extraction upgrade (Document Scanner + photo-direct Gemini).
 
 ### After the local MVP works end-to-end
 14. Firebase phone OTP (real auth)
