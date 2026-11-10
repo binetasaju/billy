@@ -11,13 +11,15 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  SafeAreaView,
   ScrollView,
 } from "react-native";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
-import ItemAssignmentSection from "../components/ItemAssignmentSection";
+import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 type Method = "equal" | "itemwise";
 
@@ -35,8 +37,8 @@ const CARDS: MethodCard[] = [
   {
     method: "equal",
     icon: "people",
-    iconBg: "#EFF6FF",
-    iconColor: "#3B82F6",
+    iconBg: C.primarySoft,
+    iconColor: C.primaryMuted,
     title: "Split Equally",
     description: "Everyone pays an equal share of the total bill.",
     badge: "Quick",
@@ -44,8 +46,8 @@ const CARDS: MethodCard[] = [
   {
     method: "itemwise",
     icon: "receipt-outline",
-    iconBg: "#F0FDF4",
-    iconColor: "#059669",
+    iconBg: C.successSoft,
+    iconColor: C.successDark,
     title: "Item-wise Split",
     description: "Assign individual items to participants for a precise split.",
     badge: "Precise",
@@ -55,7 +57,6 @@ const CARDS: MethodCard[] = [
 export default function ChooseSplitMethodScreen() {
   const router = useRouter();
   const [selectedMethod, setSelectedMethod] = useState<Method | null>(null);
-  const isItemwise = selectedMethod === "itemwise";
 
   useEffect(() => {
     const store = billStore.get();
@@ -63,7 +64,7 @@ export default function ChooseSplitMethodScreen() {
       router.replace("/");
       return;
     }
-    if (store.splitMethod) {
+    if (store.splitMethod === "equal" || store.splitMethod === "itemwise") {
       setSelectedMethod(store.splitMethod);
     }
   }, []);
@@ -71,14 +72,9 @@ export default function ChooseSplitMethodScreen() {
   const handleSelect = (method: Method) => {
     billStore.setSplitMethod(method);
     setSelectedMethod(method);
-    if (method === "equal") {
-      router.push("/equal-split-summary" as any);
-    }
-    // Item-wise → the method cards give way to the inline assignment UI below.
-  };
-
-  const handleItemwiseDone = () => {
-    router.push("/itemwise-split-summary" as any);
+    router.push(
+      (method === "equal" ? "/equal-split-summary" : "/itemwise-split-summary") as any
+    );
   };
 
   return (
@@ -88,21 +84,12 @@ export default function ChooseSplitMethodScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ── */}
-        {/* Once item-wise is picked the method is settled, so the picker steps
-            aside for a compact header and the screen becomes assignment-only. */}
-        <View style={[styles.header, isItemwise && styles.headerCompact]}>
-          <Text style={styles.title}>
-            {isItemwise ? "Item-wise Split" : "Split Method"}
-          </Text>
-          <Text style={styles.subtitle}>
-            {isItemwise
-              ? "Assign each item to the people who had it."
-              : "How would you like to split this bill?"}
-          </Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Split Method</Text>
+          <Text style={styles.subtitle}>How would you like to split this bill?</Text>
         </View>
 
         {/* ── Method Cards ── */}
-        {!isItemwise && (
         <View style={styles.cards}>
           {CARDS.map(({ method, icon, iconBg, iconColor, title, description, badge }) => (
             <Pressable
@@ -136,51 +123,45 @@ export default function ChooseSplitMethodScreen() {
 
               {/* Arrow */}
               <View style={styles.cardArrow}>
-                <Ionicons name="arrow-forward" size={18} color="#9CA3AF" />
+                <Ionicons name="arrow-forward" size={18} color={C.textSubtle} />
               </View>
             </Pressable>
           ))}
         </View>
-        )}
 
-        {/* ── Inline Item Assignment for Item-wise Split ── */}
-        {isItemwise && <ItemAssignmentSection onDone={handleItemwiseDone} />}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   header: { marginTop: 28, marginBottom: 28 },
-  headerCompact: { marginBottom: 20 },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
-    letterSpacing: -0.5,
+    ...T.largeTitle,
+    color: C.ink,
   },
   subtitle: {
     fontSize: 16,
-    color: "#6B7280",
+    color: C.textMuted,
     marginTop: 6,
     lineHeight: 22,
   },
 
   cards: { gap: 16 },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.glass,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.glassBorder,
     padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 0,
     position: "relative",
   },
   cardPressed: {
@@ -207,13 +188,13 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
     marginBottom: 8,
     letterSpacing: -0.3,
   },
   cardDescription: {
     fontSize: 14,
-    color: "#6B7280",
+    color: C.textMuted,
     lineHeight: 20,
     marginBottom: 16,
   },

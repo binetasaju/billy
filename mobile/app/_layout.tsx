@@ -50,7 +50,7 @@ function AuthGate() {
   if (isLoading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#1D4ED8" />
+        <ActivityIndicator size="large" color="#065F46" />
       </View>
     );
   }
@@ -75,7 +75,8 @@ export default function RootLayout() {
       <BottomSheetModalProvider>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }} />
-          <StatusBar style="auto" />
+          {/* Billy uses a light theme: keep status-bar icons dark even when the phone is in dark mode */}
+          <StatusBar style="dark" />
           {/* AuthGate runs alongside the stack — redirects happen inside */}
           <AuthGate />
         </ThemeProvider>

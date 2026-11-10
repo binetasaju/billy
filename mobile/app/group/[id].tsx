@@ -1,14 +1,21 @@
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Modal, ToastAndroid, Platform, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Alert, Share } from "react-native";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useState, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { groupStore } from "../../services/groupStore";
+import { billStore } from "../../services/billStore";
+import { canEditBill } from "../../services/billEditing";
 import { useGroups } from "../../hooks/useGroups";
 import { authStore } from "../../services/authStore";
-import { openUpiPayment } from "../../services/upi";
+import { buildPaymentRequestMessage, isValidUpiId, openUpiPayment } from "../../services/upi";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
+import { C } from "@/constants/colors";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { T } from "@/constants/typography";
 
 /** One row of a person's share breakdown. */
 interface BreakdownLine {
@@ -65,6 +72,15 @@ export default function GroupDetailsScreen() {
   const group = useMemo(() => groups.find((g) => g.id === id), [groups, id]);
   const currentUser = authStore.get().user;
   const isCreator = currentUser?.uid === group?.createdBy;
+  // Creator can edit until the first payment is marked.
+  const canEdit = canEditBill(group, currentUser?.uid);
+
+  const handleEditBill = () => {
+    if (!group || !canEdit) return;
+    billStore.loadForEdit(group);
+    // "Split an Amount" bills have no receipt to review — edit the amounts directly.
+    router.push((group.splitMethod === "custom" ? "/custom-split" : "/review-items") as any);
+  };
 
   // ── Build a person's share breakdown ───────────────────────────────────────
   // Shared items are divided by the number of people who claimed them, and the
@@ -73,6 +89,17 @@ export default function GroupDetailsScreen() {
   // Stored settlement amounts are never altered here; they stay authoritative
   // for what is owed.
   const getPersonBreakdown = (personId: string) => {
+    // Custom-amount bills: the agreed amount IS the breakdown.
+    if (group?.splitMethod === "custom") {
+      const amount = group.customAmounts?.[personId] ?? 0;
+      return {
+        lines: [{ key: "__custom", name: "Agreed amount", amount, note: "custom split" }] as BreakdownLine[],
+        itemsTotal: amount,
+        chargesShare: 0,
+        total: amount,
+      };
+    }
+
     const participants = group?.participants ?? [];
     const allItems = (group?.billSnapshot?.items ?? []) as BillItem[];
     const person = participants.find((p) => p.id === personId);
@@ -219,6 +246,27 @@ export default function GroupDetailsScreen() {
     setPayOtherTx(null);
   };
 
+  // ── Payee-side request ("please pay me") ──────────────────────────────────
+  const handleRequestPayment = async (tx: any, sender: Person | undefined) => {
+    const me = authStore.get().user;
+    if (!me || tx.toUserId !== me.uid) return;
+    const message = buildPaymentRequestMessage({
+      payerName: sender?.name ?? "there",
+      requesterName: me.name,
+      requesterUpiId: me.upiId,
+      amount: tx.amount,
+      billTitle: group?.title ?? "our bill",
+    });
+    try {
+      await Share.share({ message });
+    } catch (err) {
+      console.error("[Group] Share failed:", err);
+    }
+    if (!me.upiId || !isValidUpiId(me.upiId)) {
+      Alert.alert("Tip", "Add your UPI ID in Profile so requests include a one-tap payment link.");
+    }
+  };
+
   // ── Payee-side confirmation ────────────────────────────────────────────────
   // Only the receiver of a settlement may mark it as received.
   const handleMarkReceivedClick = (tx: any, sender: Person | undefined) => {
@@ -231,18 +279,18 @@ export default function GroupDetailsScreen() {
     });
   };
 
-  const handleConfirmReceived = async (method: "upi" | "cash" | "other") => {
+  // Payee confirms once — no payment-method question.
+  const handleConfirmReceived = async () => {
     // Re-check ownership at confirm time — never mark another pair's settlement.
     if (!receiveTx || !group || receiveTx.to !== currentUser?.uid) {
       setReceiveTx(null);
       return;
     }
-    await groupStore.markSettlementPaid(group.id, receiveTx.from, receiveTx.to, method);
-    const label = method === "cash" ? "Cash" : method === "upi" ? "UPI" : "Payment";
+    await groupStore.markSettlementPaid(group.id, receiveTx.from, receiveTx.to);
     if (Platform.OS === "android") {
-      ToastAndroid.show(`${label} payment marked as received.`, ToastAndroid.SHORT);
+      ToastAndroid.show("Marked as received.", ToastAndroid.SHORT);
     } else {
-      Alert.alert("Marked as Received", `${label} payment marked as received.`);
+      Alert.alert("Marked as received", "The payment is marked as received.");
     }
     setReceiveTx(null);
   };
@@ -270,7 +318,7 @@ export default function GroupDetailsScreen() {
       <SafeAreaView style={s.safeArea}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} style={s.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#111827" />
+            <Ionicons name="arrow-back" size={24} color={C.ink} />
           </Pressable>
         </View>
         <View style={s.emptyState}>
@@ -284,18 +332,20 @@ export default function GroupDetailsScreen() {
     <SafeAreaView style={s.safeArea}>
       <View style={s.header}>
         <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={24} color={C.ink} />
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {canEdit && (
+            <Pressable style={s.editBtn} onPress={handleEditBill} accessibilityRole="button">
+              <Ionicons name="create-outline" size={15} color={C.primary} />
+              <Text style={s.editBtnText}>Edit</Text>
+            </Pressable>
+          )}
+          <StatusBadge status={group.status === "settled" ? "settled" : "active"} />
           <Pressable style={s.reportBtn} onPress={() => setShowReportModal(true)}>
-            <Ionicons name="flag-outline" size={15} color="#EF4444" />
+            <Ionicons name="flag-outline" size={15} color={C.danger} />
             <Text style={s.reportBtnText}>Report Error</Text>
           </Pressable>
-          <View style={[s.statusBadge, group.status === "settled" && s.statusBadgeSettled]}>
-            <Text style={[s.statusText, group.status === "settled" && s.statusTextSettled]}>
-              {group.status.charAt(0).toUpperCase() + group.status.slice(1)}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -314,7 +364,63 @@ export default function GroupDetailsScreen() {
           <Text style={s.summaryLabel}>Total Bill Amount</Text>
           <Text style={s.summaryValue}>₹{group.totalAmount.toFixed(2)}</Text>
           <Text style={s.summarySubtext}>{group.participants.length} Participants</Text>
+          {group.settlements.length > 0 && (() => {
+            const paidCount = group.settlements.filter((t) => t.status === "paid").length;
+            const pct = Math.round((paidCount / group.settlements.length) * 100);
+            const outstanding = group.settlements
+              .filter((t) => t.status !== "paid")
+              .reduce((sum, t) => sum + t.amount, 0);
+            return (
+              <View style={s.progressWrap}>
+                <View style={s.progressTrack}>
+                  <View style={[s.progressFill, { width: `${pct}%` as any }]} />
+                </View>
+                <Text style={s.progressText}>
+                  {paidCount === group.settlements.length
+                    ? "Everyone has paid 🎉"
+                    : `${paidCount} of ${group.settlements.length} paid · ₹${outstanding.toFixed(2)} pending`}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
+
+        {/* ── Who had what (bills with a receipt only) ── */}
+        {group.billSnapshot && group.participants.length > 0 && (
+          <>
+            <Text style={s.sectionTitle}>Who had what</Text>
+            <View style={s.listCard}>
+              {group.participants.map((p, idx) => {
+                const b = getPersonBreakdown(p.id);
+                const summary = b.lines
+                  .map((l) => {
+                    const share = l.note?.match(/^shared by (\d+)/);
+                    return share ? `${l.name} (1/${share[1]})` : l.name;
+                  })
+                  .join(", ");
+                const isMe = p.id === currentUser?.uid;
+                return (
+                  <Pressable
+                    key={p.id}
+                    style={[s.whoRow, idx < group.participants.length - 1 && s.txBorder]}
+                    onPress={() => handleShowItems(p.id, isMe ? "Your" : `${p.name}'s`)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${p.name}'s items`}
+                  >
+                    <View style={[s.whoAvatar, { backgroundColor: p.color ?? C.textSubtle }]}>
+                      <Text style={s.whoAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.txName}>{isMe ? "You" : p.name}</Text>
+                      <Text style={s.whoItems} numberOfLines={2}>{summary || "No items"}</Text>
+                    </View>
+                    <Text style={s.whoTotal}>₹{b.total.toFixed(2)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         <Text style={s.sectionTitle}>Settlements ({group.settlements.length})</Text>
         <View style={s.listCard}>
@@ -349,7 +455,7 @@ export default function GroupDetailsScreen() {
                       <Ionicons
                         name={isPaid ? "checkmark-circle" : (isCurrentUserFrom ? "arrow-up" : isCurrentUserTo ? "arrow-down" : "swap-horizontal")}
                         size={18}
-                        color={isPaid ? "#10B981" : (isCurrentUserFrom ? "#EF4444" : isCurrentUserTo ? "#10B981" : "#6B7280")}
+                        color={isPaid ? C.success : (isCurrentUserFrom ? C.danger : isCurrentUserTo ? C.success : C.textMuted)}
                       />
                     </View>
                     <View style={s.txTextContent}>
@@ -383,44 +489,55 @@ export default function GroupDetailsScreen() {
                   {/* Actions: the item breakdown stays available once paid,
                       so a settled bill can still be inspected from History. */}
                   <View style={s.txActions}>
-                      {/* Info icon — always visible to all participants */}
+                    {/* Secondary actions — matching glass chips */}
+                    <View style={s.chipRow}>
                       <Pressable
-                        style={s.infoBtn}
+                        style={({ pressed }) => [s.chipBtn, pressed && s.pressedBtn]}
                         onPress={() => handleShowItems(
                           tx.fromUserId,
                           isCurrentUserFrom ? "Your" : `${personFromObj?.name ?? "Their"}'s`
                         )}
                       >
-                        <Ionicons name="receipt-outline" size={17} color="#3B82F6" />
-                        <Text style={s.infoBtnText}>Items</Text>
+                        <Ionicons name="receipt-outline" size={15} color={C.primary} />
+                        <Text style={s.chipBtnText}>Items</Text>
                       </Pressable>
-
-                      {!isPaid && (isCurrentUserFrom ? (
-                        receiverHasUpi ? (
-                          <Pressable style={s.payBtn} onPress={() => handlePayClick(tx, personToObj)}>
-                            <Text style={s.payBtnText}>Pay ₹{tx.amount.toFixed(2)}</Text>
-                          </Pressable>
-                        ) : (
-                          <Pressable
-                            style={s.markPaidBtn}
-                            onPress={() => handleMarkPaidOtherClick(tx, personToObj)}
-                          >
-                            <Text style={s.markPaidBtnText}>Mark as Paid</Text>
-                          </Pressable>
-                        )
-                      ) : isCurrentUserTo ? (
+                      {!isPaid && isCurrentUserTo && (
                         <Pressable
-                          style={s.receivedBtn}
-                          onPress={() => handleMarkReceivedClick(tx, personFromObj)}
+                          style={({ pressed }) => [s.chipBtn, pressed && s.pressedBtn]}
+                          onPress={() => handleRequestPayment(tx, personFromObj)}
+                          accessibilityLabel={`Request payment from ${personFromObj?.name ?? "them"}`}
                         >
-                          <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
-                          <Text style={s.receivedBtnText}>Mark as Received</Text>
+                          <Ionicons name="paper-plane-outline" size={15} color={C.primary} />
+                          <Text style={s.chipBtnText}>Request</Text>
                         </Pressable>
-                      ) : (
-                        <View style={s.waitingBadge}>
-                          <Text style={s.waitingText}>Waiting for payment</Text>
-                        </View>
-                      ))}
+                      )}
+                    </View>
+
+                    {/* Main action — one full-width button, same style for every role */}
+                    {!isPaid && (isCurrentUserFrom ? (
+                      <Pressable
+                        style={({ pressed }) => [s.mainBtn, pressed && s.pressedBtn]}
+                        onPress={() => receiverHasUpi ? handlePayClick(tx, personToObj) : handleMarkPaidOtherClick(tx, personToObj)}
+                      >
+                        <Ionicons name={receiverHasUpi ? "flash-outline" : "checkmark-done-outline"} size={17} color={C.white} />
+                        <Text style={s.mainBtnText}>
+                          {receiverHasUpi ? `Pay ₹${tx.amount.toFixed(2)} with UPI` : "Mark as paid"}
+                        </Text>
+                      </Pressable>
+                    ) : isCurrentUserTo ? (
+                      <Pressable
+                        style={({ pressed }) => [s.mainBtn, pressed && s.pressedBtn]}
+                        onPress={() => handleMarkReceivedClick(tx, personFromObj)}
+                      >
+                        <Ionicons name="checkmark-done-outline" size={17} color={C.white} />
+                        <Text style={s.mainBtnText}>Mark as received</Text>
+                      </Pressable>
+                    ) : (
+                      <View style={s.waitingRow}>
+                        <View style={s.waitingDot} />
+                        <Text style={s.waitingText}>Waiting for {personFromObj?.name ?? "them"} to pay</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
               );
@@ -450,12 +567,12 @@ export default function GroupDetailsScreen() {
                 {p.phone ? <Text style={s.participantPhone}>{p.phone}</Text> : null}
                 {p.upiId ? (
                   <View style={s.upiRow}>
-                    <Ionicons name="logo-google" size={11} color="#6B7280" />
+                    <Ionicons name="logo-google" size={11} color={C.textMuted} />
                     <Text style={s.participantUpi}>{p.upiId}</Text>
                   </View>
                 ) : null}
               </View>
-              <Ionicons name="receipt-outline" size={17} color="#3B82F6" />
+              <Ionicons name="receipt-outline" size={17} color={C.primaryMuted} />
             </Pressable>
           ))}
         </View>
@@ -467,7 +584,7 @@ export default function GroupDetailsScreen() {
           <View style={s.modalCard}>
             <View style={s.modalHeader}>
               <View style={s.modalIconWrap}>
-                <Ionicons name="receipt-outline" size={24} color="#3B82F6" />
+                <Ionicons name="receipt-outline" size={24} color={C.primaryMuted} />
               </View>
               <Text style={s.modalTitle}>{itemsModal?.personName} Items</Text>
               <Text style={s.modalSubtitle}>Breakdown of what they ordered</Text>
@@ -490,8 +607,8 @@ export default function GroupDetailsScreen() {
 
             {/* Items subtotal */}
             <View style={s.itemBreakdownRow}>
-              <Text style={[s.itemBreakdownName, { color: "#6B7280" }]}>Items subtotal</Text>
-              <Text style={[s.itemBreakdownPrice, { color: "#6B7280" }]}>
+              <Text style={[s.itemBreakdownName, { color: C.textMuted }]}>Items subtotal</Text>
+              <Text style={[s.itemBreakdownPrice, { color: C.textMuted }]}>
                 ₹{(itemsModal?.itemsTotal ?? 0).toFixed(2)}
               </Text>
             </View>
@@ -499,8 +616,8 @@ export default function GroupDetailsScreen() {
             {/* Charges + Total */}
             {Math.abs(itemsModal?.chargesShare ?? 0) >= 0.01 && (
               <View style={s.itemBreakdownRow}>
-                <Text style={[s.itemBreakdownName, { color: "#6B7280" }]}>Taxes & Charges</Text>
-                <Text style={[s.itemBreakdownPrice, { color: "#6B7280" }]}>+₹{itemsModal!.chargesShare.toFixed(2)}</Text>
+                <Text style={[s.itemBreakdownName, { color: C.textMuted }]}>Taxes & Charges</Text>
+                <Text style={[s.itemBreakdownPrice, { color: C.textMuted }]}>+₹{itemsModal!.chargesShare.toFixed(2)}</Text>
               </View>
             )}
             <View style={s.itemBreakdownTotal}>
@@ -520,18 +637,29 @@ export default function GroupDetailsScreen() {
         <View style={s.modalBackdrop}>
           <View style={s.modalCard}>
             <View style={s.modalHeader}>
-              <View style={[s.modalIconWrap, { backgroundColor: "#FEF2F2" }]}>
-                <Ionicons name="warning-outline" size={24} color="#EF4444" />
+              <View style={[s.modalIconWrap, { backgroundColor: C.dangerSoft }]}>
+                <Ionicons name="warning-outline" size={24} color={C.danger} />
               </View>
               <Text style={s.modalTitle}>Report Bill Error</Text>
               <Text style={s.modalSubtitle}>
-                {isCreator
-                  ? "Found a mistake? You can delete this group and rescan the corrected bill."
+                {canEdit
+                  ? "Found a mistake? Edit the bill — everyone's share is recalculated. Editing is possible until someone pays."
+                  : isCreator
+                  ? "Someone has already paid, so this bill can't be edited. You can delete it and rescan the corrected bill."
                   : "Found a mistake in the bill? The bill creator can delete and rescan it with the correct details."}
               </Text>
             </View>
 
             <View style={{ gap: 12, marginTop: 8 }}>
+              {canEdit && (
+                <Pressable
+                  style={s.reportEditBtn}
+                  onPress={() => { setShowReportModal(false); handleEditBill(); }}
+                >
+                  <Ionicons name="create-outline" size={16} color="#fff" />
+                  <Text style={s.reportDeleteBtnText}>Edit Bill</Text>
+                </Pressable>
+              )}
               {isCreator ? (
                 <Pressable
                   style={s.reportDeleteBtn}
@@ -557,13 +685,13 @@ export default function GroupDetailsScreen() {
               ) : (
                 <>
                   <View style={s.reportedBanner}>
-                    <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                    <Ionicons name="checkmark-circle" size={18} color={C.successDark} />
                     <Text style={s.reportedBannerText}>
                       Error noted. The bill creator will be able to delete and rescan.
                     </Text>
                   </View>
                   <View style={s.creatorOnlyNote}>
-                    <Ionicons name="lock-closed-outline" size={14} color="#6B7280" />
+                    <Ionicons name="lock-closed-outline" size={14} color={C.textMuted} />
                     <Text style={s.creatorOnlyNoteText}>
                       Only the bill creator can delete and repost this bill.
                     </Text>
@@ -608,21 +736,15 @@ export default function GroupDetailsScreen() {
       <Modal visible={!!receiveTx} transparent animationType="fade" statusBarTranslucent>
         <View style={s.modalBackdrop}>
           <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Mark as Received</Text>
+            <Text style={s.modalTitle}>Mark as received?</Text>
             {receiveTx && (
               <Text style={s.modalSubtitle}>
-                How did {receiveTx.payerName} pay you ₹{receiveTx.amount.toFixed(2)}?
+                Confirm you received ₹{receiveTx.amount.toFixed(2)} from {receiveTx.payerName}. This can&apos;t be undone.
               </Text>
             )}
             <View style={{ gap: 12, marginTop: 24 }}>
-              <Pressable style={s.modalBtnSuccess} onPress={() => handleConfirmReceived("upi")}>
-                <Text style={s.modalBtnSuccessText}>UPI received</Text>
-              </Pressable>
-              <Pressable style={s.modalBtnMethod} onPress={() => handleConfirmReceived("cash")}>
-                <Text style={s.modalBtnMethodText}>Cash received</Text>
-              </Pressable>
-              <Pressable style={s.modalBtnMethod} onPress={() => handleConfirmReceived("other")}>
-                <Text style={s.modalBtnMethodText}>Other</Text>
+              <Pressable style={s.modalBtnConfirm} onPress={handleConfirmReceived}>
+                <Text style={s.modalBtnSuccessText}>Yes, received</Text>
               </Pressable>
               <Pressable style={s.modalBtnCancel} onPress={() => setReceiveTx(null)}>
                 <Text style={s.modalBtnCancelText}>Cancel</Text>
@@ -651,7 +773,7 @@ export default function GroupDetailsScreen() {
               </Pressable>
               {activeTx?.receiverUpiId && (
                 <Pressable style={s.modalBtnCopyUpi} onPress={handleCopyUpiId}>
-                  <Ionicons name="copy-outline" size={15} color="#374151" />
+                  <Ionicons name="copy-outline" size={15} color={C.text} />
                   <Text style={s.modalBtnCopyUpiText}>Copy UPI ID</Text>
                 </Pressable>
               )}
@@ -667,138 +789,152 @@ export default function GroupDetailsScreen() {
 }
 
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center" },
-  statusBadge: { backgroundColor: "#FEF2F2", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  statusBadgeSettled: { backgroundColor: "#ECFDF5" },
-  statusText: { color: "#EF4444", fontSize: 13, fontWeight: "600" },
-  statusTextSettled: { color: "#10B981" },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
 
+  editBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: C.primarySoft },
+  editBtnText: { fontSize: 13, fontWeight: "600", color: C.primary },
+  reportEditBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12 },
   reportBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#FEF2F2", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,
+    backgroundColor: C.dangerSoft, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,
     borderWidth: 1, borderColor: "#FECACA",
   },
-  reportBtnText: { color: "#EF4444", fontSize: 13, fontWeight: "600" },
+  reportBtnText: { color: C.danger, fontSize: 13, fontWeight: "600" },
 
   scroll: { paddingHorizontal: 24, paddingBottom: 40 },
-  title: { fontSize: 32, fontWeight: "800", color: "#111827", letterSpacing: -0.5, marginTop: 16, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: "#4B5563", fontWeight: "500", marginBottom: 2 },
-  date: { fontSize: 15, color: "#6B7280", marginBottom: 32 },
+  title: { ...T.largeTitle, color: C.ink, marginTop: 16, marginBottom: 4 },
+  subtitle: { fontSize: 16, color: C.text, fontWeight: "500", marginBottom: 2 },
+  date: { fontSize: 15, color: C.textMuted, marginBottom: 32 },
 
-  summaryCard: { backgroundColor: "#111827", borderRadius: 20, padding: 24, marginBottom: 32, alignItems: "center" },
-  summaryLabel: { fontSize: 14, color: "#9CA3AF", fontWeight: "500", marginBottom: 8 },
-  summaryValue: { fontSize: 36, color: "#ffffff", fontWeight: "800", letterSpacing: -1 },
-  summarySubtext: { fontSize: 14, color: "#9CA3AF", marginTop: 8 },
+  summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 24, marginBottom: 32, alignItems: "center" },
+  summaryLabel: { fontSize: 14, color: C.onDarkMuted, fontWeight: "500", marginBottom: 8 },
+  summaryValue: { fontSize: 36, color: C.white, fontWeight: "800", letterSpacing: -1 },
+  summarySubtext: { fontSize: 14, color: C.onDarkMuted, marginTop: 8 },
+  progressWrap: { alignSelf: "stretch", marginTop: 16, gap: 8 },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: C.onDarkLine, overflow: "hidden" },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: "#34D399" },
+  progressText: { fontSize: 13, color: C.onDarkMuted, textAlign: "center", fontWeight: "500" },
 
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 16 },
-  listCard: { backgroundColor: "#ffffff", borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 32, overflow: "hidden" },
-  emptyTransactions: { padding: 20, color: "#6B7280", textAlign: "center" },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 16 },
+  listCard: { backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, marginBottom: 32, overflow: "hidden" },
+  emptyTransactions: { padding: 20, color: C.textMuted, textAlign: "center" },
 
   txRow: { paddingHorizontal: 20, paddingVertical: 16 },
   txMain: { flexDirection: "row", alignItems: "center" },
-  txBorder: { borderBottomWidth: 1, borderColor: "#F3F4F6" },
-  txIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#F9FAFB", alignItems: "center", justifyContent: "center", marginRight: 12 },
+  txBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
+  txIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", marginRight: 12 },
   txTextContent: { flex: 1 },
-  txText: { fontSize: 15, color: "#4B5563" },
-  txName: { fontWeight: "600", color: "#111827" },
-  txPaidStatus: { fontSize: 12, color: "#10B981", fontWeight: "600", marginTop: 2 },
-  txPendingStatus: { fontSize: 12, color: "#9CA3AF", fontWeight: "500", marginTop: 2 },
-  txAmount: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  txText: { fontSize: 15, color: C.text },
+  txName: { fontWeight: "600", color: C.ink },
+  whoRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
+  whoAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  whoAvatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  whoItems: { fontSize: 12, color: C.textMuted, marginTop: 2, lineHeight: 16 },
+  whoTotal: { fontSize: 15, fontWeight: "700", color: C.ink },
+  txPaidStatus: { fontSize: 12, color: C.statusSettledText, fontWeight: "600", marginTop: 2 },
+  txPendingStatus: { fontSize: 12, color: C.statusActiveText, fontWeight: "600", marginTop: 2 },
+  txAmount: { fontSize: 16, fontWeight: "700", color: C.ink },
 
   // Actions row below transaction info
-  txActions: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12 },
-  infoBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#EFF6FF", paddingVertical: 10, paddingHorizontal: 14,
-    borderRadius: 10, borderWidth: 1, borderColor: "#BFDBFE",
+  txActions: { marginTop: 12, gap: 10 },
+  chipRow: { flexDirection: "row", gap: 8 },
+  chipBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
+    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.border,
   },
-  infoBtnText: { color: "#3B82F6", fontWeight: "600", fontSize: 13 },
-  payBtn: { flex: 1, backgroundColor: "#111827", paddingVertical: 11, borderRadius: 10, alignItems: "center" },
-  payBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  waitingBadge: { flex: 1, backgroundColor: "#F3F4F6", paddingVertical: 11, borderRadius: 10, alignItems: "center" },
+  chipBtnText: { color: C.primary, fontWeight: "600", fontSize: 13 },
+  mainBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: C.primary, paddingVertical: 13, borderRadius: 14,
+  },
+  mainBtnText: { color: C.white, fontSize: 15, fontWeight: "600" },
+  pressedBtn: { opacity: 0.75 },
+  waitingRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: C.statusActiveBg, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14,
+  },
+  waitingDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.statusActiveDot },
   upiMissingRow: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A",
+    backgroundColor: C.warningSoft, borderWidth: 1, borderColor: "#FDE68A",
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginTop: 10,
   },
   upiMissingText: { flex: 1, fontSize: 12, fontWeight: "500", color: "#92400E" },
-  markPaidBtn: { flex: 1, backgroundColor: "#111827", paddingVertical: 11, borderRadius: 10, alignItems: "center" },
-  markPaidBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  receivedBtn: { flex: 1, flexDirection: "row", gap: 6, backgroundColor: "#10B981", paddingVertical: 11, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  receivedBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  waitingText: { color: "#6B7280", fontWeight: "500", fontSize: 13 },
+  waitingText: { color: C.statusActiveText, fontWeight: "600", fontSize: 13 },
 
   participantRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  avatarText: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
+  avatarText: { color: C.white, fontSize: 14, fontWeight: "700" },
   participantInfo: { flex: 1 },
-  participantName: { fontSize: 15, fontWeight: "600", color: "#111827" },
-  participantPhone: { fontSize: 13, color: "#6B7280", marginTop: 1 },
+  participantName: { fontSize: 15, fontWeight: "600", color: C.ink },
+  participantPhone: { fontSize: 13, color: C.textMuted, marginTop: 1 },
   upiRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  participantUpi: { fontSize: 12, color: "#9CA3AF", fontStyle: "italic" },
+  participantUpi: { fontSize: 12, color: C.textSubtle, fontStyle: "italic" },
 
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#EF4444", fontSize: 16 },
+  errorText: { color: C.danger, fontSize: 16 },
 
   // Modals shared
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 20 },
-  modalCard: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 20 },
+  modalCard: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 6 },
   modalHeader: { alignItems: "center", marginBottom: 20 },
-  modalIconWrap: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: "#111827", textAlign: "center", marginBottom: 4 },
-  modalSubtitle: { fontSize: 14, color: "#6B7280", textAlign: "center", lineHeight: 20 },
+  modalIconWrap: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  modalTitle: { fontSize: 20, fontWeight: "700", color: C.ink, textAlign: "center", marginBottom: 4 },
+  modalSubtitle: { fontSize: 14, color: C.textMuted, textAlign: "center", lineHeight: 20 },
 
   // Item breakdown modal
   itemBreakdownList: {
-    backgroundColor: "#F9FAFB", borderRadius: 12,
-    borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden", marginBottom: 4,
+    backgroundColor: C.bg, borderRadius: 12,
+    borderWidth: 1, borderColor: C.border, overflow: "hidden", marginBottom: 4,
   },
   itemBreakdownRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 11 },
-  itemBreakdownBorder: { borderBottomWidth: 1, borderColor: "#F3F4F6" },
+  itemBreakdownBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   itemBreakdownInfo: { flex: 1, paddingRight: 12 },
-  itemBreakdownNote: { fontSize: 11, color: "#6B7280", marginTop: 2 },
-  itemBreakdownName: { flex: 1, fontSize: 14, color: "#111827", fontWeight: "500", paddingRight: 12 },
-  itemBreakdownPrice: { fontSize: 14, fontWeight: "600", color: "#111827" },
-  noItemsText: { padding: 14, color: "#9CA3AF", fontSize: 14, textAlign: "center" },
+  itemBreakdownNote: { fontSize: 11, color: C.textMuted, marginTop: 2 },
+  itemBreakdownName: { flex: 1, fontSize: 14, color: C.ink, fontWeight: "500", paddingRight: 12 },
+  itemBreakdownPrice: { fontSize: 14, fontWeight: "600", color: C.ink },
+  noItemsText: { padding: 14, color: C.textSubtle, fontSize: 14, textAlign: "center" },
   itemBreakdownTotal: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#111827", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16,
+    backgroundColor: C.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16,
   },
-  itemBreakdownTotalLabel: { fontSize: 14, fontWeight: "700", color: "#9CA3AF" },
-  itemBreakdownTotalValue: { fontSize: 18, fontWeight: "800", color: "#FFFFFF", letterSpacing: -0.3 },
-  modalBtnClose: { backgroundColor: "#F3F4F6", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
-  modalBtnCloseText: { color: "#374151", fontWeight: "600", fontSize: 15 },
+  itemBreakdownTotalLabel: { fontSize: 14, fontWeight: "700", color: C.textSubtle },
+  itemBreakdownTotalValue: { fontSize: 18, fontWeight: "800", color: C.white, letterSpacing: -0.3 },
+  modalBtnClose: { backgroundColor: C.surfaceAlt, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  modalBtnCloseText: { color: C.text, fontWeight: "600", fontSize: 15 },
 
   // Report error modal
   reportDeleteBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: "#EF4444", paddingVertical: 14, borderRadius: 12,
+    backgroundColor: C.danger, paddingVertical: 14, borderRadius: 12,
   },
   reportDeleteBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   reportedBanner: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: "#ECFDF5", borderRadius: 12, padding: 14,
+    backgroundColor: C.successSoft, borderRadius: 12, padding: 14,
     borderWidth: 1, borderColor: "#A7F3D0",
   },
   reportedBannerText: { flex: 1, fontSize: 14, color: "#065F46", fontWeight: "500", lineHeight: 20 },
   creatorOnlyNote: {
     flexDirection: "row", alignItems: "center", gap: 7,
-    backgroundColor: "#F9FAFB", borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: "#E5E7EB",
+    backgroundColor: C.bg, borderRadius: 10, padding: 12,
+    borderWidth: 1, borderColor: C.border,
   },
-  creatorOnlyNoteText: { flex: 1, fontSize: 13, color: "#6B7280", lineHeight: 18 },
+  creatorOnlyNoteText: { flex: 1, fontSize: 13, color: C.textMuted, lineHeight: 18 },
 
   // Payment modal
-  modalBtnSuccess: { backgroundColor: "#10B981", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  modalBtnSuccess: { backgroundColor: C.success, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  modalBtnConfirm: { backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
   modalBtnSuccessText: { color: "#fff", fontWeight: "600", fontSize: 15 },
-  modalBtnFail: { backgroundColor: "#FEF2F2", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
-  modalBtnFailText: { color: "#EF4444", fontWeight: "600", fontSize: 15 },
-  modalBtnCopyUpi: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#F3F4F6", paddingVertical: 14, borderRadius: 12 },
-  modalBtnCopyUpiText: { color: "#374151", fontWeight: "600", fontSize: 14 },
-  modalBtnMethod: { backgroundColor: "#F3F4F6", paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#E5E7EB" },
-  modalBtnMethodText: { fontSize: 15, fontWeight: "700", color: "#374151" },
+  modalBtnFail: { backgroundColor: C.dangerSoft, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  modalBtnFailText: { color: C.danger, fontWeight: "600", fontSize: 15 },
+  modalBtnCopyUpi: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: C.surfaceAlt, paddingVertical: 14, borderRadius: 12 },
+  modalBtnCopyUpiText: { color: C.text, fontWeight: "600", fontSize: 14 },
+  modalBtnMethod: { backgroundColor: C.surfaceAlt, paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: C.border },
+  modalBtnMethodText: { fontSize: 15, fontWeight: "700", color: C.text },
   modalBtnCancel: { paddingVertical: 14, borderRadius: 12, alignItems: "center" },
-  modalBtnCancelText: { color: "#6B7280", fontWeight: "600", fontSize: 15 },
+  modalBtnCancelText: { color: C.textMuted, fontWeight: "600", fontSize: 15 },
 });

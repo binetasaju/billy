@@ -7,6 +7,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C } from "@/constants/colors";
 
 interface ParticipantCheckboxProps {
   name: string;
@@ -14,14 +15,17 @@ interface ParticipantCheckboxProps {
   phone?: string;
   isChecked: boolean;
   onToggle: () => void;
+  /** Opens per-person options (edit name / remove). Also triggered by long-press. */
+  onOptions?: () => void;
 }
 
 export default function ParticipantCheckbox({
   name,
-  color = "#6B7280",
+  color = C.textMuted,
   phone,
   isChecked,
   onToggle,
+  onOptions,
 }: ParticipantCheckboxProps) {
   return (
     <Pressable
@@ -30,6 +34,7 @@ export default function ParticipantCheckbox({
         pressed && styles.rowPressed,
       ]}
       onPress={onToggle}
+      onLongPress={onOptions}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: isChecked }}
       accessibilityLabel={`${isChecked ? "Deselect" : "Select"} ${name}`}
@@ -47,24 +52,39 @@ export default function ParticipantCheckbox({
           {phone && <Text style={styles.phone}>{phone}</Text>}
         </View>
       </View>
-      <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-        {isChecked && <Ionicons name="checkmark" size={16} color="#FFF" />}
+      <View style={styles.right}>
+        {onOptions && (
+          <Pressable
+            onPress={onOptions}
+            hitSlop={10}
+            style={styles.optionsBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Options for ${name}`}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color={C.textMuted} />
+          </Pressable>
+        )}
+        <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+          {isChecked && <Ionicons name="checkmark" size={16} color="#FFF" />}
+        </View>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  right: { flexDirection: "row", alignItems: "center", gap: 8 },
+  optionsBtn: { paddingHorizontal: 6, paddingVertical: 4 },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.glassStrong,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: C.glassBorder,
     marginBottom: 6,
   },
   rowPressed: {
@@ -84,7 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -94,14 +114,14 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
+    color: C.ink,
   },
   nameUnchecked: {
-    color: "#9CA3AF",
+    color: C.textSubtle,
   },
   phone: {
     fontSize: 13,
-    color: "#6B7280",
+    color: C.textMuted,
     marginTop: 2,
   },
   checkbox: {
@@ -109,12 +129,12 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#D1D5DB",
+    borderColor: C.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
 });

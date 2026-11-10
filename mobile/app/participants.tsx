@@ -15,16 +15,15 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Pressable,
   Alert,
   LayoutAnimation,
-  Platform,
-  UIManager,
   Modal,
   TextInput,
 } from "react-native";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
@@ -39,14 +38,13 @@ import SectionHeader from "../components/bill-split/SectionHeader";
 import PrimaryButton from "../components/bill-split/PrimaryButton";
 import ParticipantCard from "../components/bill-split/ParticipantCard";
 import ParticipantCheckbox from "../components/bill-split/ParticipantCheckbox";
+import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
+// People's avatar colours — emerald / black / white theme
 const COLORS = [
-  "#EF4444", "#F97316", "#F59E0B", "#10B981",
-  "#06B6D4", "#3B82F6", "#8B5CF6", "#EC4899",
+  "#065F46", "#0A0A0A", "#115E59", "#525252",
+  "#047857", "#78716C", "#14532D", "#0F766E",
 ];
 
 export default function ParticipantsScreen() {
@@ -56,6 +54,8 @@ export default function ParticipantsScreen() {
   const [participants, setParticipants] = useState<Person[]>([]);
   const [payerId, setPayerId] = useState<string | null>(null);
   const [sharingIds, setSharingIds] = useState<Set<string>>(new Set());
+  // Problems are only shown after the user tries to continue.
+  const [showValidation, setShowValidation] = useState(false);
   const [billTotal, setBillTotal] = useState(0);
 
   // Modals
@@ -134,23 +134,30 @@ export default function ParticipantsScreen() {
   }, []);
 
   // ── Derived values ────────────────────────────────────────────────────────
+  // Rules: someone paid, at least 2 people share, and the payer is one of
+  // them (downstream screens, saved bills and UPI pay look the payer up in
+  // the sharing list — "paid for others" is handled by custom amounts).
   const hasPayerSelected = !!payerId;
-  const hasAtLeastOneSharer = sharingIds.size > 0;
-  const canContinue = hasPayerSelected && hasAtLeastOneSharer;
+  const hasEnoughSharers = sharingIds.size >= 2;
+  const payerIsSharing = !!payerId && sharingIds.has(payerId);
+  const canContinue = hasPayerSelected && hasEnoughSharers && payerIsSharing;
   const sharerCount = sharingIds.size;
 
   // ── Validation status label ───────────────────────────────────────────────
   const validationStatus = useMemo(() => {
-    if (!hasPayerSelected) return { icon: "alert-circle" as const, text: "Select who paid", color: "#EF4444" };
-    if (!hasAtLeastOneSharer) return { icon: "alert-circle" as const, text: "Select who's sharing", color: "#EF4444" };
-    return { icon: "checkmark-circle" as const, text: "Ready to split", color: "#059669" };
-  }, [hasPayerSelected, hasAtLeastOneSharer]);
+    if (!hasPayerSelected) return { icon: "alert-circle" as const, text: "Select who paid", color: C.danger };
+    if (!hasEnoughSharers) return { icon: "alert-circle" as const, text: "Select at least 2 people sharing", color: C.danger };
+    if (!payerIsSharing) return { icon: "alert-circle" as const, text: "Who paid must also be sharing", color: C.danger };
+    return { icon: "checkmark-circle" as const, text: "Ready to split", color: C.successDark };
+  }, [hasPayerSelected, hasEnoughSharers, payerIsSharing]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handlePayerSelect = useCallback((id: string) => {
     setPayerId(id);
     billStore.updatePayer(id);
+    // The payer always shares the bill — tick them automatically.
+    setSharingIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   }, []);
 
   const handleToggleSharing = useCallback((id: string) => {
@@ -248,6 +255,14 @@ export default function ParticipantsScreen() {
     setEditName(person.name);
   }, []);
 
+  const handleParticipantOptions = useCallback((person: Person) => {
+    Alert.alert(person.name, undefined, [
+      { text: "Edit name", onPress: () => handleEditName(person) },
+      { text: "Remove", style: "destructive", onPress: () => handleRemoveParticipant(person) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [handleEditName, handleRemoveParticipant]);
+
   const saveEditName = useCallback(() => {
     if (!editingParticipant) return;
     const name = editName.trim();
@@ -269,7 +284,11 @@ export default function ParticipantsScreen() {
   }, [editingParticipant, editName, participants]);
 
   const handleContinue = useCallback(() => {
-    if (!canContinue || !payerId) return;
+    if (!canContinue || !payerId) {
+      setShowValidation(true);
+      Alert.alert("Can't split yet", validationStatus.text + ".");
+      return;
+    }
 
     // Save payer to store
     billStore.updatePayer(payerId);
@@ -281,7 +300,7 @@ export default function ParticipantsScreen() {
     }
 
     router.push("/choose-split-method" as any);
-  }, [canContinue, payerId, participants, sharingIds, router]);
+  }, [canContinue, payerId, participants, sharingIds, router, validationStatus]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -323,6 +342,7 @@ export default function ParticipantsScreen() {
               phone={p.phone}
               isChecked={sharingIds.has(p.id)}
               onToggle={() => handleToggleSharing(p.id)}
+              onOptions={() => handleParticipantOptions(p)}
             />
           ))}
 
@@ -331,7 +351,7 @@ export default function ParticipantsScreen() {
             style={styles.addBtn}
             onPress={() => setContactPickerVisible(true)}
           >
-            <Ionicons name="person-add" size={18} color="#111827" />
+            <Ionicons name="person-add" size={18} color={C.ink} />
             <Text style={styles.addBtnText}>Add From Contacts</Text>
           </Pressable>
 
@@ -343,7 +363,7 @@ export default function ParticipantsScreen() {
               accessibilityRole="button"
               accessibilityLabel="Use a saved group"
             >
-              <Ionicons name="people" size={18} color="#111827" />
+              <Ionicons name="people" size={18} color={C.ink} />
               <Text style={styles.addBtnText}>Use a Saved Group</Text>
             </Pressable>
           )}
@@ -366,15 +386,20 @@ export default function ParticipantsScreen() {
               {payerId ? (participants.find((p) => p.id === payerId)?.name ?? "—") : "—"}
             </Text>
           </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryRow}>
-            <View style={styles.statusRow}>
-              <Ionicons name={validationStatus.icon} size={16} color={validationStatus.color} />
-              <Text style={[styles.statusText, { color: validationStatus.color }]}>
-                {validationStatus.text}
-              </Text>
-            </View>
-          </View>
+          {/* Status: "Ready" when valid; problems only after Continue was pressed */}
+          {(canContinue || showValidation) && (
+            <>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <View style={styles.statusRow}>
+                  <Ionicons name={validationStatus.icon} size={16} color={validationStatus.color} />
+                  <Text style={[styles.statusText, { color: validationStatus.color }]}>
+                    {validationStatus.text}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Bottom spacer for button */}
@@ -386,7 +411,6 @@ export default function ParticipantsScreen() {
         <PrimaryButton
           label="Continue to Split →"
           onPress={handleContinue}
-          disabled={!canContinue}
         />
       </View>
 
@@ -419,7 +443,7 @@ export default function ParticipantsScreen() {
                       {g.members.length} member{g.members.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+                  <Ionicons name="chevron-forward" size={18} color={C.borderStrong} />
                 </Pressable>
               ))}
             </ScrollView>
@@ -472,7 +496,7 @@ export default function ParticipantsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
@@ -488,14 +512,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
-    letterSpacing: -0.5,
+    ...T.largeTitle,
+    color: C.ink,
   },
   subtitle: {
     fontSize: 16,
-    color: "#6B7280",
+    color: C.textMuted,
     marginTop: 4,
   },
 
@@ -510,7 +532,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
@@ -518,26 +540,26 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
+    color: C.ink,
   },
 
   // Summary card
   summaryCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.glass,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.glassBorder,
     padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 0,
   },
   summaryTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6B7280",
+    color: C.textMuted,
     letterSpacing: 0.3,
     textTransform: "uppercase",
     marginBottom: 12,
@@ -550,16 +572,16 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: "#6B7280",
+    color: C.textMuted,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
+    color: C.ink,
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.surfaceAlt,
     marginVertical: 6,
   },
   statusRow: {
@@ -581,9 +603,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     paddingBottom: 32,
-    backgroundColor: "#F9FAFB",
-    borderTopWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: C.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
   },
 
   // Edit name modal
@@ -595,40 +617,40 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "85%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderRadius: 16,
     padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 10,
+    elevation: 6,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#111827",
+    color: C.ink,
     marginBottom: 16,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: C.borderStrong,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: "#111827",
+    color: C.ink,
     marginBottom: 20,
   },
   groupOption: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.surfaceAlt,
   },
-  groupOptionName: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  groupOptionMeta: { fontSize: 13, color: "#6B7280", marginTop: 2 },
+  groupOptionName: { fontSize: 16, fontWeight: "600", color: C.ink },
+  groupOptionMeta: { fontSize: 13, color: C.textMuted, marginTop: 2 },
   modalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -642,10 +664,10 @@ const styles = StyleSheet.create({
   modalCancelBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#6B7280",
+    color: C.textMuted,
   },
   modalSaveBtn: {
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -653,6 +675,6 @@ const styles = StyleSheet.create({
   modalSaveBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: C.white,
   },
 });

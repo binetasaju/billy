@@ -2,7 +2,7 @@
 // services/calculateSettlement.ts
 //
 // Centralized settlement engine for Billy.
-// Handles "equal" and "itemwise" splitting methods, applying proportional
+// Handles "equal", "itemwise" and "custom" splitting methods, applying proportional
 // taxes and service charges, and generating peer-to-peer settlement transactions.
 // ---------------------------------------------------------------------------
 
@@ -10,8 +10,10 @@ import type { Person, BillItem } from "../types/bill";
 
 export interface SettlementInput {
   payerId: string;
-  splitMethod: "equal" | "itemwise";
+  splitMethod: "equal" | "itemwise" | "custom";
   participants: Person[]; // Using Person type from the app
+  /** splitMethod "custom": the exact amount each person pays, by person id. */
+  customAmounts?: Record<string, number>;
   items: BillItem[];
   gstAmount?: number;
   serviceCharge?: number;
@@ -95,6 +97,7 @@ export function calculateSettlement({
   gstAmount = 0,
   serviceCharge = 0,
   additionalCharges = 0,
+  customAmounts = {},
 }: SettlementInput): SettlementSummary {
   const numParticipants = participants.length;
 
@@ -107,7 +110,25 @@ export function calculateSettlement({
 
   let participantTotals: ParticipantTotal[] = [];
 
-  if (splitMethod === "equal") {
+  if (splitMethod === "custom") {
+    // Custom amounts: each person's total is what was typed in. Callers must
+    // make the amounts add up to the bill (see remainingToAssign). Charges are
+    // shown as a proportional part of each person's amount.
+    const ratioBase = totalBillAmount > 0 ? totalBillAmount : 1;
+    participantTotals = participants.map((p) => {
+      const total = roundTo2(customAmounts[p.id] ?? 0);
+      const ratio = total / ratioBase;
+      return {
+        personId: p.id,
+        personName: p.name,
+        itemsTotal: roundTo2(itemsTotalSum * ratio),
+        taxShare: roundTo2(gstAmount * ratio),
+        serviceChargeShare: roundTo2(serviceCharge * ratio),
+        additionalChargesShare: roundTo2(additionalCharges * ratio),
+        total,
+      };
+    });
+  } else if (splitMethod === "equal") {
     // 1. Equal Split: Split total equally among participants.
     const exactItemsTotal = itemsTotalSum / numParticipants;
     const exactTaxShare = gstAmount / numParticipants;
@@ -225,4 +246,36 @@ export function calculateSettlement({
 
   // 5. Return additional summary
   return { settlements, participantTotals };
+}
+
+/** Bill total minus the custom amounts entered so far (rounded to paise). */
+export function remainingToAssign(billTotal: number, amounts: Record<string, number>): number {
+  const assigned = Object.values(amounts).reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0);
+  return roundTo2(billTotal - assigned);
+}
+
+/**
+ * GPay-style re-balance: people whose amount was typed in keep it; everyone
+ * else shares what's left equally (last person absorbs the rounding paisa).
+ */
+export function rebalanceCustomAmounts(
+  billTotal: number,
+  personIds: string[],
+  fixed: Record<string, number>
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  const free = personIds.filter((id) => !(id in fixed));
+  let fixedSum = 0;
+  personIds.forEach((id) => {
+    if (id in fixed) {
+      result[id] = roundTo2(fixed[id]);
+      fixedSum += result[id];
+    }
+  });
+  const left = Math.max(0, roundTo2(billTotal - fixedSum));
+  const each = free.length > 0 ? Math.floor((left / free.length) * 100) / 100 : 0;
+  free.forEach((id, i) => {
+    result[id] = i === free.length - 1 ? roundTo2(left - each * (free.length - 1)) : each;
+  });
+  return result;
 }

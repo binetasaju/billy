@@ -17,18 +17,46 @@ export interface UpiPaymentConfig {
   note?: string;
 }
 
-export async function openUpiPayment(config: UpiPaymentConfig): Promise<void> {
-  const { upiId, receiverName, amount, note } = config;
-  
-  // Format the URI per UPI specs
-  // upi://pay?pa=name@bank&pn=ReceiverName&am=10.00&cu=INR&tn=OptionalNote
-  const pa = encodeURIComponent(upiId);
+/**
+ * Build a UPI payment link per the NPCI deep-link spec:
+ * upi://pay?pa=name@bank&pn=ReceiverName&am=10.00&cu=INR&tn=OptionalNote
+ */
+export function buildUpiUri({ upiId, receiverName, amount, note }: UpiPaymentConfig): string {
+  const pa = encodeURIComponent(upiId.trim());
   const pn = encodeURIComponent(receiverName);
   const am = amount.toFixed(2);
-  const cu = "INR";
   const tn = note ? `&tn=${encodeURIComponent(note)}` : "";
-  
-  const url = `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=${cu}${tn}`;
+  return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR${tn}`;
+}
+
+/**
+ * Text for a "please pay me" message (WhatsApp / SMS). Includes a one-tap UPI
+ * link when the requester has a valid UPI ID.
+ */
+export function buildPaymentRequestMessage(opts: {
+  payerName: string;
+  requesterName: string;
+  requesterUpiId?: string | null;
+  amount: number;
+  billTitle: string;
+}): string {
+  const { payerName, requesterName, requesterUpiId, amount, billTitle } = opts;
+  const lines = [
+    `Hi ${payerName}, your share for "${billTitle}" is ₹${amount.toFixed(2)}.`,
+  ];
+  if (requesterUpiId && isValidUpiId(requesterUpiId)) {
+    lines.push(
+      `Pay ${requesterName} on UPI: ${requesterUpiId.trim()}`,
+      buildUpiUri({ upiId: requesterUpiId, receiverName: requesterName, amount, note: billTitle })
+    );
+  }
+  lines.push("— sent from Billy");
+  return lines.join("\n");
+}
+
+export async function openUpiPayment(config: UpiPaymentConfig): Promise<void> {
+  const { upiId } = config;
+  const url = buildUpiUri(config);
 
   try {
     const supported = await Linking.canOpenURL(url);

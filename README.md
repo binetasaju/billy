@@ -366,6 +366,7 @@ Run these commands from the `mobile/` directory.
 | `npm run android` | Build and launch the Android application |
 | `npm run ios` | Build and launch the iOS application on macOS |
 | `npm run lint` | Run the configured lint command |
+| `npm test` | Run the Jest unit tests (settlement maths, balances, receipt parsing, crop, editing…) |
 | `npm run check:auth` | Run the authentication identity regression checks |
 | `npm run web` | Start the web development target, subject to native-module limitations |
 

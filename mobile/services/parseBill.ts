@@ -9,10 +9,14 @@
 // ---------------------------------------------------------------------------
 
 import type { ParsedBill } from "../types/bill";
+import { toAmount } from "./receiptLayout";
+import { isTaxCharge, reconcileCharges } from "./reconcileBill";
 
 export type { ParsedBill };
 
 const GEMINI_MODEL = "gemini-flash-lite-latest";
+/** Per-attempt limit for the Gemini call (normal replies take ~2–3 s). */
+const ATTEMPT_TIMEOUT_MS = 15_000;
 const GEMINI_BASE_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -85,6 +89,11 @@ FIELD DEFINITIONS:
   - Include Service Charge, Packaging Charge, Convenience Fee, Tip.
   - Discounts/Round Off: use NEGATIVE amounts (e.g. -0.48 for Round Off).
   - Do NOT include Subtotal or Total rows. Do NOT include 0.00 rows.
+  - ONLY include charges that are printed with an amount on THIS receipt. Never invent or estimate tax.
+    If the receipt shows no tax/charge lines, return "charges": [].
+  - If the receipt says prices are INCLUSIVE of tax ("incl. of GST", "inclusive of all taxes",
+    "Taxable value" breakdown inside the total), do NOT put those tax lines in charges.
+  - GSTIN, FSSAI, HSN/SAC codes are identifiers, never charges.
 "total": Grand total / amount payable (numeric).
 
 PARENT-CHILD RULES:
@@ -145,6 +154,22 @@ ${ocrText
 // Parser
 // ---------------------------------------------------------------------------
 
+/** Gemini refused the request because the (daily) quota is used up. */
+class QuotaExceededError extends Error {}
+
+function fallbackNote(err: unknown): string {
+  if (err instanceof QuotaExceededError) {
+    return "Today's AI limit is reached, so items were read offline. Please check them carefully.";
+  }
+  if (err instanceof Error && err.name === "AbortError") {
+    return "The AI service was too slow, so items were read offline. Please check them carefully.";
+  }
+  if (err instanceof Error && /API key not set/i.test(err.message)) {
+    return "AI reading isn't set up, so items were read offline. Please check them carefully.";
+  }
+  return "Couldn't reach the AI service, so items were read offline. Please check them carefully.";
+}
+
 export async function parseBill(ocrText: string): Promise<ParsedBill> {
   const parseStart = Date.now();
   let retryCount = 0;
@@ -160,13 +185,20 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
 
     let response: Response | null = null;
     let attempt = 1;
-    const maxRetries = 3;
-    const RETRY_DELAYS = [2000, 4000, 8000]; // progressive backoff
+    // Speed over persistence: a normal reply takes ~2–3 s. If Google is
+    // overloaded, give each attempt 15 s, retry once, then fall back to the
+    // offline parser — worst case ≈ 30 s instead of a minute or more.
+    const maxRetries = 2;
+    const RETRY_DELAYS = [1500];
 
     while (attempt <= maxRetries) {
       console.log(`[parseBill] Gemini call (Attempt ${attempt}/${maxRetries})`);
-      response = await fetch(url, {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+      try {
+        response = await fetch(url, {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: PARSE_PROMPT(ocrText) }] }],
@@ -177,10 +209,27 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
             maxOutputTokens: 8192,
           },
         }),
-      });
+        });
+      } catch (err) {
+        // Timed out (or network error): retry once, then fall back offline.
+        if (attempt < maxRetries) {
+          console.warn(`[parseBill] Gemini attempt ${attempt} failed (${(err as Error)?.name}). Retrying…`);
+          retryCount++;
+          attempt++;
+          continue;
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (!response.ok) {
-        const isRetryable = [503, 429, 500].includes(response.status);
+        // 429 = quota exhausted. A daily limit won't reset in a few seconds,
+        // so retrying only adds delay — go straight to the offline parser.
+        if (response.status === 429) {
+          throw new QuotaExceededError("Gemini quota exceeded (429)");
+        }
+        const isRetryable = [503, 500].includes(response.status);
         if (isRetryable && attempt < maxRetries) {
           const delayMs = RETRY_DELAYS[attempt - 1];
           console.warn(`[parseBill] Gemini ${response.status}. Retrying in ${delayMs}ms... (${attempt}/${maxRetries})`);
@@ -232,21 +281,40 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
   if (!Array.isArray(parsed.items)) {
     throw new Error("Parser returned malformed data (missing items array).");
   }
-  if (typeof parsed.total !== "number") {
+
+  // The model sometimes returns money as strings ("1,250.00", "₹250").
+  // Coerce everything to numbers so totals never string-concatenate.
+  const total = toAmount(parsed.total);
+  if (total === null) {
     throw new Error("Parser returned malformed data (missing total).");
   }
+  parsed.total = total;
+  parsed.subtotal = toAmount(parsed.subtotal) as any;
 
   // Normalise item fields
-  parsed.items = (parsed.items as any[]).map((item) => ({
-    ...item,
-    amount:   item.amount   ?? item.price ?? 0,
-    price:    item.amount   ?? item.price ?? 0,
-    quantity: item.quantity ?? 1,
-    // Ensure children is always a string array
-    children: Array.isArray(item.children)
-      ? (item.children as any[]).map(String).filter(Boolean)
-      : [],
-  }));
+  parsed.items = (parsed.items as any[])
+    .map((item) => {
+      const rawQty = toAmount(item.quantity);
+      const quantity = rawQty && rawQty > 0 ? rawQty : 1;
+      const unitPrice = toAmount(item.unitPrice);
+      const amount =
+        toAmount(item.amount) ??
+        toAmount(item.price) ??
+        (unitPrice !== null ? Math.round(unitPrice * quantity * 100) / 100 : 0);
+      return {
+        ...item,
+        name: String(item.name ?? "").trim(),
+        unitPrice: unitPrice ?? (quantity ? amount / quantity : amount),
+        amount,
+        price: amount,
+        quantity,
+        // Ensure children is always a string array
+        children: Array.isArray(item.children)
+          ? (item.children as any[]).map(String).filter(Boolean)
+          : [],
+      };
+    })
+    .filter((item) => item.name.length > 0);
 
   // Normalise restaurant / legalName
   // Deduplicate repeated brand names ("PLAN B PLAN B" -> "PLAN B")
@@ -291,16 +359,28 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
       rawCharges.push({ name: "Discount", amount: -Math.abs(parsed.discount) });
   }
 
-  parsed.charges = rawCharges.filter((c) => c.amount !== 0);
+  const extractedCharges = rawCharges
+    .map((c) => ({ name: String(c?.name ?? "").trim(), amount: toAmount(c?.amount) ?? 0 }))
+    .filter((c) => c.name && c.amount !== 0 && !/gstin/i.test(c.name));
+
+  // Check charges against the printed total: drops tax lines that are only a
+  // breakdown of tax-inclusive prices, so GST is never added twice.
+  const itemsSum = parsed.items.reduce((sum, it) => sum + it.price, 0);
+  const reconciled = reconcileCharges(itemsSum, extractedCharges, parsed.total);
+  parsed.charges = reconciled.charges;
+  parsed.printedTotal = parsed.total;
+  parsed.taxInclusive = reconciled.taxInclusive;
+  if (reconciled.taxInclusive) {
+    console.log("[parseBill] Tax lines are included in item prices — not adding them on top");
+  }
 
   // Back-fill legacy scalar fields from charges[] so split.tsx / any
   // downstream code that reads gst/serviceCharge still works.
-  const TAX_NAMES = /cgst|sgst|igst|gst|vat|cess/i;
   const SC_NAMES  = /service.?charge|packaging|delivery|convenience/i;
   const DISC_NAMES = /discount|round.?off|rounding/i;
 
   parsed.gst = parsed.charges
-    .filter((c) => TAX_NAMES.test(c.name))
+    .filter((c) => isTaxCharge(c.name))
     .reduce((s, c) => s + c.amount, 0) || null;
 
   parsed.serviceCharge = parsed.charges
@@ -319,6 +399,14 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
     console.log(`[Charge] ${c.name}: ${c.amount}`)
   );
 
+    // Sanity check: items + charges should add up to the printed total.
+    const computed =
+      parsed.items.reduce((sum, it) => sum + it.price, 0) +
+      parsed.charges.reduce((sum, c) => sum + c.amount, 0);
+    if (Math.abs(computed - parsed.total) > 1) {
+      console.warn(`[parseBill] ⚠ Items + charges = ₹${computed.toFixed(2)} but printed total = ₹${parsed.total}`);
+    }
+
     console.log(`[parseBill] ✓ ${parsed.items.length} items, total ₹${parsed.total}`);
     console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
     return parsed;
@@ -329,6 +417,7 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
     
     fallbackUsed = true;
     const parsed = localFallbackParser(ocrText);
+    parsed.extractionNote = fallbackNote(err);
     
     console.log(`[parseBill] ✓ Fallback parsed ${parsed.items.length} items, total ₹${parsed.total}`);
     console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
@@ -441,24 +530,80 @@ function localFallbackParser(ocrText: string): ParsedBill {
     return true;
   });
 
-  const total = deduped.reduce((s, it) => s + it.price, 0);
+  const itemsSum = Math.round(deduped.reduce((s, it) => s + it.price, 0) * 100) / 100;
 
-  console.log(`[localFallback] Matched ${deduped.length} items from ${lines.length} lines`);
+  // Taxes / charges / printed total, checked against each other so GST is
+  // neither lost nor double-counted.
+  const found = extractChargesAndTotal(lines);
+  const reconciled = reconcileCharges(itemsSum, found.charges, found.printedTotal);
+  const charges = reconciled.charges;
+  const total = Math.round((itemsSum + charges.reduce((s, c) => s + c.amount, 0)) * 100) / 100;
+  const sumOf = (re: RegExp) =>
+    charges.filter((c) => re.test(c.name)).reduce((s, c) => s + c.amount, 0) || null;
+
+  console.log(`[localFallback] Matched ${deduped.length} items, ${charges.length} charges from ${lines.length} lines`);
 
   return {
+    isBill:     true, // local fallback cannot classify; let the user review
     restaurant: "Extracted Locally",
     legalName:  "",
     billNumber: "",
     date:       "",
     items:      deduped,
-    subtotal:   total,
-    charges:    [],
+    subtotal:   itemsSum,
+    charges,
     taxes:      [],
-    gst:        0,
-    serviceCharge: 0,
-    tip:        0,
+    gst:        charges.filter((c) => isTaxCharge(c.name)).reduce((s, c) => s + c.amount, 0) || null,
+    serviceCharge: sumOf(/service.?charge|packaging|packing|delivery|convenience/i),
+    tip:        sumOf(/\btip\b/i),
+    discount:   sumOf(/discount|round.?off|rounding/i),
     total,
+    printedTotal: found.printedTotal,
+    taxInclusive: reconciled.taxInclusive,
   };
+}
+
+/**
+ * Offline extraction of charge lines (CGST, service charge, round off, ...)
+ * and the printed grand total from receipt rows like "CGST 2.5%  26.25".
+ */
+export function extractChargesAndTotal(lines: string[]): {
+  charges: { name: string; amount: number }[];
+  printedTotal: number | null;
+} {
+  const CHARGE = /(^|[^a-z])(c|s|i|ut)?gst(?!in)|\bvat\b|\bcess\b|service\s*charge|\bs\.?c\.?\b|packing|packaging|delivery|convenience|round.?off|rounding|discount|\btip\b/i;
+  const NOT_A_CHARGE = /taxable|gstin|\bon\b|\bincl/i;
+  const STRONG_TOTAL = /grand\s*total|net\s*(amount|total|payable)|amount\s*payable|total\s*payable|bill\s*amount|total\s*amount/i;
+  const WEAK_TOTAL = /\btotal\b/i;
+  const NOT_TOTAL = /sub.?total|taxable|total\s*(qty|quantity|items?)|\bno\.?\s*of/i;
+
+  const charges: { name: string; amount: number }[] = [];
+  const seen = new Set<string>();
+  let strongTotal: number | null = null;
+  let weakTotal: number | null = null;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    // name … amount   (amount may be "-0.50", "(20.00)", "₹ 1,102.00")
+    const m = line.match(/^(.*?[A-Za-z%).].*?)[\s:=]+((?:-\s*)?(?:₹|Rs\.?|INR)?\s*\(?-?[\d,]*\.?\d+\)?)$/i);
+    if (!m) continue;
+    const name = m[1].replace(/[:\-–]+$/, "").trim();
+    const amount = toAmount(m[2]);
+    if (amount === null || !name) continue;
+
+    if (!NOT_TOTAL.test(name) && STRONG_TOTAL.test(name)) { strongTotal = amount; continue; }
+    if (!NOT_TOTAL.test(name) && WEAK_TOTAL.test(name) && !CHARGE.test(name)) { weakTotal = amount; continue; }
+
+    if (CHARGE.test(name) && !NOT_A_CHARGE.test(name) && amount !== 0) {
+      const signed = /discount/i.test(name) ? -Math.abs(amount) : amount;
+      const key = `${name.toLowerCase()}|${signed}`;
+      if (seen.has(key)) continue; // tax summary tables often repeat lines
+      seen.add(key);
+      charges.push({ name, amount: signed });
+    }
+  }
+
+  return { charges, printedTotal: strongTotal ?? weakTotal };
 }
 
 function isMetadataOrTax(name: string): boolean {

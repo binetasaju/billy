@@ -8,8 +8,9 @@
 
 import React, { useState } from "react";
 import {
-  View, Text, Pressable, StyleSheet, Modal, SafeAreaView, Image,
+  View, Text, Pressable, StyleSheet, Modal, Image,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ReactNativeZoomableView } from "@openspacelabs/react-native-zoomable-view";
 
 interface FullScreenViewerProps {
@@ -19,6 +20,7 @@ interface FullScreenViewerProps {
 }
 
 export default function FullScreenViewer({ uri, visible, onClose }: FullScreenViewerProps) {
+  const insets = useSafeAreaInsets();
   const [hasError, setHasError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -36,7 +38,7 @@ export default function FullScreenViewer({ uri, visible, onClose }: FullScreenVi
       statusBarTranslucent
     >
       <View style={styles.root}>
-        <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
 
           {/* Header */}
           <View style={styles.header}>
@@ -86,7 +88,7 @@ export default function FullScreenViewer({ uri, visible, onClose }: FullScreenVi
             <Text style={styles.footerText}>Pinch to zoom  ·  Double-tap to zoom  ·  Drag to pan</Text>
           </View>
 
-        </SafeAreaView>
+        </View>
       </View>
     </Modal>
   );

@@ -3,12 +3,12 @@ import {
   View,
   Text,
   Pressable,
-  FlatList,
   StyleSheet,
   Alert,
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { C } from "@/constants/colors";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,7 +70,7 @@ export default function SplitScreen() {
       {/* Header */}
       <Text style={styles.title}>Split Bill</Text>
       <Text style={styles.subtitle}>
-        Choose who paid and who's splitting
+        Choose who paid and who&apos;s splitting
       </Text>
 
       {/* ------------------------------------------------------------------ */}
@@ -189,7 +189,7 @@ export default function SplitScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
   },
   content: {
     padding: 24,
@@ -199,29 +199,29 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#111827",
+    color: C.ink,
     marginBottom: 6,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "#6B7280",
+    color: C.textMuted,
     marginBottom: 28,
   },
   sectionLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6B7280",
+    color: C.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 10,
     marginTop: 4,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     marginBottom: 24,
     overflow: "hidden",
   },
@@ -230,11 +230,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   payerOptionSelected: {
-    backgroundColor: "#F0FDF4",
+    backgroundColor: C.successSoft,
   },
   payerOptionText: {
     fontSize: 15,
-    color: "#374151",
+    color: C.text,
     fontWeight: "500",
   },
   payerOptionTextSelected: {
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
   },
   participantRow: {
     flexDirection: "row",
@@ -255,27 +255,27 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
   avatarText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontWeight: "700",
     fontSize: 14,
   },
   participantName: {
     flex: 1,
     fontSize: 15,
-    color: "#111827",
+    color: C.ink,
     fontWeight: "500",
   },
   removeButton: {
     padding: 6,
   },
   removeButtonText: {
-    color: "#9CA3AF",
+    color: C.textSubtle,
     fontSize: 14,
   },
   addParticipantButton: {
@@ -284,13 +284,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addParticipantText: {
-    color: "#111827",
+    color: C.ink,
     fontWeight: "500",
     fontSize: 14,
   },
   summaryPlaceholder: {
     padding: 18,
-    color: "#9CA3AF",
+    color: C.textSubtle,
     fontSize: 14,
     lineHeight: 22,
   },
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   calculateButtonText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontWeight: "600",
     fontSize: 16,
   },

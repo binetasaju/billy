@@ -4,13 +4,14 @@ import {
   Text,
   Image,
   Pressable,
-  ScrollView,
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
-import { compressImage, extractTextFromImage } from "../services/ocr";
+import { compressImage } from "../services/ocr";
 import { extractTextWithMLKit } from "../services/mlkitOcr";
 import { parseBill } from "../services/parseBill";
 import { extractBlocksWithVision } from "../services/visionOcr";
@@ -18,6 +19,8 @@ import { matchItemsToBlocks, buildBlocksFromRawText } from "../services/matchIte
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
 import type { ParsedBill } from "../services/parseBill";
+import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -129,10 +132,14 @@ export default function OcrScreen() {
       console.log("[PIPELINE] Original dimensions:", compressed.width, "×", compressed.height);
 
       // ── Step 3: Read base64 ────────────────────────────────────────────────
+      // base64 is only needed by the optional Vision API — skip it otherwise.
+      const visionConfigured = !!process.env.EXPO_PUBLIC_VISION_API_KEY;
       const base64Start = Date.now();
-      const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
-        encoding: "base64" as FileSystem.EncodingType,
-      });
+      const base64 = visionConfigured
+        ? await FileSystem.readAsStringAsync(compressed.uri, {
+            encoding: "base64" as FileSystem.EncodingType,
+          })
+        : "";
       const base64DurationMs = Date.now() - base64Start;
       const compressedSizeKB = ((base64.length * 0.75) / 1024).toFixed(1);
       console.log("[PIPELINE] Original size:", originalSizeKB, "KB");
@@ -141,7 +148,7 @@ export default function OcrScreen() {
       console.log("[PIPELINE] Base64 read duration:", base64DurationMs, "ms");
       console.log(`[PIPELINE] Size reduction: ${originalSizeKB} KB → ${compressedSizeKB} KB`);
 
-      if (!base64 || base64.length === 0) {
+      if (visionConfigured && base64.length === 0) {
         throw new Error("Image read failed. File may be corrupt.");
       }
 
@@ -243,7 +250,6 @@ export default function OcrScreen() {
   // -------------------------------------------------------------------------
   const handleBack = () => router.back();
   const handleRetake = () => router.dismissAll();
-  const handleContinue = () => router.push("/review-items");
 
   // -------------------------------------------------------------------------
   // Derived
@@ -286,7 +292,7 @@ export default function OcrScreen() {
   // Render
   // -------------------------------------------------------------------------
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Title — always "Extract Bill" */}
       <Text style={styles.title}>Extract Bill</Text>
       <Text style={styles.subtitle}>{stepLabel["idle"]}</Text>
@@ -339,7 +345,7 @@ export default function OcrScreen() {
           <Text style={styles.notBillIcon}>🧾</Text>
           <Text style={styles.notBillTitle}>Not a Bill</Text>
           <Text style={styles.notBillMessage}>
-            The image you uploaded doesn't look like a bill.{"\n"}Please upload a clear photo of your bill or receipt.
+            The image you uploaded doesn&apos;t look like a bill.{"\n"}Please upload a clear photo of your bill or receipt.
           </Text>
           <Pressable
             onPress={handleRetake}
@@ -406,17 +412,20 @@ export default function OcrScreen() {
         >
           {isLoading && !isSlow ? (
             <View style={styles.buttonInner}>
-              <ActivityIndicator color="#FFFFFF" size="small" />
-              <Text style={styles.buttonLoadingText}>
-                {messages[loadingMsgIdx]}
-              </Text>
+              <ActivityIndicator color={C.white} size="small" />
+              <Text style={styles.buttonLoadingText}>Extracting Bill…</Text>
             </View>
           ) : (
             <Text style={styles.buttonText}>Extract Bill</Text>
           )}
         </Pressable>
       )}
-    </View>
+
+      {/* ── Progress messages — shown BELOW the button, not inside it ── */}
+      {isLoading && !isSlow && !!messages[loadingMsgIdx] && (
+        <Text style={styles.progressMessage}>{messages[loadingMsgIdx]}</Text>
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -426,37 +435,34 @@ export default function OcrScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.bg,
     padding: 24,
-    paddingTop: 60,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#111827",
+    ...T.largeTitle,
+    color: C.ink,
     marginBottom: 6,
-    letterSpacing: -0.5,
   },
-  subtitle: { fontSize: 14, color: "#6B7280", marginBottom: 20 },
+  subtitle: { fontSize: 14, color: C.textMuted, marginBottom: 20 },
   imageContainer: {
     height: 200,
     borderRadius: 14,
     overflow: "hidden",
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.border,
     marginBottom: 20,
     position: "relative"
   },
   image: { flex: 1, width: "100%" },
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  imagePlaceholderText: { color: "#9CA3AF", fontSize: 14 },
+  imagePlaceholderText: { color: C.textSubtle, fontSize: 14 },
   button: {
     backgroundColor: "#000",
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
   },
-  buttonDisabled: { backgroundColor: "#374151" },
-  buttonLoading: { backgroundColor: "#374151" },
+  buttonDisabled: { backgroundColor: C.text },
+  buttonLoading: { backgroundColor: C.text },
   buttonPressed: { opacity: 0.75 },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
   buttonInner: {
@@ -464,6 +470,13 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     gap: 10,
     paddingHorizontal: 8,
+  },
+  progressMessage: {
+    marginTop: 12,
+    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
+    color: C.textMuted,
   },
   buttonLoadingText: {
     color: "#fff",
@@ -473,7 +486,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorBox: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: C.dangerSoft,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
@@ -487,7 +500,7 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     fontSize: 13,
-    color: "#B91C1C",
+    color: C.dangerDark,
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -510,7 +523,7 @@ const styles = StyleSheet.create({
   },
   // ── Not-a-bill card ────────────────────────────────────────────────────────
   notBillBox: {
-    backgroundColor: "#FFFBEB",
+    backgroundColor: C.warningSoft,
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
@@ -536,7 +549,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   notBillButton: {
-    backgroundColor: "#D97706",
+    backgroundColor: C.warning,
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
@@ -544,7 +557,7 @@ const styles = StyleSheet.create({
     width: "100%" as any,
   },
   notBillButtonText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontWeight: "700" as const,
     fontSize: 16,
     letterSpacing: 0.3,
@@ -558,7 +571,7 @@ const styles = StyleSheet.create({
   },
   successHelper: {
     fontSize: 12,
-    color: "#6B7280",
+    color: C.textMuted,
     marginBottom: 16,
   },
   debugBox: {
@@ -566,13 +579,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.border,
     marginBottom: 16,
   },
   debugLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#6B7280",
+    color: C.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -580,11 +593,11 @@ const styles = StyleSheet.create({
   debugText: {
     fontFamily: "monospace",
     fontSize: 12,
-    color: "#111827",
+    color: C.ink,
     lineHeight: 20,
   },
   debugItemRow: {
     paddingVertical: 4, paddingHorizontal: 4,
-    borderRadius: 6, backgroundColor: "#F3F4F6", marginBottom: 4
+    borderRadius: 6, backgroundColor: C.surfaceAlt, marginBottom: 4
   }
 });

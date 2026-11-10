@@ -107,6 +107,13 @@ export interface ParsedBill {
 
   total: number;
 
+  /** Grand total exactly as printed on the receipt (null when unknown). */
+  printedTotal?: number | null;
+  /** Receipt prices already include GST — tax lines were not added on top. */
+  taxInclusive?: boolean;
+  /** Set when the AI parser was skipped/failed and items were read offline. */
+  extractionNote?: string;
+
   // Source image natural dimensions (needed to scale bounding boxes)
   imageWidth?: number;
   imageHeight?: number;

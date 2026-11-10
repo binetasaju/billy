@@ -6,6 +6,7 @@
 
 import React from "react";
 import { Pressable, Text, StyleSheet, ViewStyle } from "react-native";
+import { C } from "@/constants/colors";
 
 interface PrimaryButtonProps {
   label: string;
@@ -35,20 +36,20 @@ export default function PrimaryButton({ label, onPress, disabled = false, style 
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#111827",
+    backgroundColor: C.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
   },
   buttonDisabled: {
-    backgroundColor: "#9CA3AF",
+    backgroundColor: C.textSubtle,
   },
   buttonPressed: {
     opacity: 0.88,
     transform: [{ scale: 0.99 }],
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: C.white,
     fontSize: 16,
     fontWeight: "600",
   },

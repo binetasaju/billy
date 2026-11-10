@@ -94,6 +94,19 @@ export const groupStore = {
     }
   },
 
+  /** Replace a bill's content after an edit (see services/billEditing.ts). */
+  async replaceGroup(group: BillGroup): Promise<void> {
+    const withStatus: BillGroup = { ...group, status: deriveStatus(group.settlements) };
+    const updated = _state.groups.map((g) => (g.id === group.id ? withStatus : g));
+    _state = { groups: updated, isLoading: false };
+    _notify();
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn("[groupStore] Failed to replace group:", e);
+    }
+  },
+
   async deleteGroup(id: string): Promise<void> {
     const updated = _state.groups.filter((g) => g.id !== id);
     _state = { groups: updated, isLoading: false };
@@ -109,10 +122,16 @@ export const groupStore = {
     groupId: string,
     fromId: string,
     toId: string,
-    method: "upi" | "cash" | "other" = "upi"
+    /** How it was paid, when known. Omitted for a plain "received" confirmation. */
+    method?: "upi" | "cash" | "other"
   ): Promise<void> {
     const group = _state.groups.find((g) => g.id === groupId);
     if (!group) return;
+
+    // Idempotent: a double tap (or a second device later) must not re-record
+    // a payment or overwrite when it was originally paid.
+    const target = group.settlements.find((tx) => tx.fromUserId === fromId && tx.toUserId === toId);
+    if (!target || target.status === "paid") return;
 
     // Update the specific settlement
     const updatedSettlements = group.settlements.map((tx) => {
@@ -121,7 +140,7 @@ export const groupStore = {
           ...tx,
           status: "paid" as const,
           paidAt: new Date().toISOString(),
-          paymentMethod: method,
+          ...(method ? { paymentMethod: method } : {}),
         };
       }
       return tx;

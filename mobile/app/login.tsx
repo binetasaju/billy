@@ -20,13 +20,15 @@ import {
   Keyboard,
   Platform,
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../services/authStore";
-import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
+import { isValidPhoneNumber } from "../utils/normalizePhoneNumber";
+import { C } from "@/constants/colors";
+import { StatusBar } from "expo-status-bar";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -45,9 +47,8 @@ export default function LoginScreen() {
     if (!phone.trim()) {
       newErrors.phone = "Please enter your phone number.";
     } else {
-      const norm = normalizePhoneNumber(phone);
-      if (!norm || norm.length < 10) {
-        newErrors.phone = "Please enter a valid phone number.";
+      if (!isValidPhoneNumber(phone)) {
+        newErrors.phone = "Enter a valid 10-digit mobile number.";
       }
     }
     setErrors(newErrors);
@@ -113,6 +114,7 @@ export default function LoginScreen() {
           bounces={false}
         >
           {/* ── Brand ── */}
+          <StatusBar style="light" />
           <View style={s.brand}>
             <View style={s.logoWrap}>
               <Ionicons name="receipt-outline" size={36} color="#fff" />
@@ -132,11 +134,11 @@ export default function LoginScreen() {
             <View style={s.fieldGroup}>
               <Text style={s.label}>Your Name</Text>
               <View style={[s.inputWrap, errors.name && s.inputError]}>
-                <Ionicons name="person-outline" size={18} color="#9CA3AF" style={s.inputIcon} />
+                <Ionicons name="person-outline" size={18} color={C.textSubtle} style={s.inputIcon} />
                 <TextInput
                   style={s.input}
                   placeholder="e.g. Arjun Sharma"
-                  placeholderTextColor="#D1D5DB"
+                  placeholderTextColor={C.borderStrong}
                   value={name}
                   onChangeText={(t) => { setName(t); setErrors((e) => ({ ...e, name: undefined })); }}
                   autoCapitalize="words"
@@ -152,11 +154,11 @@ export default function LoginScreen() {
             <View style={s.fieldGroup}>
               <Text style={s.label}>Phone Number</Text>
               <View style={[s.inputWrap, errors.phone && s.inputError]}>
-                <Ionicons name="call-outline" size={18} color="#9CA3AF" style={s.inputIcon} />
+                <Ionicons name="call-outline" size={18} color={C.textSubtle} style={s.inputIcon} />
                 <TextInput
                   style={s.input}
                   placeholder="+91 98765 43210"
-                  placeholderTextColor="#D1D5DB"
+                  placeholderTextColor={C.borderStrong}
                   value={phone}
                   onChangeText={(t) => { setPhone(t); setErrors((e) => ({ ...e, phone: undefined })); }}
                   keyboardType="phone-pad"
@@ -172,11 +174,11 @@ export default function LoginScreen() {
               <View style={s.fieldGroup}>
                 <Text style={s.label}>Verification Code</Text>
                 <View style={[s.inputWrap, errors.code && s.inputError]}>
-                  <Ionicons name="keypad-outline" size={18} color="#9CA3AF" style={s.inputIcon} />
+                  <Ionicons name="keypad-outline" size={18} color={C.textSubtle} style={s.inputIcon} />
                   <TextInput
                     style={s.input}
                     placeholder="6-digit code"
-                    placeholderTextColor="#D1D5DB"
+                    placeholderTextColor={C.borderStrong}
                     value={code}
                     onChangeText={(t) => { setCode(t); setErrors((e) => ({ ...e, code: undefined })); }}
                     keyboardType="number-pad"
@@ -213,19 +215,19 @@ export default function LoginScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#111827" },
+  safe: { flex: 1, backgroundColor: C.primaryDark },
   scroll: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 60 },
 
   brand: { alignItems: "center", paddingTop: 64, paddingBottom: 40 },
   logoWrap: {
     width: 72, height: 72, borderRadius: 20,
-    backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center",
+    backgroundColor: C.primary, alignItems: "center", justifyContent: "center",
     marginBottom: 16,
-    shadowColor: "#1D4ED8", shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5, shadowRadius: 16, elevation: 12,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5, shadowRadius: 16, elevation: 6,
   },
   appName: { fontSize: 36, fontWeight: "800", color: "#fff", letterSpacing: -1 },
-  tagline: { fontSize: 15, color: "#9CA3AF", marginTop: 6 },
+  tagline: { fontSize: 15, color: C.onDarkMuted, marginTop: 6 },
 
   card: {
     backgroundColor: "#fff",
@@ -235,33 +237,33 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 24,
-    elevation: 12,
+    elevation: 6,
   },
-  cardTitle: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6, letterSpacing: -0.4 },
-  cardSubtitle: { fontSize: 14, color: "#6B7280", marginBottom: 24, lineHeight: 20 },
+  cardTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6, letterSpacing: -0.4 },
+  cardSubtitle: { fontSize: 14, color: C.textMuted, marginBottom: 24, lineHeight: 20 },
 
   fieldGroup: { marginBottom: 18 },
-  label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8, letterSpacing: 0.2 },
+  label: { fontSize: 13, fontWeight: "600", color: C.text, marginBottom: 8, letterSpacing: 0.2 },
   inputWrap: {
     flexDirection: "row", alignItems: "center",
-    borderWidth: 1.5, borderColor: "#E5E7EB",
-    borderRadius: 12, backgroundColor: "#F9FAFB",
+    borderWidth: 1.5, borderColor: C.border,
+    borderRadius: 12, backgroundColor: C.bg,
     paddingHorizontal: 14, height: 52,
   },
-  inputError: { borderColor: "#EF4444", backgroundColor: "#FEF2F2" },
+  inputError: { borderColor: C.danger, backgroundColor: C.dangerSoft },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 16, color: "#111827" },
-  errorText: { fontSize: 12, color: "#EF4444", marginTop: 5 },
+  input: { flex: 1, fontSize: 16, color: C.ink },
+  errorText: { fontSize: 12, color: C.danger, marginTop: 5 },
 
   btn: {
-    backgroundColor: "#111827", paddingVertical: 16,
+    backgroundColor: C.primary, paddingVertical: 16,
     borderRadius: 14, alignItems: "center", marginTop: 8,
   },
-  btnDisabled: { backgroundColor: "#9CA3AF" },
+  btnDisabled: { backgroundColor: C.textSubtle },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 
   disclaimer: {
-    fontSize: 12, color: "#9CA3AF", textAlign: "center",
+    fontSize: 12, color: C.textSubtle, textAlign: "center",
     marginTop: 16, lineHeight: 18,
   },
 });

@@ -1,7 +1,10 @@
 import { useEffect } from "react";
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { optimizeReceipt } from "../services/optimizer";
+import { C } from "@/constants/colors";
 
 export default function OptimizingScreen() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
@@ -30,7 +33,7 @@ export default function OptimizingScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#111827" />
+        <ActivityIndicator size="large" color={C.ink} />
         <Text style={styles.text}>Optimizing receipt...</Text>
       </View>
     </SafeAreaView>
@@ -38,7 +41,7 @@ export default function OptimizingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F9FAFB" },
+  safeArea: { flex: 1, backgroundColor: C.bg },
   container: {
     flex: 1,
     alignItems: "center",
@@ -49,6 +52,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 18,
     fontWeight: "600",
-    color: "#374151",
+    color: C.text,
   },
 });

@@ -14,16 +14,20 @@ import { useState, useEffect, useRef } from "react";
 import {
   View, Text, Pressable, FlatList, StyleSheet,
   Alert, StatusBar, Dimensions, TextInput, Modal,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+// Glass background behind every screen (see components/ui/glass.tsx)
+import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { billStore } from "../services/billStore";
 import { useBillStore } from "../hooks/useBillStore";
 import { nanoid } from "../utils/nanoid";
-import type { BillItem, ParsedBill, ChargeInfo } from "../types/bill";
+import type { BillItem, ChargeInfo } from "../types/bill";
 import BillImagePanel from "../components/BillImagePanel";
 import FullScreenViewer from "../components/FullScreenViewer";
+import { C } from "@/constants/colors";
 
 const { height: SH } = Dimensions.get("window");
 // 42% gives enough vertical room to read the bill inline before going fullscreen
@@ -151,6 +155,82 @@ function EditTitleModal({
 }
 
 // ---------------------------------------------------------------------------
+// Add charge modal (tax / service charge / discount)
+// ---------------------------------------------------------------------------
+const CHARGE_PRESETS = ["CGST", "SGST", "Service Charge", "Discount"];
+
+function AddChargeModal({
+  visible, onSave, onCancel,
+}: {
+  visible: boolean;
+  onSave: (charge: { name: string; amount: number }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+
+  useEffect(() => {
+    if (visible) { setName(""); setAmount(""); }
+  }, [visible]);
+
+  const save = () => {
+    const trimmed = name.trim();
+    const value = parseFloat(amount.replace(/,/g, ""));
+    if (!trimmed) { Alert.alert("Missing name", "Enter a name, e.g. CGST or Service Charge."); return; }
+    if (!Number.isFinite(value) || value === 0) { Alert.alert("Invalid amount", "Enter an amount, e.g. 25.50."); return; }
+    // Discounts always reduce the bill.
+    const isDiscount = /discount|round.?off|coupon|offer/i.test(trimmed);
+    onSave({ name: trimmed, amount: isDiscount ? -Math.abs(value) : value });
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <KeyboardAvoidingView style={styles.modalBackdrop} behavior="padding">
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Add Tax or Charge</Text>
+          <View style={styles.presetRow}>
+            {CHARGE_PRESETS.map((p) => (
+              <Pressable
+                key={p}
+                onPress={() => setName(p)}
+                style={[styles.presetChip, name === p && styles.presetChipActive]}
+              >
+                <Text style={[styles.presetChipText, name === p && styles.presetChipTextActive]}>{p}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.modalLabel}>Name</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. CGST 2.5%"
+          />
+          <Text style={styles.modalLabel}>Amount (₹)</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="0.00"
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+            onSubmitEditing={save}
+          />
+          <View style={styles.modalActions}>
+            <Pressable onPress={onCancel} style={styles.modalCancelBtn}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={save} style={styles.modalSaveBtn}>
+              <Text style={styles.modalSaveText}>Add</Text>
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Remove item modal
 // ---------------------------------------------------------------------------
 function RemoveItemModal({
@@ -168,7 +248,7 @@ function RemoveItemModal({
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Remove Item</Text>
-          <Text style={{ fontSize: 15, color: "#374151", marginBottom: 20 }}>
+          <Text style={{ fontSize: 15, color: C.text, marginBottom: 20 }}>
             Are you sure you want to remove <Text style={{ fontWeight: "600" }}>{item.name}</Text> (₹{(item.price || 0).toFixed(2)}) from this bill?
           </Text>
           
@@ -176,7 +256,7 @@ function RemoveItemModal({
             <Pressable onPress={onCancel} style={styles.modalCancelBtn}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={() => onConfirm(item.id)} style={[styles.modalSaveBtn, { backgroundColor: "#EF4444" }]}>
+            <Pressable onPress={() => onConfirm(item.id)} style={[styles.modalSaveBtn, { backgroundColor: C.danger }]}>
               <Text style={styles.modalSaveText}>Remove</Text>
             </Pressable>
           </View>
@@ -240,7 +320,7 @@ function ItemRow({
           <Text style={styles.actionBtnText}>✎</Text>
         </Pressable>
         <Pressable onPress={onDelete} style={[styles.actionBtn, styles.deleteActionBtn]} hitSlop={8}>
-          <Text style={[styles.actionBtnText, { color: "#EF4444" }]}>✕</Text>
+          <Text style={[styles.actionBtnText, { color: C.danger }]}>✕</Text>
         </Pressable>
       </View>
     </View>
@@ -263,6 +343,20 @@ export default function ReviewItemsScreen() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [chargesExpanded, setChargesExpanded] = useState(false);
   const [titleModalVisible, setTitleModalVisible] = useState(false);
+  const [chargeModalVisible, setChargeModalVisible] = useState(false);
+
+  const handleAddCharge = (charge: { name: string; amount: number }) => {
+    billStore.addCharge(charge);
+    setChargeModalVisible(false);
+    setChargesExpanded(true);
+  };
+
+  const confirmRemoveCharge = (index: number, name: string) => {
+    Alert.alert("Remove charge?", `Remove "${name}" from this bill?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: () => billStore.removeCharge(index) },
+    ]);
+  };
   const listRef = useRef<FlatList>(null);
 
   // Derived state
@@ -307,12 +401,18 @@ export default function ReviewItemsScreen() {
   const grandTotal: number = bill?.total    ?? 0;
   const charges: ChargeInfo[] = bill?.charges ?? [];
 
+  // Compare against the total printed on the receipt so a missing item or an
+  // extra (e.g. double-counted GST) charge is visible before splitting.
+  const printedTotal = bill?.printedTotal ?? null;
+  const totalMismatch =
+    printedTotal != null && printedTotal > 0 && Math.abs(grandTotal - printedTotal) > 1;
+
   // Keep internally for conditional hint — never shown as a number
   const hasSuspiciousItems = items.some((it) => (it.confidence ?? 1) < 0.8);
 
   if (!storeState) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <Text style={styles.title}>Review Items</Text>
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>No bill data. Please go back and scan again.</Text>
@@ -320,14 +420,14 @@ export default function ReviewItemsScreen() {
             <Text style={styles.backBtnText}>← Go Back</Text>
           </Pressable>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
 
         {/* ── Bill image thumbnail (tap to expand) ── */}
         {imageUri ? (
@@ -336,11 +436,7 @@ export default function ReviewItemsScreen() {
             height={IMAGE_PANEL_H}
             onTap={() => setViewerOpen(true)}
           />
-        ) : (
-          <View style={{ height: IMAGE_PANEL_H, justifyContent: "center", alignItems: "center", backgroundColor: "#E5E7EB" }}>
-            <Text style={{ color: "#9CA3AF" }}>No bill image available</Text>
-          </View>
-        )}
+        ) : null /* manual bill — no photo */}
 
         {/* ── Header ── */}
         <View style={styles.headerRow}>
@@ -369,6 +465,12 @@ export default function ReviewItemsScreen() {
 
 
         {/* ── Generic verification hint (non-fallback low-confidence items) ── */}
+        {bill?.extractionNote ? (
+          <View style={styles.verificationHint}>
+            <Text style={styles.verificationHintText}>{bill.extractionNote}</Text>
+          </View>
+        ) : null}
+
         {!isFallback && hasSuspiciousItems && (
           <View style={styles.verificationHint}>
             <Text style={styles.verificationHintText}>Some items may need verification.</Text>
@@ -416,19 +518,29 @@ export default function ReviewItemsScreen() {
               <Pressable
                 onPress={() => setChargesExpanded((v) => !v)}
                 style={styles.chargesToggleRow}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={chargesExpanded ? "Hide taxes and charges" : "Show taxes and charges"}
               >
                 <Text style={styles.chargesToggleLabel}>
                   Taxes & Charges ({charges.length})
                 </Text>
-                <Text style={styles.chargesToggleChevron}>
-                  {chargesExpanded ? "▴" : "▾"}
-                </Text>
+                <Ionicons
+                  name={chargesExpanded ? "chevron-up" : "chevron-down"}
+                  size={22}
+                  color={C.text}
+                />
               </Pressable>
 
               {chargesExpanded && (
                 <View style={styles.chargesDetail}>
                   {charges.map((charge, i) => (
-                    <View key={i} style={styles.totalRow}>
+                    <Pressable
+                      key={i}
+                      style={styles.totalRow}
+                      onLongPress={() => confirmRemoveCharge(i, charge.name)}
+                      accessibilityHint="Long-press to remove"
+                    >
                       <Text style={styles.totalLabel}>{charge.name}</Text>
                       <Text
                         style={[
@@ -440,18 +552,43 @@ export default function ReviewItemsScreen() {
                           ? `-₹${Math.abs(charge.amount).toFixed(2)}`
                           : `₹${charge.amount.toFixed(2)}`}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
               )}
             </>
           )}
 
+          <Pressable
+            onPress={() => setChargeModalVisible(true)}
+            hitSlop={6}
+            style={styles.addChargeBtn}
+            accessibilityRole="button"
+          >
+            <Ionicons name="add-circle-outline" size={18} color={C.primary} />
+            <Text style={styles.addChargeText}>Add tax / charge / discount</Text>
+          </Pressable>
+
           {/* Grand total */}
           <View style={[styles.totalRow, styles.grandRow]}>
             <Text style={styles.grandLabel}>Total</Text>
             <Text style={styles.grandValue}>₹{grandTotal.toFixed(2)}</Text>
           </View>
+
+          {bill?.taxInclusive && (
+            <Text style={styles.taxInclusiveText}>
+              Prices on this bill already include GST, so no tax is added on top.
+            </Text>
+          )}
+
+          {totalMismatch && (
+            <View style={styles.mismatchBox}>
+              <Text style={styles.mismatchText}>
+                This adds up to ₹{grandTotal.toFixed(2)}, but the bill says ₹{printedTotal!.toFixed(2)}.
+                Check for missing items, wrong prices or extra charges.
+              </Text>
+            </View>
+          )}
 
         </View>
 
@@ -461,7 +598,7 @@ export default function ReviewItemsScreen() {
           style={({ pressed }) => [
             styles.continueBtn, 
             (pressed || items.length === 0) && { opacity: 0.8 },
-            items.length === 0 && { backgroundColor: "#9CA3AF" }
+            items.length === 0 && { backgroundColor: C.textSubtle }
           ]}
           disabled={items.length === 0}
         >
@@ -470,7 +607,7 @@ export default function ReviewItemsScreen() {
           </Text>
         </Pressable>
 
-      </View>
+      </SafeAreaView>
 
       {/* ── Edit title modal ── */}
       <EditTitleModal
@@ -478,6 +615,13 @@ export default function ReviewItemsScreen() {
         currentName={restaurantName}
         onSave={handleSaveTitle}
         onCancel={() => setTitleModalVisible(false)}
+      />
+
+      {/* ── Add charge modal ── */}
+      <AddChargeModal
+        visible={chargeModalVisible}
+        onSave={handleAddCharge}
+        onCancel={() => setChargeModalVisible(false)}
       />
 
       {/* ── Edit item modal ── */}
@@ -510,13 +654,13 @@ export default function ReviewItemsScreen() {
 // Styles
 // ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { flex: 1, backgroundColor: C.bg },
 
   headerRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6,
   },
-  title: { fontSize: 22, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
+  title: { fontSize: 22, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
 
   titleEditRow: {
     flexDirection: "row",
@@ -526,21 +670,21 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   restaurantName: {
-    fontSize: 15, fontWeight: "600", color: "#1D4ED8",
+    fontSize: 15, fontWeight: "600", color: C.primary,
     flexShrink: 1, flexWrap: "wrap",
   },
   pencilIcon: {
     width: 22, height: 22, borderRadius: 6,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: C.primarySoft,
     alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: "#BFDBFE",
   },
-  pencilText: { fontSize: 12, color: "#3B82F6", lineHeight: 14 },
+  pencilText: { fontSize: 12, color: C.primaryMuted, lineHeight: 14 },
 
-  subtitle: { fontSize: 12, color: "#9CA3AF", marginTop: 1 },
+  subtitle: { fontSize: 12, color: C.textSubtle, marginTop: 1 },
   verificationHint: {
     marginHorizontal: 16, marginBottom: 8,
-    backgroundColor: "#FFFBEB", borderRadius: 10,
+    backgroundColor: C.warningSoft, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: "#FDE68A",
   },
@@ -559,66 +703,78 @@ const styles = StyleSheet.create({
   list: { flex: 1, paddingHorizontal: 16 },
 
   itemRow: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
+    flexDirection: "row", alignItems: "center", backgroundColor: C.glassStrong,
     borderRadius: 12, padding: 12, marginBottom: 6,
-    borderWidth: 1, borderColor: "#E5E7EB",
+    borderWidth: 1, borderColor: C.glassBorder,
   },
 
   itemInfo: { flex: 1 },
   itemNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  itemName: { fontSize: 14, fontWeight: "500", color: "#111827", flex: 1 },
-  itemMeta: { fontSize: 12, color: "#6B7280", marginTop: 2 },
+  itemName: { fontSize: 14, fontWeight: "500", color: C.ink, flex: 1 },
+  itemMeta: { fontSize: 12, color: C.textMuted, marginTop: 2 },
 
   childrenContainer: {
     marginTop: 6, marginLeft: 0,
-    backgroundColor: "#F9FAFB", borderRadius: 6,
+    backgroundColor: C.bg, borderRadius: 6,
     paddingHorizontal: 8, paddingVertical: 5,
-    borderLeftWidth: 2, borderLeftColor: "#D1D5DB",
+    borderLeftWidth: 2, borderLeftColor: C.borderStrong,
   },
-  childrenLabel: { fontSize: 10, fontWeight: "600", color: "#9CA3AF", marginBottom: 3, letterSpacing: 0.3 },
-  childItem: { fontSize: 12, color: "#6B7280", lineHeight: 18 },
+  childrenLabel: { fontSize: 10, fontWeight: "600", color: C.textSubtle, marginBottom: 3, letterSpacing: 0.3 },
+  childItem: { fontSize: 12, color: C.textMuted, lineHeight: 18 },
 
   modifiersContainer: { marginTop: 6, marginLeft: 2, gap: 2 },
   modifierRow: { flexDirection: "row", justifyContent: "space-between" },
-  modifierItem: { fontSize: 11, color: "#6B7280", flex: 1, paddingRight: 8 },
-  modifierPrice: { fontSize: 11, color: "#6B7280" },
+  modifierItem: { fontSize: 11, color: C.textMuted, flex: 1, paddingRight: 8 },
+  modifierPrice: { fontSize: 11, color: C.textMuted },
 
   itemActions: { flexDirection: "row", gap: 6 },
   actionBtn: {
     width: 32, height: 32, borderRadius: 8,
-    backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center",
+    backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center",
   },
-  deleteActionBtn: { backgroundColor: "#FEF2F2" },
-  actionBtnText: { fontSize: 14, color: "#374151" },
+  deleteActionBtn: { backgroundColor: C.dangerSoft },
+  actionBtnText: { fontSize: 14, color: C.text },
 
   addBtn: {
     margin: 4, marginBottom: 16, padding: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: "#D1D5DB", borderStyle: "dashed", alignItems: "center",
+    borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center",
   },
-  addBtnText: { color: "#6B7280", fontWeight: "500", fontSize: 14 },
-  emptyText: { textAlign: "center", color: "#9CA3AF", marginTop: 32, fontSize: 14 },
+  addBtnText: { color: C.textMuted, fontWeight: "500", fontSize: 14 },
+  emptyText: { textAlign: "center", color: C.textSubtle, marginTop: 32, fontSize: 14 },
 
   totalsBox: {
-    backgroundColor: "#fff", marginHorizontal: 16, borderRadius: 12,
-    borderWidth: 1, borderColor: "#E5E7EB", padding: 14, marginBottom: 12, gap: 6,
+    backgroundColor: C.glass, marginHorizontal: 16, borderRadius: 12,
+    borderWidth: 1, borderColor: C.glassBorder, padding: 14, marginBottom: 12, gap: 6,
   },
   totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  totalLabel: { fontSize: 13, color: "#6B7280" },
-  totalValue: { fontSize: 13, color: "#374151" },
+  totalLabel: { fontSize: 13, color: C.textMuted },
+  totalValue: { fontSize: 13, color: C.text },
   totalValueDiscount: { color: "#16A34A" },
   chargesToggleRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
-  chargesToggleLabel: { fontSize: 13, color: "#374151", fontWeight: "500" },
-  chargesToggleChevron: { fontSize: 12, color: "#6B7280", fontWeight: "600" },
+  chargesToggleLabel: { fontSize: 14, color: C.text, fontWeight: "500" },
   chargesDetail: { gap: 5, paddingTop: 4, paddingBottom: 2 },
-  grandRow: { borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: 8, marginTop: 4 },
-  grandLabel: { fontSize: 16, fontWeight: "700", color: "#111827" },
-  grandValue: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  addChargeBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8 },
+  addChargeText: { fontSize: 14, color: C.primary, fontWeight: "600" },
+  presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  presetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: C.borderStrong },
+  presetChipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  presetChipText: { fontSize: 13, color: C.text },
+  presetChipTextActive: { color: "#fff" },
+  taxInclusiveText: { fontSize: 12, color: C.textMuted, marginTop: 6 },
+  mismatchBox: {
+    marginTop: 8, padding: 10, borderRadius: 10,
+    backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FCD34D",
+  },
+  mismatchText: { fontSize: 13, color: "#92400E", lineHeight: 18 },
+  grandRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, paddingTop: 8, marginTop: 4 },
+  grandLabel: { fontSize: 16, fontWeight: "700", color: C.ink },
+  grandValue: { fontSize: 16, fontWeight: "700", color: C.ink },
 
   continueBtn: {
-    backgroundColor: "#111827", marginHorizontal: 16, marginBottom: 24,
+    backgroundColor: C.primary, marginHorizontal: 16, marginBottom: 24,
     paddingVertical: 16, borderRadius: 12, alignItems: "center",
   },
   continueBtnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
@@ -631,31 +787,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 40,
   },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 20 },
-  modalLabel: { fontSize: 13, color: "#6B7280", marginBottom: 6 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 20 },
+  modalLabel: { fontSize: 13, color: C.textMuted, marginBottom: 6 },
   modalInput: {
-    borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10,
-    padding: 12, fontSize: 15, color: "#111827", marginBottom: 16,
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    padding: 12, fontSize: 15, color: C.ink, marginBottom: 16,
   },
   modalActions: { flexDirection: "row", gap: 12, marginTop: 4 },
   modalCancelBtn: {
     flex: 1, padding: 14, borderRadius: 12, borderWidth: 1,
-    borderColor: "#E5E7EB", alignItems: "center",
+    borderColor: C.border, alignItems: "center",
   },
-  modalCancelText: { color: "#374151", fontWeight: "600" },
+  modalCancelText: { color: C.text, fontWeight: "600" },
   modalSaveBtn: {
     flex: 1, padding: 14, borderRadius: 12,
-    backgroundColor: "#111827", alignItems: "center",
+    backgroundColor: C.primary, alignItems: "center",
   },
   modalSaveText: { color: "#fff", fontWeight: "600" },
 
   errorBox: {
-    backgroundColor: "#FEF2F2", borderRadius: 12, padding: 16, margin: 24,
+    backgroundColor: C.dangerSoft, borderRadius: 12, padding: 16, margin: 24,
     borderWidth: 1, borderColor: "#FECACA",
   },
-  errorText: { fontSize: 14, color: "#B91C1C", marginBottom: 12 },
+  errorText: { fontSize: 14, color: C.dangerDark, marginBottom: 12 },
   backBtn: {
-    backgroundColor: "#fff", borderWidth: 1, borderColor: "#FECACA",
+    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: "#FECACA",
     borderRadius: 10, paddingVertical: 10, alignItems: "center",
   },
   backBtnText: { color: "#991B1B", fontWeight: "600", fontSize: 14 },
