@@ -406,14 +406,17 @@ export default function OcrScreen() {
           {isLoading && !isSlow ? (
             <View style={styles.buttonInner}>
               <ActivityIndicator color="#FFFFFF" size="small" />
-              <Text style={styles.buttonLoadingText}>
-                {messages[loadingMsgIdx]}
-              </Text>
+              <Text style={styles.buttonLoadingText}>Extracting Bill…</Text>
             </View>
           ) : (
             <Text style={styles.buttonText}>Extract Bill</Text>
           )}
         </Pressable>
+      )}
+
+      {/* ── Progress messages — shown BELOW the button, not inside it ── */}
+      {isLoading && !isSlow && !!messages[loadingMsgIdx] && (
+        <Text style={styles.progressMessage}>{messages[loadingMsgIdx]}</Text>
       )}
     </SafeAreaView>
   );
@@ -462,6 +465,13 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     gap: 10,
     paddingHorizontal: 8,
+  },
+  progressMessage: {
+    marginTop: 12,
+    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#6B7280",
   },
   buttonLoadingText: {
     color: "#fff",
