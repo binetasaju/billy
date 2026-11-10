@@ -269,7 +269,7 @@ export default function ContactGroupDetailScreen() {
           accessibilityRole="button"
         >
           <Ionicons name="swap-horizontal" size={18} color="#111827" />
-          <Text style={s.addBtnText}>Record Money Owed</Text>
+          <Text style={s.addBtnText}>Record Money I Owe</Text>
         </Pressable>
 
         {/* ── Bills from this group ── */}

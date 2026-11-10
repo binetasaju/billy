@@ -24,7 +24,7 @@ Almost every piece of that journey is now built. What's left is **proving it wor
 | Settlement engine (`services/calculateSettlement.ts`) | 🟢 Done + tested | Rounding, shared/unassigned items, GST, service charge, custom amounts |
 | Saved bills | 🟢 Done | Who had what, payment progress, edit until first payment, Request (WhatsApp/SMS + UPI link) |
 | Payments | 🟡 MVP | UPI deep link + manual "mark as paid" (duplicate taps ignored). **No automatic confirmation yet** |
-| "Owe someone" (debt without a bill) | 🟢 Done | Home → Owe someone?, or saved group → Record Money Owed |
+| "Owe someone" (money you owe, no bill) | 🟢 Done | Home → Owe someone?, or saved group → Record Money I Owe. Only "I owe them" — no "they owe me" option |
 | Groups + balances | 🟢 Done | Net balances + "Settle up in N payments" suggestion |
 | History | 🟢 Done | Settled bills → full bill detail |
 | Auth | 🟡 Local only | Firebase phone OTP not switched on |
@@ -51,7 +51,7 @@ Run `npx expo start --dev-client` (from `mobile/`) with the phone connected, the
 - [ ] Split **Custom amounts** → type one amount, others re-balance; payer at ₹0 works → Save
 - [ ] Saved bill: Who had what, progress bar, **Request** (WhatsApp message has UPI link), **Pay**, **Received**
 - [ ] Saved bill: **Edit** → change a price → save → shares recalculated; Edit disappears after a payment
-- [ ] Home → **Owe someone?** → shows in Pay Bills / group balances
+- [ ] Home → **Owe someone?** → record money you owe → shows in Pay Bills (with Pay) / group balances
 - [ ] Saved group: balances + "Settle up in N payments"
 - [ ] Fully paid bill appears in **History**
 - [ ] Login rejects short / invalid numbers
@@ -100,7 +100,7 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 
 - **The payer always shares the bill** (auto-ticked). For "I paid for my friends", use **Custom amounts** and set the payer's share to ₹0.
 - **Bills can be edited only by their creator, and only until the first payment.** After that: delete & rescan.
-- **Debts without a bill** are stored as normal saved bills (one settlement), so balances/history/pay work the same.
+- **Debts without a bill are only "I owe them"** (no "they owe me" option). They are stored as normal saved bills (one settlement), so balances/history/pay work the same.
 - **"Settle up in N payments"** is a suggestion only — payments are still marked per bill.
 - **Payments are self-reported** (Pay → UPI app → Mark as paid / Received) until Step 3 is done.
 - **Tax-inclusive receipts:** if items already add up to the printed total, GST lines are treated as a breakdown and not added on top.
@@ -148,7 +148,7 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 - Manual bill entry · add/remove taxes, charges, discounts
 - Item-wise split on one screen with live totals
 - Custom-amount split · payment Request with UPI link
-- "Owe someone" debts
+- "Owe someone" (money you owe, without a bill)
 - Who had what · payment progress · duplicate "paid" taps ignored
 - Edit a bill until the first payment
 - "Settle up in N payments"

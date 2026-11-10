@@ -128,7 +128,7 @@ export default function HomeScreen() {
         <Ionicons name="swap-horizontal" size={20} color="#111827" />
         <View style={{ flex: 1 }}>
           <Text style={styles.oweTitle}>Owe someone?</Text>
-          <Text style={styles.oweSubtitle}>Record money owed without a bill</Text>
+          <Text style={styles.oweSubtitle}>Record money you owe without a bill</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
       </Pressable>

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// app/add-debt.tsx — "Owe someone" / "Someone owes me" (no receipt)
+// app/add-debt.tsx — "Owe someone": record money YOU owe (no receipt)
 //
 // Opened from Home (pick anyone from contacts) or from a saved group with
 // ?contactGroupId=… (pick one of its members, and the debt counts towards
@@ -12,7 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../services/authStore";
 import { groupStore } from "../services/groupStore";
-import { buildDebtRecord, type DebtDirection } from "../services/debt";
+import { buildDebtRecord } from "../services/debt";
 import { useContactGroups } from "../hooks/useContactGroups";
 import ContactPickerModal, { type ContactData } from "../components/ContactPickerModal";
 
@@ -25,7 +25,6 @@ export default function AddDebtScreen() {
   const group = useMemo(() => groups.find((g) => g.id === contactGroupId), [groups, contactGroupId]);
   const user = authStore.get().user;
 
-  const [direction, setDirection] = useState<DebtDirection>("they_owe");
   const [other, setOther] = useState<Other | null>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -51,7 +50,6 @@ export default function AddDebtScreen() {
       const record = buildDebtRecord({
         me: { id: user.uid, name: user.name, upiId: user.upiId },
         other,
-        direction,
         amount: value,
         note,
         contactGroupId: group?.id,
@@ -73,25 +71,8 @@ export default function AddDebtScreen() {
             <Pressable onPress={() => router.back()} hitSlop={10}>
               <Ionicons name="arrow-back" size={22} color="#111827" />
             </Pressable>
-            <Text style={s.title}>Record Money Owed</Text>
+            <Text style={s.title}>Money I Owe</Text>
             {group ? <Text style={s.subtitle}>In {group.name}</Text> : null}
-          </View>
-
-          {/* Direction */}
-          <View style={s.segment}>
-            {(["they_owe", "i_owe"] as const).map((d) => (
-              <Pressable
-                key={d}
-                onPress={() => setDirection(d)}
-                style={[s.segmentBtn, direction === d && s.segmentBtnActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: direction === d }}
-              >
-                <Text style={[s.segmentText, direction === d && s.segmentTextActive]}>
-                  {d === "they_owe" ? "They owe me" : "I owe them"}
-                </Text>
-              </Pressable>
-            ))}
           </View>
 
           {/* Person */}
@@ -140,9 +121,7 @@ export default function AddDebtScreen() {
           />
 
           <Text style={s.summary}>
-            {direction === "they_owe"
-              ? `${otherLabel} will owe you ₹${amount || "0"}.`
-              : `You will owe ${otherLabel} ₹${amount || "0"}.`}
+            {`You will owe ${otherLabel} ₹${amount || "0"}.`}
           </Text>
 
           <Pressable style={s.saveBtn} onPress={handleSave}>
@@ -169,11 +148,6 @@ const s = StyleSheet.create({
   header: { marginTop: 16, marginBottom: 24, gap: 12 },
   title: { fontSize: 28, fontWeight: "700", color: "#111827", letterSpacing: -0.5 },
   subtitle: { fontSize: 15, fontWeight: "600", color: "#1D4ED8", marginTop: -6 },
-  segment: { flexDirection: "row", backgroundColor: "#E5E7EB", borderRadius: 12, padding: 4, marginBottom: 24 },
-  segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center" },
-  segmentBtnActive: { backgroundColor: "#fff", elevation: 2 },
-  segmentText: { fontSize: 15, fontWeight: "600", color: "#6B7280" },
-  segmentTextActive: { color: "#111827" },
   label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: "#D1D5DB", backgroundColor: "#fff" },
