@@ -8,7 +8,9 @@ export function useBillStore() {
     const unsubscribe = billStore.subscribe(() => {
       setState(billStore.get());
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return state;

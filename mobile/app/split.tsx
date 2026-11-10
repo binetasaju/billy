@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  FlatList,
   StyleSheet,
   Alert,
   ScrollView,
@@ -70,7 +69,7 @@ export default function SplitScreen() {
       {/* Header */}
       <Text style={styles.title}>Split Bill</Text>
       <Text style={styles.subtitle}>
-        Choose who paid and who's splitting
+        Choose who paid and who&apos;s splitting
       </Text>
 
       {/* ------------------------------------------------------------------ */}

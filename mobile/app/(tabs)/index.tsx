@@ -5,8 +5,7 @@
 // No crop step here — editing is available on the preview screen.
 // ---------------------------------------------------------------------------
 
-import { Alert } from "react-native";
-import { View, Text, Pressable, StyleSheet, SafeAreaView } from "react-native";
+import { Alert, View, Text, Pressable, StyleSheet, SafeAreaView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";

@@ -446,6 +446,7 @@ function localFallbackParser(ocrText: string): ParsedBill {
   console.log(`[localFallback] Matched ${deduped.length} items from ${lines.length} lines`);
 
   return {
+    isBill:     true, // local fallback cannot classify; let the user review
     restaurant: "Extracted Locally",
     legalName:  "",
     billNumber: "",

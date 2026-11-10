@@ -5,16 +5,14 @@
 // ---------------------------------------------------------------------------
 
 import {
-  View, Text, StyleSheet, Pressable, SafeAreaView, ScrollView, Alert, Modal, TextInput, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, Pressable, SafeAreaView, ScrollView, Alert, Modal, TextInput, KeyboardAvoidingView,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const { user } = useAuth();
   
   const [editUpiVisible, setEditUpiVisible] = useState(false);

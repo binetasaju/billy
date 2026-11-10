@@ -14,14 +14,14 @@ import { useState, useEffect, useRef } from "react";
 import {
   View, Text, Pressable, FlatList, StyleSheet,
   Alert, StatusBar, Dimensions, TextInput, Modal,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { billStore } from "../services/billStore";
 import { useBillStore } from "../hooks/useBillStore";
 import { nanoid } from "../utils/nanoid";
-import type { BillItem, ParsedBill, ChargeInfo } from "../types/bill";
+import type { BillItem, ChargeInfo } from "../types/bill";
 import BillImagePanel from "../components/BillImagePanel";
 import FullScreenViewer from "../components/FullScreenViewer";
 

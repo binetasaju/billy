@@ -4,13 +4,12 @@ import {
   Text,
   Image,
   Pressable,
-  ScrollView,
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
-import { compressImage, extractTextFromImage } from "../services/ocr";
+import { compressImage } from "../services/ocr";
 import { extractTextWithMLKit } from "../services/mlkitOcr";
 import { parseBill } from "../services/parseBill";
 import { extractBlocksWithVision } from "../services/visionOcr";
@@ -243,7 +242,6 @@ export default function OcrScreen() {
   // -------------------------------------------------------------------------
   const handleBack = () => router.back();
   const handleRetake = () => router.dismissAll();
-  const handleContinue = () => router.push("/review-items");
 
   // -------------------------------------------------------------------------
   // Derived
@@ -339,7 +337,7 @@ export default function OcrScreen() {
           <Text style={styles.notBillIcon}>🧾</Text>
           <Text style={styles.notBillTitle}>Not a Bill</Text>
           <Text style={styles.notBillMessage}>
-            The image you uploaded doesn't look like a bill.{"\n"}Please upload a clear photo of your bill or receipt.
+            The image you uploaded doesn&apos;t look like a bill.{"\n"}Please upload a clear photo of your bill or receipt.
           </Text>
           <Pressable
             onPress={handleRetake}

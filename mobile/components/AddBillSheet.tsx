@@ -57,4 +57,6 @@ const AddBillSheet = forwardRef<BottomSheet, Props>(
     }
 );
 
+AddBillSheet.displayName = "AddBillSheet";
+
 export default AddBillSheet;

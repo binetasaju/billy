@@ -528,7 +528,6 @@ billy/
 │   │   ├── equal-split-summary.tsx        # Equal split breakdown & confirmation
 │   │   ├── itemwise-split-summary.tsx     # Item assignment & proportional summary
 │   │   ├── split.tsx                      # Legacy split router
-│   │   └── test-models.tsx                # Developer sandbox for OCR models
 │   │
 │   ├── services/                          # Framework-agnostic business logic
 │   │   ├── auth/                          # Pluggable authentication system
@@ -745,6 +744,7 @@ Execute these commands from `mobile/`:
 | `npm run android` | Build and launch the Android native debug app (`npx expo run:android`) |
 | `npm run ios` | Build and launch the iOS native debug app (`npx expo run:ios`) |
 | `npm run lint` | Run ESLint across all TypeScript code (`expo lint`) |
+| `npm test` | Run Jest unit tests for settlement math, group balances and utilities (`__tests__/`) |
 | `npm run check:auth` | **Execute the 7 automated auth regression checks** (`scripts/checkAuthIdentity.js`) |
 | `npm run web` | Start web dev server (limited — native OCR modules not linked) |
 
@@ -814,7 +814,7 @@ We believe in complete engineering honesty. The following are real architectural
 | **Phase 3C** | **Firebase Phone OTP** | Switch default provider to active Firebase Phone verification | 🔴 P0 |
 | **Phase 4A** | **QR Code Bill Join** | Display a dynamic QR code on the payer's phone; friends scan to join the bill instantly without phone numbers | 🟡 P1 |
 | **Phase 4B** | **Push Notifications** | FCM notifications when a friend adds you to a bill or marks a payment as complete | 🟡 P1 |
-| **Phase 4C** | **Automated Unit Tests** | Comprehensive Jest test suites for `calculateSettlement`, `groupBalances`, and `parseBill` | 🟡 P1 |
+| **Phase 4C** | **Automated Unit Tests** | Jest suites for `calculateSettlement`, `groupBalances` and utilities are in place; `parseBill` still to cover | 🟡 P1 |
 | **Phase 5A** | **Receipt Image Storage** | Firebase Storage integration to store and retrieve historical receipt photos | 🟢 P2 |
 | **Phase 5B** | **Multi-Currency** | Support for splitting international travel bills in USD, EUR, GBP, and AED | 🟢 P2 |
 

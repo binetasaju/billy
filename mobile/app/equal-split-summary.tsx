@@ -9,7 +9,7 @@ import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
 import { groupStore } from "../services/groupStore";
 import { calculateSettlement } from "../services/calculateSettlement";
-import type { Person, BillItem } from "../types/bill";
+import type { BillItem } from "../types/bill";
 import type { ParticipantTotal, SettlementTransaction } from "../services/calculateSettlement";
 import type { BillGroup } from "../types/group";
 
