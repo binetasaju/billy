@@ -20,7 +20,7 @@ import { useContactGroups } from "../../hooks/useContactGroups";
 import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
 import { contactGroupStore, MEMBER_COLORS } from "../../services/contactGroupStore";
-import { computeGroupBalances, describeBalance } from "../../services/groupBalances";
+import { computeGroupBalances, describeBalance, simplifyDebts } from "../../services/groupBalances";
 import ContactPickerModal, { ContactData } from "../../components/ContactPickerModal";
 import type { GroupMember } from "../../types/group";
 
@@ -237,6 +237,32 @@ export default function ContactGroupDetailScreen() {
           </View>
         )}
 
+        {/* ── Fewest payments to settle everything ── */}
+        {balances && balances.linkedBillCount > 0 && (() => {
+          const suggestions = simplifyDebts(balances.members);
+          if (suggestions.length === 0) return null;
+          const nameOf = (id: string) => {
+            const m = balances.members.find((b) => b.personId === id);
+            return m?.isViewer ? "You" : m?.name ?? "Someone";
+          };
+          return (
+            <View style={[s.listCard, s.suggestCard]}>
+              <Text style={s.suggestTitle}>Settle up in {suggestions.length} payment{suggestions.length !== 1 ? "s" : ""}</Text>
+              {suggestions.map((p) => (
+                <View key={`${p.fromId}-${p.toId}`} style={s.suggestRow}>
+                  <Text style={s.suggestText}>
+                    <Text style={s.suggestName}>{nameOf(p.fromId)}</Text>
+                    {nameOf(p.fromId) === "You" ? " pay " : " pays "}
+                    <Text style={s.suggestName}>{nameOf(p.toId)}</Text>
+                  </Text>
+                  <Text style={s.suggestAmount}>₹{p.amount.toFixed(2)}</Text>
+                </View>
+              ))}
+              <Text style={s.suggestNote}>Combines all open bills in this group into the fewest payments.</Text>
+            </View>
+          );
+        })()}
+
         <Pressable
           style={s.addBtn}
           onPress={() => router.push({ pathname: "/add-debt", params: { contactGroupId: group.id } } as any)}
@@ -374,6 +400,13 @@ const s = StyleSheet.create({
     paddingVertical: 14, borderRadius: 12, marginTop: 12,
   },
   addBtnText: { fontSize: 15, fontWeight: "600", color: "#111827" },
+  suggestCard: { padding: 16, gap: 8 },
+  suggestTitle: { fontSize: 15, fontWeight: "700", color: "#111827", marginBottom: 4 },
+  suggestRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  suggestText: { fontSize: 14, color: "#374151", flex: 1 },
+  suggestName: { fontWeight: "600", color: "#111827" },
+  suggestAmount: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  suggestNote: { fontSize: 12, color: "#9CA3AF", marginTop: 4 },
 
   emptyBills: {
     backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB",

@@ -100,3 +100,39 @@ describe("describeBalance", () => {
     expect(describeBalance({ ...base, isViewer: true })).toBe("You're settled up");
   });
 });
+
+import { simplifyDebts } from "../services/groupBalances";
+
+describe("simplifyDebts", () => {
+  const net = (o: Record<string, number>) => Object.entries(o).map(([personId, n]) => ({ personId, net: n }));
+
+  it("turns a chain A→B→C into one payment A→C", () => {
+    // A owes B 100, B owes C 100  =>  A: -100, B: 0, C: +100
+    expect(simplifyDebts(net({ A: -100, B: 0, C: 100 }))).toEqual([{ fromId: "A", toId: "C", amount: 100 }]);
+  });
+
+  it("needs at most n-1 payments and clears every balance", () => {
+    const balances = net({ A: -250.5, B: -49.5, C: 120, D: 180 });
+    const pays = simplifyDebts(balances);
+    expect(pays.length).toBeLessThanOrEqual(3);
+    const after: Record<string, number> = { A: -250.5, B: -49.5, C: 120, D: 180 };
+    pays.forEach((p) => {
+      after[p.fromId] += p.amount;
+      after[p.toId] -= p.amount;
+    });
+    Object.values(after).forEach((v) => expect(Math.abs(v)).toBeLessThan(0.005));
+  });
+
+  it("returns nothing when everyone is settled (ignoring paisa dust)", () => {
+    expect(simplifyDebts(net({ A: 0, B: 0.001, C: -0.001 }))).toEqual([]);
+  });
+
+  it("works from real group balances", () => {
+    const r = computeGroupBalances(group, [
+      bill("b1", [tx("ravi", "me", 100)]),
+      bill("b2", [tx("me", "anu", 100)]),
+    ]);
+    // ravi -> me -> anu  collapses to  ravi -> anu
+    expect(simplifyDebts(r.members)).toEqual([{ fromId: "ravi", toId: "anu", amount: 100 }]);
+  });
+});

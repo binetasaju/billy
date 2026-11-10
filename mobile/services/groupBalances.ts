@@ -187,3 +187,42 @@ export function describeBalance(balance: MemberBalance): string {
   if (balance.net < 0) return `Owes ₹${Math.abs(balance.net).toFixed(2)} in this group`;
   return "Settled up";
 }
+
+export interface SuggestedPayment {
+  fromId: string;
+  toId: string;
+  amount: number;
+}
+
+/**
+ * Fewest payments that clear everyone's net balance.
+ *
+ * Greedy: repeatedly match the person who owes the most with the person owed
+ * the most. For n people this needs at most n − 1 payments, and it turns
+ * chains like A→B→C into a single A→C. Amounts are in rupees, rounded to
+ * paise; balances within ₹0.01 count as settled.
+ */
+export function simplifyDebts(balances: Pick<MemberBalance, "personId" | "net">[]): SuggestedPayment[] {
+  const toPaise = (n: number) => Math.round(n * 100);
+  const debtors = balances
+    .filter((b) => toPaise(b.net) < 0)
+    .map((b) => ({ id: b.personId, left: -toPaise(b.net) }))
+    .sort((a, b) => b.left - a.left || a.id.localeCompare(b.id));
+  const creditors = balances
+    .filter((b) => toPaise(b.net) > 0)
+    .map((b) => ({ id: b.personId, left: toPaise(b.net) }))
+    .sort((a, b) => b.left - a.left || a.id.localeCompare(b.id));
+
+  const payments: SuggestedPayment[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const pay = Math.min(debtors[i].left, creditors[j].left);
+    if (pay > 0) payments.push({ fromId: debtors[i].id, toId: creditors[j].id, amount: pay / 100 });
+    debtors[i].left -= pay;
+    creditors[j].left -= pay;
+    if (debtors[i].left === 0) i++;
+    if (creditors[j].left === 0) j++;
+  }
+  return payments;
+}
