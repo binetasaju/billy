@@ -74,7 +74,8 @@ export default function GroupDetailsScreen() {
   const handleEditBill = () => {
     if (!group || !canEdit) return;
     billStore.loadForEdit(group);
-    router.push("/review-items");
+    // "Split an Amount" bills have no receipt to review — edit the amounts directly.
+    router.push((group.splitMethod === "custom" ? "/custom-split" : "/review-items") as any);
   };
 
   // ── Build a person's share breakdown ───────────────────────────────────────

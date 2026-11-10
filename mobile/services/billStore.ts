@@ -9,7 +9,8 @@
 
 import type { ParsedBill, OcrBlock, Person, BillItem } from "../types/bill";
 import type { User } from "../types/user";
-import type { BillGroup } from "../types/group";
+import type { BillGroup, ContactGroup } from "../types/group";
+import { membersToParticipants } from "./contactGroupStore";
 import { payerOf } from "./billEditing";
 import { recalculateBillTotals } from "./recalculateBillTotals";
 
@@ -38,6 +39,11 @@ interface StoreState {
   editingGroupId?: string | null;
   /** Custom-split amounts to prefill when editing a custom bill. */
   customAmounts?: Record<string, number> | null;
+  /**
+   * "Split an Amount" from a saved group: no receipt — just a title and a
+   * total, split with custom amounts.
+   */
+  amountOnly?: boolean;
 }
 
 let _state: StoreState | null = null;
@@ -186,7 +192,58 @@ export const billStore = {
       contactGroupId: group.contactGroupId ?? null,
       editingGroupId: group.id,
       customAmounts: group.customAmounts ?? null,
+      amountOnly: group.splitMethod === "custom",
     };
+    _notify();
+  },
+
+  /** Start "Split an Amount" for a saved group: you paid, members share. */
+  startAmountSplit(group: ContactGroup, currentUser: User) {
+    const me: Person = {
+      id: currentUser.uid,
+      name: currentUser.name || "Me",
+      color: "#1D4ED8",
+      itemIds: [],
+      isCurrentUser: true,
+      upiId: currentUser.upiId,
+    };
+    const bill: ParsedBill = {
+      isBill: true,
+      restaurant: "",
+      billNumber: "",
+      date: new Date().toISOString().slice(0, 10),
+      items: [],
+      subtotal: 0,
+      charges: [],
+      total: 0,
+      printedTotal: null,
+    };
+    _state = {
+      bill,
+      originalBill: JSON.parse(JSON.stringify(bill)),
+      imageUri: "",
+      ocrBlocks: null,
+      hasBoundingBoxes: false,
+      payerId: me.id,
+      participants: membersToParticipants(group.members, [me]),
+      splitMethod: "custom",
+      contactGroupId: group.id,
+      editingGroupId: null,
+      customAmounts: null,
+      amountOnly: true,
+    };
+    _notify();
+  },
+
+  /** Amount-only splits: the title + total become the bill's single line. */
+  setAmountOnlyTotal(title: string, total: number) {
+    if (!_state) return;
+    const name = title.trim() || "Amount";
+    const items: BillItem[] = total > 0
+      ? [{ id: "amount", name, price: total, amount: total, quantity: 1, confidence: 1 } as BillItem]
+      : [];
+    const bill = recalculateBillTotals({ ..._state.bill, restaurant: title.trim(), items, charges: [] });
+    _state = { ..._state, bill };
     _notify();
   },
 

@@ -42,6 +42,11 @@ export default function CustomSplitScreen() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [groupTitle, setGroupTitle] = useState("");
 
+  // "Split an Amount" (from a saved group): title + total are typed here.
+  const [amountOnly, setAmountOnly] = useState(false);
+  const [titleText, setTitleText] = useState("");
+  const [totalText, setTotalText] = useState("");
+
   useEffect(() => {
     const store = billStore.get();
     if (!store) { router.replace("/"); return; }
@@ -50,6 +55,11 @@ export default function CustomSplitScreen() {
     setBillTotal(store.bill.total ?? 0);
     setRestaurantName(store.bill.restaurant ?? "");
     setGroupTitle(store.bill.restaurant || "Untitled Bill");
+    if (store.amountOnly) {
+      setAmountOnly(true);
+      setTitleText(store.bill.restaurant ?? "");
+      setTotalText(store.bill.total ? String(store.bill.total) : "");
+    }
 
     // Editing a saved custom split: start from the agreed amounts, as long as
     // they still add up to the (possibly edited) bill total.
@@ -93,6 +103,17 @@ export default function CustomSplitScreen() {
   };
 
   const handleResetEqual = () => { setLocked({}); setDrafts({}); };
+
+  const handleAmountOnlyChange = (title: string, totalStr: string) => {
+    const clean = totalStr.replace(/[^0-9.]/g, "");
+    setTitleText(title);
+    setTotalText(clean);
+    const total = parseFloat(clean);
+    const value = Number.isFinite(total) && total > 0 ? Math.round(total * 100) / 100 : 0;
+    billStore.setAmountOnlyTotal(title, value);
+    setBillTotal(value);
+    setGroupTitle(title.trim() || "Split");
+  };
 
   const handleCreateGroup = async () => {
     const user = authStore.get().user;
@@ -156,10 +177,37 @@ export default function CustomSplitScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={s.header}>
-            <Text style={s.title}>Custom Amounts</Text>
-            {restaurantName ? <Text style={s.restaurant}>{restaurantName}</Text> : null}
+            <Text style={s.title}>{amountOnly ? "Split an Amount" : "Custom Amounts"}</Text>
+            {!amountOnly && restaurantName ? <Text style={s.restaurant}>{restaurantName}</Text> : null}
             <Text style={s.hint}>Type an amount for anyone — the others re-balance automatically.</Text>
           </View>
+
+          {amountOnly && (
+            <View style={s.amountOnlyCard}>
+              <Text style={s.inputLabel}>What for?</Text>
+              <TextInput
+                style={s.input}
+                value={titleText}
+                onChangeText={(t) => handleAmountOnlyChange(t, totalText)}
+                placeholder="e.g. Cab to airport, Goa trip"
+                placeholderTextColor="#9CA3AF"
+                maxLength={60}
+              />
+              <Text style={[s.inputLabel, { marginTop: 14 }]}>Total amount you paid</Text>
+              <View style={[s.amountBox, s.totalBox]}>
+                <Text style={s.rupee}>₹</Text>
+                <TextInput
+                  style={[s.amountInput, s.totalInput]}
+                  value={totalText}
+                  onChangeText={(t) => handleAmountOnlyChange(titleText, t)}
+                  placeholder="0.00"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="decimal-pad"
+                  accessibilityLabel="Total amount"
+                />
+              </View>
+            </View>
+          )}
 
           {/* Summary */}
           <View style={s.summaryCard}>
@@ -246,12 +294,12 @@ export default function CustomSplitScreen() {
               <Text style={s.changeBtnText}>Reset to Equal</Text>
             </Pressable>
             <Pressable
-              style={[s.doneBtn, !balanced && s.doneBtnDisabled]}
-              disabled={!balanced}
+              style={[s.doneBtn, (!balanced || billTotal <= 0) && s.doneBtnDisabled]}
+              disabled={!balanced || billTotal <= 0}
               onPress={() => setShowSaveModal(true)}
             >
               <Text style={s.doneBtnText}>
-                {balanced ? "Done ✓" : remaining > 0 ? `Assign ₹${remaining.toFixed(2)} more` : `Remove ₹${Math.abs(remaining).toFixed(2)}`}
+                {billTotal <= 0 ? "Enter the total amount" : balanced ? "Done ✓" : remaining > 0 ? `Assign ₹${remaining.toFixed(2)} more` : `Remove ₹${Math.abs(remaining).toFixed(2)}`}
               </Text>
             </Pressable>
           </View>
@@ -316,6 +364,9 @@ const s = StyleSheet.create({
   amountBoxLocked: { borderColor: "#FCD34D", backgroundColor: "#FFFBEB" },
   rupee: { fontSize: 15, color: "#6B7280", marginRight: 2 },
   amountInput: { flex: 1, fontSize: 15, fontWeight: "600", color: "#111827", paddingVertical: 8, textAlign: "right" },
+  amountOnlyCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", padding: 16, marginBottom: 20 },
+  totalBox: { minWidth: 0, backgroundColor: "#fff" },
+  totalInput: { fontSize: 22, textAlign: "left", paddingVertical: 10 },
   legend: { fontSize: 11, color: "#9CA3AF", marginBottom: 24, marginLeft: 4 },
   actions: { gap: 12 },
   changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "#fff" },

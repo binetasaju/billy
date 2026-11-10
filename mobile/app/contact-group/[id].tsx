@@ -20,6 +20,7 @@ import { useContactGroups } from "../../hooks/useContactGroups";
 import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
 import { contactGroupStore, MEMBER_COLORS } from "../../services/contactGroupStore";
+import { billStore } from "../../services/billStore";
 import { computeGroupBalances, describeBalance, simplifyDebts } from "../../services/groupBalances";
 import ContactPickerModal, { ContactData } from "../../components/ContactPickerModal";
 import type { GroupMember } from "../../types/group";
@@ -92,6 +93,17 @@ export default function ContactGroupDetailScreen() {
     }
     await contactGroupStore.renameGroup(group.id, name);
     setRenameVisible(false);
+  };
+
+  const handleSplitAmount = () => {
+    if (!group || !user) return;
+    const others = group.members.filter((m) => !m.isCurrentUser && m.id !== user.uid);
+    if (others.length === 0) {
+      Alert.alert("Add people first", "Add at least one person to this group to split an amount.");
+      return;
+    }
+    billStore.startAmountSplit(group, user);
+    router.push("/custom-split" as any);
   };
 
   const handleDeleteGroup = () => {
@@ -263,6 +275,20 @@ export default function ContactGroupDetailScreen() {
           );
         })()}
 
+        {/* ── Split an amount (no receipt) ── */}
+        <Pressable
+          style={s.splitAmountBtn}
+          onPress={handleSplitAmount}
+          accessibilityRole="button"
+        >
+          <Ionicons name="calculator-outline" size={20} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={s.splitAmountTitle}>Split an Amount</Text>
+            <Text style={s.splitAmountSub}>No bill? Enter a total and set each person&apos;s share</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </Pressable>
+
         {/* ── Bills from this group ── */}
         <Text style={s.sectionTitle}>Bills</Text>
         {linkedBills.length === 0 ? (
@@ -391,6 +417,9 @@ const s = StyleSheet.create({
     paddingVertical: 14, borderRadius: 12, marginTop: 12,
   },
   addBtnText: { fontSize: 15, fontWeight: "600", color: "#111827" },
+  splitAmountBtn: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#111827", borderRadius: 16, padding: 16, marginBottom: 24 },
+  splitAmountTitle: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  splitAmountSub: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
   suggestCard: { padding: 16, gap: 8 },
   suggestTitle: { fontSize: 15, fontWeight: "700", color: "#111827", marginBottom: 4 },
   suggestRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

@@ -20,7 +20,7 @@ Almost every piece of that journey is now built. What's left is **proving it wor
 | Receipt checks | 🟢 Done | Totals checked against the printed total; tax-inclusive bills don't get GST added twice; GSTIN ignored; mismatch warning on Review |
 | Manual bill entry | 🟢 Done | Home → Add Bill → Enter Manually; add/remove tax, charge, discount lines |
 | Participants | 🟢 Done | 2+ sharers, payer always sharing, edit name / remove (⋮ or long-press) |
-| Split methods | 🟢 Done | **Equal**, **Item-wise** (one screen, live totals), **Custom amounts** (GPay-style re-balance) |
+| Split methods | 🟢 Done | Scanned bills: **Equal** or **Item-wise** (one screen, live totals). Saved group → **Split an Amount**: type a total, set each share (GPay-style re-balance) |
 | Settlement engine (`services/calculateSettlement.ts`) | 🟢 Done + tested | Rounding, shared/unassigned items, GST, service charge, custom amounts |
 | Saved bills | 🟢 Done | Who had what, payment progress, edit until first payment, Request (WhatsApp/SMS + UPI link) |
 | Payments | 🟡 MVP | UPI deep link + manual "mark as paid" (duplicate taps ignored). **No automatic confirmation yet** |
@@ -47,7 +47,7 @@ Run `npx expo start --dev-client` (from `mobile/`) with the phone connected, the
 - [ ] Participants: no warning at first; pressing Continue with fewer than 2 people shows "Select at least 2 people sharing"; ⋮ → Edit name / Remove
 - [ ] Split **Equally** → Save
 - [ ] Split **Item-wise** → totals update live while assigning → Done (unassigned warning) → Save
-- [ ] Split **Custom amounts** → type one amount, others re-balance; payer at ₹0 works → Save
+- [ ] Groups → open/create a group → **Split an Amount** → title + total → tap a box (it clears), type a share, others re-balance; your share ₹0 works → Save
 - [ ] Saved bill: Who had what, progress bar, **Request** (WhatsApp message has UPI link), **Pay**, **Received**
 - [ ] Saved bill: **Edit** → change a price → save → shares recalculated; Edit disappears after a payment
 - [ ] Saved group: balances + "Settle up in N payments"
@@ -96,7 +96,7 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 
 ## 3. Product decisions already made
 
-- **The payer always shares the bill** (auto-ticked). For "I paid for my friends", use **Custom amounts** and set the payer's share to ₹0.
+- **The payer always shares the bill** (auto-ticked). For "I paid for my friends", use a group's **Split an Amount** and set your share to ₹0.
 - **No "Owe someone" / debts without a bill** — removed on purpose; every record in Billy comes from a bill.
 - **Bills can be edited only by their creator, and only until the first payment.** After that: delete & rescan.
 - **"Settle up in N payments"** is a suggestion only — payments are still marked per bill.
@@ -108,7 +108,7 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 - Android pop-ups show at most 3 buttons, so **Add Bill has no Cancel** — tap outside to close.
 - When editing a saved bill, the Save pop-up suggests the restaurant name, not the group name you chose before.
 - Editing a bill that came from a photo doesn't keep the photo (the bill data is kept).
-- Contacts can't be added from inside a custom split — add everyone on the Participants screen first.
+- **Split an Amount** uses the group's members — add people to the group first. You are always the one who paid.
 
 ---
 
@@ -145,7 +145,7 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 - 1 Gemini call per scan · AI auto-crop button · no retries on quota errors · offline note
 - Manual bill entry · add/remove taxes, charges, discounts
 - Item-wise split on one screen with live totals
-- Custom-amount split · payment Request with UPI link
+- Split an Amount (inside a saved group, GPay-style shares) · payment Request with UPI link
 - Who had what · payment progress · duplicate "paid" taps ignored
 - Edit a bill until the first payment
 - "Settle up in N payments"
