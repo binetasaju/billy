@@ -15,6 +15,8 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  Linking,
+  Platform,
 } from "react-native";
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
@@ -30,10 +32,15 @@ import { friendlyAuthError } from "../../services/auth/authErrors";
 import { isValidUpiId } from "../../services/upi";
 import { isValidPhoneNumber, normalizePhoneNumber } from "../../utils/normalizePhoneNumber";
 import Constants from "expo-constants";
+import * as Clipboard from "expo-clipboard";
+
 import { C } from "@/constants/colors";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+
+/** Where "Report a problem" emails go. */
+const SUPPORT_EMAIL = "binetasaju@gmail.com";
 
 type EditField = "name" | "phone" | "upi";
 
@@ -102,6 +109,35 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  // ── Report a problem: opens the email app with a ready-to-fill message ────
+  const handleReportProblem = async () => {
+    const subject = `Billy problem report (v${appVersion})`;
+    const body = [
+      "What went wrong?",
+      "",
+      "",
+      "What were you doing when it happened?",
+      "",
+      "",
+      "(Screenshots help — please attach any.)",
+      "",
+      "— details for the Billy team —",
+      `App version: ${appVersion}`,
+      `Phone: ${Platform.OS} ${Platform.Version}`,
+      `Account: ${user?.email || user?.phoneNumber || "—"}`,
+    ].join("\n");
+    const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      await Clipboard.setStringAsync(SUPPORT_EMAIL);
+      appAlert.alert(
+        "No email app found",
+        `Please email ${SUPPORT_EMAIL} — the address has been copied.`
+      );
+    }
   };
 
   const handleLogout = () => {
@@ -208,6 +244,14 @@ export default function ProfileScreen() {
           )}
           <Pressable onPress={handleLogout}>
             <Row icon="log-out-outline" label="Session" value="Log out" danger actionIcon="chevron-forward" />
+          </Pressable>
+        </View>
+
+        {/* ── Help ── */}
+        <Text style={s.sectionTitle}>Help</Text>
+        <View style={s.card}>
+          <Pressable onPress={handleReportProblem}>
+            <Row icon="bug-outline" label="Something not working?" value="Report a problem" actionIcon="chevron-forward" />
           </Pressable>
         </View>
 

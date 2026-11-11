@@ -14,7 +14,7 @@
 ![Expo](https://img.shields.io/badge/Expo-54-000020?style=flat-square&logo=expo&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Google Gemini](https://img.shields.io/badge/AI-Google_Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase_Auth-Integration-FFCA28?style=flat-square&logo=firebase&logoColor=black)
+![Firebase](https://img.shields.io/badge/Firebase-Auth_%26_Hosting-FFCA28?style=flat-square&logo=firebase&logoColor=black)
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-3DDC84?style=flat-square&logo=android&logoColor=white)
 
 </div>
@@ -109,32 +109,41 @@ AI-extracted information is editable so users can correct recognition errors bef
 - Create reusable groups for friends, flatmates, or colleagues.
 - Preserve participant details in historical bill records.
 
-### 📊 Group Balances and History
+### 🧾 Bills, Balances and History
 
-- Review active bills and outstanding settlements.
-- Aggregate balances across bills associated with a reusable group.
-- Track individual amounts owed and amounts receivable.
-- Review historical bills and their settlement status.
-- Mark settlements as paid after confirmation.
+- **Home card:** what you'll get and what you'll give across all unpaid bills, side by side (exact amounts, Indian digit grouping).
+- **Pay tab:** only bills where you still owe or are owed money, with your share as the main number.
+- **Bill page:** one **People** list — each person's share, their payment status (where it involves you), a 🧾 button to review their items, and **Received** / **Pay** / **Mark paid** actions.
+- **Share bill:** one message for the whole bill (shares, who has paid, the payer's UPI ID) with a link that opens the bill in Billy.
+- **Mistakes:** edit a bill until the first payment; after that the creator can **close** it (unpaid amounts cancelled, payments kept) and start a corrected bill.
+- **Groups:** reusable groups with balances and a "your settle-up" suggestion; only the group's admin (creator) can remove members.
+- **History:** spent and received per month, plus settled and closed bills.
+- You only see payments that involve you — never what other people owe each other.
 
 ### 💸 UPI Payment Handoff
 
 - Generate UPI deep links with the payee, amount, currency, and payment note.
 - Open compatible UPI applications when installed.
 - Provide a fallback when a UPI app cannot be opened.
-- Record the selected payment method and payment timestamp when a settlement is marked paid.
-- Update a bill group's status when all its settlement entries are marked paid.
+- Mark payments as paid / received with a single confirmation and a timestamp.
+- Update a bill's status when all its payments are marked paid.
 
 **Important:** UPI deep linking initiates a payment handoff. Billy does not independently verify bank transactions.
 
-### 🔐 Authentication Foundation
+### 🔐 Sign-in and Profile
 
-- Modular authentication-provider interface.
-- Local authentication provider for on-device use.
-- Firebase Authentication integration.
-- Persistent identity mapping designed to preserve existing local bill history when authentication providers change.
+- **Email + password** with a verification email — Billy continues by itself once the link is clicked; forgot-password emails.
+- **Continue with Google** (Firebase), including the Google profile photo.
+- The same email always opens the same Billy account, so bills stay attached.
+- The phone number is collected at sign-up / onboarding (used to match people from contacts); the UPI ID is optional.
+- **Profile:** edit name, phone and UPI ID, change password, quick stats, and **Report a problem** (opens a pre-filled email).
+- Phone (SMS) OTP is implemented but parked — real SMS needs Firebase's paid plan.
 
-The application currently defaults to local authentication. Firebase phone OTP requires the appropriate configuration and activation.
+### 🔗 Shareable Bill Links
+
+- Shared bills include `https://billy-ed9eb.web.app/bill/<id>`, tappable in WhatsApp.
+- Android **App Links** (verified through `assetlinks.json`) open the link straight in Billy; otherwise a small web page offers **Open in Billy**.
+- The web page is hosted for free on **Firebase Hosting** (`web/`).
 
 ## 🧰 Technology Stack
 
@@ -145,10 +154,12 @@ The application currently defaults to local authentication. Firebase phone OTP r
 | Navigation | Expo Router |
 | AI and parsing | Google Gemini API |
 | OCR | ML Kit Text Recognition, optional Google Cloud Vision |
-| Authentication | Local authentication provider, Firebase Authentication integration |
+| Authentication | Firebase Authentication (email + password, Google sign-in), local fallback provider |
+| Links | Firebase Hosting, Android App Links, Expo Router deep links |
 | Local persistence | AsyncStorage, custom stores |
 | Payments | UPI URI deep linking, Expo Linking |
-| Device features | Camera, image picker, contacts |
+| Device features | Camera, image picker, contacts, share sheet |
+| Testing | Jest (200+ tests: settlement, balances, parsing, auth, formatting) |
 | Development | Node.js, npm, Git, Android development tools |
 
 ## 🏗️ Architecture
@@ -297,17 +308,22 @@ Create a `.env` file inside the `mobile/` directory and configure the API keys d
 
 ### 4. Configure Firebase
 
-For native Firebase integration:
+Billy uses Firebase on the free (Spark) plan:
 
-1. Create or select a Firebase project.
-2. Register the appropriate Android application.
-3. Download its `google-services.json` configuration file.
-4. Place the configuration file at the path expected by the project's Expo and Android configuration.
-5. Configure Firebase Authentication if you intend to enable phone OTP.
+1. Create or select a Firebase project and register the Android app (`com.anonymous.mobile`).
+2. Add the **SHA-1 and SHA-256** fingerprints of your signing key (debug key for development, release key for store builds) in **Project settings → Your apps**.
+3. In **Authentication → Sign-in method**, enable **Email/Password** and **Google**.
+4. Download `google-services.json` and place it in **both** `mobile/google-services.json` and `mobile/android/app/google-services.json`. Download it again after enabling Google — the new file contains the Web client ID Google sign-in needs.
+5. For iOS, register the iOS app and place `GoogleService-Info.plist` in `mobile/`.
+6. Native configuration changed → rebuild once with `npx expo run:android`.
 
-For iOS builds, configure the corresponding iOS application and its `GoogleService-Info.plist` file.
+**Shared bill links (optional):** the `web/` folder is a Firebase Hosting site. Put your signing key's SHA-256 in `web/public/.well-known/assetlinks.json`, then:
 
-Check the current Expo configuration before adding or duplicating native configuration files.
+```bash
+cd web
+npx firebase-tools login
+npx firebase-tools deploy --only hosting
+```
 
 ### 5. Run the Android application
 
@@ -369,7 +385,7 @@ Billy is an evolving project. The following boundaries are important to understa
 
 ### Local-first data storage
 
-Bills, contact groups, settlements, and related records are currently stored locally using AsyncStorage. Cloud synchronization across users and devices is not yet deployed.
+Bills, contact groups, settlements, and related records are currently stored locally using AsyncStorage. Cloud synchronization across users and devices is not yet deployed, so friends don't see a bill on their own phones yet and shared bill links only open on a phone that has the bill.
 
 ### Payment verification
 
@@ -377,7 +393,7 @@ UPI integration opens compatible payment applications using deep links. Billy do
 
 ### Authentication
 
-The application currently defaults to local authentication. Firebase phone OTP is integrated at the code level but requires explicit configuration and activation before it can be used as the active authentication flow.
+Sign-in uses Firebase email + password (with email verification) and Google sign-in. Phone numbers are collected but not verified by SMS — SMS OTP is implemented but needs Firebase's paid plan. If the Firebase native module or configuration is missing, Billy falls back to a local, on-device sign-in for development.
 
 ### Receipt recognition
 
@@ -400,14 +416,19 @@ Firebase client configuration is not equivalent to a server-side secret, but it 
 
 ## 🗺️ Future Roadmap
 
-The following are planned improvements, not claims of currently deployed functionality.
+The following are planned improvements, not claims of currently deployed functionality. See `NEXT_STEPS.md` for the detailed, ordered plan.
 
-- [ ] Cloud Firestore synchronization across participants and devices.
+- [x] Firebase sign-in (email + password, Google).
+- [x] Automated tests for settlement calculations, group balances, bill parsing and sign-in.
+- [x] Shareable bill links that open the app.
+- [ ] Cloud Firestore synchronization across participants and devices, with live payment updates.
+- [ ] Push notifications for bill and payment updates.
+- [ ] Automatic UPI payment confirmation (Android).
+- [ ] More reliable receipt extraction (document scanner, image → Gemini, structured output).
 - [ ] Backend proxy for secure Gemini API requests.
-- [ ] Activation and testing of Firebase phone OTP authentication.
-- [ ] QR-code-based bill joining.
-- [ ] Push notifications for bill and settlement updates.
-- [ ] Automated unit tests for settlement calculations, group balances, and bill parsing.
+- [ ] Import e-bills from Gmail.
+- [ ] iOS build.
+- [ ] Phone (SMS) OTP once billing is enabled.
 - [ ] Receipt image storage for historical bills.
 - [ ] Multi-currency expense splitting.
 
@@ -420,19 +441,24 @@ billy/
 │   ├── components/          # Reusable UI components
 │   ├── hooks/               # React hooks and store bridges
 │   ├── services/            # Business logic and API integrations
-│   │   ├── auth/            # Authentication providers
+│   │   ├── auth/            # Sign-in providers (Firebase email/Google, local), errors
 │   │   ├── ocr.ts           # Receipt text extraction
 │   │   ├── parseBill.ts     # Structured bill parsing
 │   │   ├── calculateSettlement.ts
 │   │   ├── recalculateBillTotals.ts
 │   │   ├── groupBalances.ts
-│   │   └── upi.ts           # UPI payment links
+│   │   ├── homeSummary.ts   # Home card / Pending / Recent
+│   │   └── upi.ts           # UPI links, share-bill message, bill links
 │   ├── types/               # TypeScript domain models
-│   ├── utils/               # Shared utilities
+│   ├── utils/               # Shared utilities (phone numbers, ₹ formatting…)
+│   ├── __tests__/           # Jest tests
 │   └── package.json
+├── web/                     # Firebase Hosting: bill links + Android App Links
+├── backend/                 # Planned server (Gemini proxy)
 ├── docs/                    # Supporting documentation
 ├── Billy.pdf                # Project pitch deck
 ├── PROJECT.md               # Project notes
+├── NEXT_STEPS.md            # Current status and ordered plan
 └── README.md
 ```
 

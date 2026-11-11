@@ -32,12 +32,13 @@ With Billy, the entire flow — from receipt photo to settled payments — takes
 
 ### Authentication
 
-- Phone number + name registration with local persistence
-- Session management via `AsyncStorage` (survives app restarts)
-- Auth-gated navigation — unauthenticated users are redirected to login
-- Onboarding flow for optional UPI ID collection
-- Logout with confirmation dialog
-- Architecture designed for drop-in Firebase Auth migration
+- **Firebase email + password** sign-up with a verification email (the app continues by itself once the link is clicked), sign-in, forgot password
+- **Continue with Google** (Firebase credential) with the Google profile photo
+- The same email always maps to the same Billy account, so stored bills stay attached (canonical uid kept)
+- Session management via `AsyncStorage` (survives app restarts); auth-gated navigation
+- Onboarding asks for the phone number when Google didn't provide one; UPI ID optional
+- Pluggable provider layer (`services/auth/`): Firebase, local fallback; SMS OTP implemented but parked (needs the paid plan)
+- Plain-language messages for Firebase auth errors
 
 ### Receipt Processing
 
@@ -72,7 +73,7 @@ With Billy, the entire flow — from receipt photo to settled payments — takes
 ### Bill Splitting
 
 - **Equal split** — total divided evenly among all participants with penny-rounding correction on the last person
-- **Item-wise split** — assign specific items to specific people, with shared items split proportionally
+- **Item-wise split** — two steps: assign items to people → Bill details → Create Bill; shared items split proportionally
 - **Assign by person** — select a participant and tap items they consumed
 - **Assign by item** — select an item and tap participants who shared it
 - Proportional tax/charge distribution — GST, service charge, and additional fees distributed based on each person's item subtotal
@@ -81,36 +82,41 @@ With Billy, the entire flow — from receipt photo to settled payments — takes
 
 ### Groups
 
-- Create settlement groups from any completed split
-- Group detail screen with bill summary, participant list, and settlement breakdown
-- Settlement status tracking — `pending` → `paid` per transaction
-- Group-level status — `active` → `settled` (auto-transitions when all settlements are paid)
-- **Item breakdown modal** — any participant can view exactly which items contribute to a settlement amount
-- **Report Error flow** — permission-gated bill deletion (only the bill creator can delete and rescan)
-- Persistent storage via `AsyncStorage` with Firestore-ready data model
+- Saved **bills** (from any completed split) and reusable **groups** of people (Flatmates, Office…)
+- Bill page with one **People** list: each person's share, payment status where it involves you, 🧾 item breakdown, Received / Pay / Mark paid
+- **Share bill** — one WhatsApp-ready message for the whole bill with an `https` link that opens the bill in Billy (Android App Links, Firebase Hosting)
+- Settlement status — `pending` → `paid` (or `cancelled` when a bill is closed); bill status `active` → `settled` / `closed`
+- **Report Error flow** — edit until the first payment; after that the creator can **close** the bill or delete & rescan
+- Group balances and "your settle-up"; only the group admin (creator) can remove members
+- You only see payments that involve you
+- Persistent storage via `AsyncStorage` with a Firestore-ready data model
 
 ### Payments
 
 - **UPI deep linking** — opens the user's preferred UPI app (GPay, PhonePe, Paytm) with pre-filled amount, receiver, and note
 - Graceful fallback when no UPI app is installed — copies UPI ID to clipboard
-- **Payment confirmation modal** — "Did payment complete?" with success/failure options to prevent duplicate payments
-- Copy-to-clipboard for UPI IDs
-- Payment method tracking (`upi`, `cash`, `other`)
-- Payment timestamp recording
+- **Payment confirmation modal** — "Did payment complete?" after returning from the UPI app
+- **Mark paid / Received** with a single confirmation (no payment-method question); duplicate taps ignored
+- Copy-to-clipboard for UPI IDs; payment timestamp recording
 
 ### History
 
-- Settled groups archive with total spent/received statistics
-- Bills settled counter
-- Date-sorted group list
+- Month switcher with spent / received per month
+- Settled and closed bills per month
 
 ### Profile
 
-- Avatar with user initial
-- Phone number display
-- Editable UPI ID with bottom-sheet modal
-- User ID display (monospace)
-- Logout with destructive confirmation
+- Google profile photo (or initial), name, verified email, member since
+- Quick stats: bills, settled, groups
+- Edit name, phone number and UPI ID (validated)
+- Change password (reset email), **Report a problem** (pre-filled email), version, privacy note
+- Logout with confirmation
+
+### Home
+
+- **You'll get | You'll give** card across all unpaid bills (exact amounts, Indian digit grouping)
+- Pending payments and recent bills (only bills you are on)
+- Add Bill sheet: Take Photo → Choose From Gallery → Enter Manually
 
 ---
 
@@ -170,7 +176,8 @@ With Billy, the entire flow — from receipt photo to settled payments — takes
 
 | Technology | Purpose |
 |---|---|
-| **Firebase Auth** | Phone OTP authentication (replacing mock login) |
+| **Firebase Auth** | ✅ In use: email + password and Google sign-in (SMS OTP later, needs billing) |
+| **Firebase Hosting** | ✅ In use: shared bill links + Android App Links (`web/`) |
 | **Cloud Firestore** | Real-time group sync across devices |
 | **Firebase Cloud Messaging** | Push notifications for payment reminders |
 | **Firebase Storage** | Receipt image storage |
@@ -403,16 +410,18 @@ Listed in priority order:
 
 | Priority | Feature | Description |
 |---|---|---|
-| 🔴 P0 | **Firebase Auth** | Replace mock login with phone OTP verification via Firebase Authentication |
+| ✅ Done | **Firebase Auth** | Email + password with verification, and Google sign-in |
+| ✅ Done | **Bill links** | Shareable `https` links that open the bill in the app |
 | 🔴 P0 | **Realtime Groups** | Sync groups to Cloud Firestore — all participants see live settlement updates |
 | 🟡 P1 | **Push Notifications** | Firebase Cloud Messaging for payment reminders and group invites |
 | 🟡 P1 | **QR Join** | Generate QR codes for groups — scan to join without contact exchange |
-| 🟡 P1 | **Payment Verification** | Server-side UPI payment confirmation instead of self-reported status |
+| 🟡 P1 | **Payment Verification** | UPI result from the payment app, then server-side confirmation instead of self-reported status |
+| 🟡 P1 | **Gmail import** | Import e-bills (Swiggy, Zomato, Amazon…) from Gmail |
 | 🟢 P2 | **Cloud Sync** | Receipt images stored in Firebase Storage, accessible from any device |
-| 🟢 P2 | **UI Redesign** | Design system overhaul with Reanimated-driven animations and haptic feedback |
+| 🟢 P2 | **iOS** | Build and test on iPhone (Universal Links for shared bills) |
 | 🟢 P2 | **Multi-currency** | Support for non-INR currencies with exchange rate handling |
 | 🔵 P3 | **Web Dashboard** | React web app for viewing settlement history on desktop |
-| 🔵 P3 | **Recurring Groups** | Persistent groups for roommates or regular dining partners |
+| ✅ Done | **Reusable Groups** | Saved groups for roommates or regular dining partners |
 
 ---
 

@@ -35,6 +35,12 @@
         <data android:scheme="exp+mobile"/>
         <data android:scheme="exp+billy"/>
       </intent-filter>
+      <intent-filter android:autoVerify="true" data-generated="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="https" android:host="billy-ed9eb.web.app" android:pathPrefix="/bill"/>
+      </intent-filter>
     </activity>
   </application>
 </manifest>

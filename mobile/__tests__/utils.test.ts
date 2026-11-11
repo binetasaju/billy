@@ -101,3 +101,56 @@ describe("buildPaymentRequestMessage", () => {
     }
   });
 });
+
+describe("buildBillShareMessage", () => {
+  const base = {
+    title: "Dinner",
+    date: "10 Nov 2026",
+    total: 1325,
+    payerName: "Asha",
+    payerUpiId: "asha@okbank",
+    rows: [
+      { name: "Ravi", amount: 435, status: "pending" as const },
+      { name: "Anu", amount: 441.666, status: "paid" as const },
+    ],
+  };
+
+  it("lists every share with its status and the payer's UPI ID", () => {
+    const msg = require("../services/upi").buildBillShareMessage(base);
+    expect(msg).toContain("🧾 Dinner · 10 Nov 2026");
+    expect(msg).toContain("Bill total: ₹1325");
+    expect(msg).toContain("Paid by Asha");
+    expect(msg).toContain("• Ravi — ₹435 (pending)");
+    expect(msg).toContain("• Anu — ₹441.67 (✓ paid)");
+    expect(msg).toContain("Pay Asha on UPI: asha@okbank");
+  });
+
+  it("leaves out the UPI line when nobody still has to pay", () => {
+    const msg = require("../services/upi").buildBillShareMessage({
+      ...base,
+      rows: base.rows.map((r) => ({ ...r, status: "paid" as const })),
+    });
+    expect(msg).not.toContain("on UPI");
+  });
+
+  it("mentions a closed bill", () => {
+    const msg = require("../services/upi").buildBillShareMessage({ ...base, closed: true });
+    expect(msg).toContain("closed");
+  });
+});
+
+describe("bill link", () => {
+  const { billLink, buildBillShareMessage } = require("../services/upi");
+
+  it("points at the bill page", () => {
+    expect(billLink("group_123_abc")).toBe("https://billy-ed9eb.web.app/bill/group_123_abc");
+  });
+
+  it("is included in the shared message", () => {
+    const msg = buildBillShareMessage({
+      title: "Dinner", date: "10 Nov 2026", total: 100, payerName: "Asha",
+      rows: [], link: billLink("g1"),
+    });
+    expect(msg).toContain("Open in Billy: https://billy-ed9eb.web.app/bill/g1");
+  });
+});

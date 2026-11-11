@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Share } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Share, ActivityIndicator } from "react-native";
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
@@ -8,10 +8,10 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { groupStore } from "../../services/groupStore";
 import { billStore } from "../../services/billStore";
-import { canEditBill } from "../../services/billEditing";
+import { canEditBill, payerOf } from "../../services/billEditing";
 import { useGroups } from "../../hooks/useGroups";
 import { authStore } from "../../services/authStore";
-import { buildPaymentRequestMessage, isValidUpiId, openUpiPayment } from "../../services/upi";
+import { billLink, buildBillShareMessage, isValidUpiId, openUpiPayment } from "../../services/upi";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
@@ -69,7 +69,7 @@ export default function GroupDetailsScreen() {
 
   // Subscribed read of the same store — the screen repaints as soon as a
   // settlement is marked paid, without leaving and reopening it.
-  const { groups } = useGroups();
+  const { groups, isLoading: groupsLoading } = useGroups();
   const group = useMemo(() => groups.find((g) => g.id === id), [groups, id]);
   const currentUser = authStore.get().user;
   const isCreator = currentUser?.uid === group?.createdBy;
@@ -250,24 +250,32 @@ export default function GroupDetailsScreen() {
     setPayOtherTx(null);
   };
 
-  // ── Payee-side request ("please pay me") ──────────────────────────────────
-  const handleRequestPayment = async (tx: any, sender: Person | undefined) => {
+  // ── Share the whole bill (one message for the group chat) ─────────────────
+  const handleShareBill = async () => {
+    if (!group) return;
     const me = authStore.get().user;
-    if (!me || tx.toUserId !== me.uid) return;
-    const message = buildPaymentRequestMessage({
-      payerName: sender?.name ?? "there",
-      requesterName: me.name,
-      requesterUpiId: me.upiId,
-      amount: tx.amount,
-      billTitle: group?.title ?? "our bill",
+    const payerId = payerOf(group);
+    const payer = group.participants.find((p) => p.id === payerId);
+    const payerIsMe = payerId === me?.uid;
+    const nameOf = (id: string) => group.participants.find((p) => p.id === id)?.name ?? "Someone";
+    const payerUpiId = payerIsMe ? me?.upiId : payer?.upiId;
+    const message = buildBillShareMessage({
+      title: group.title,
+      date: new Date(group.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }),
+      total: group.totalAmount,
+      payerName: payer?.name ?? (payerIsMe ? me?.name ?? "me" : "the payer"),
+      payerUpiId,
+      rows: group.settlements.map((t) => ({ name: nameOf(t.fromUserId), amount: t.amount, status: t.status })),
+      closed: group.status === "closed",
+      link: billLink(group.id),
     });
     try {
       await Share.share({ message });
     } catch (err) {
       console.error("[Group] Share failed:", err);
     }
-    if (!me.upiId || !isValidUpiId(me.upiId)) {
-      appAlert.alert("Tip", "Add your UPI ID in Profile so requests include a one-tap payment link.");
+    if (payerIsMe && (!me?.upiId || !isValidUpiId(me.upiId))) {
+      appAlert.alert("Tip", "Add your UPI ID in Profile so shared bills tell friends where to pay you.");
     }
   };
 
@@ -323,6 +331,17 @@ export default function GroupDetailsScreen() {
     router.replace("/(tabs)" as any);
   };
 
+  // Still reading saved bills (e.g. opened straight from a shared link).
+  if (!group && groupsLoading) {
+    return (
+      <SafeAreaView style={s.safeArea}>
+        <View style={[s.emptyState, { flex: 1, justifyContent: "center" }]}>
+          <ActivityIndicator color={C.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!group) {
     return (
       <SafeAreaView style={s.safeArea}>
@@ -338,10 +357,8 @@ export default function GroupDetailsScreen() {
     );
   }
 
-  // Only the payments you make or receive — not what others owe each other.
-  const mySettlements = group.settlements.filter(
-    (t) => t.fromUserId === currentUser?.uid || t.toUserId === currentUser?.uid
-  );
+  // Who paid the restaurant (everyone's settlement points at them).
+  const payerId = payerOf(group);
 
   return (
     <SafeAreaView style={s.safeArea}>
@@ -404,6 +421,17 @@ export default function GroupDetailsScreen() {
           })()}
         </View>
 
+        {/* ── Share the whole bill ── */}
+        <Pressable
+          style={({ pressed }) => [s.shareBillBtn, pressed && s.pressedBtn]}
+          onPress={handleShareBill}
+          accessibilityRole="button"
+          accessibilityLabel="Share bill"
+        >
+          <Ionicons name="share-social-outline" size={17} color={C.primary} />
+          <Text style={s.shareBillText}>Share bill</Text>
+        </Pressable>
+
         {/* ── Closed bill ── */}
         {group.status === "closed" && (
           <View style={s.closedCard}>
@@ -423,200 +451,117 @@ export default function GroupDetailsScreen() {
           </View>
         )}
 
-        {/* ── Who had what (bills with a receipt only) ── */}
-        {group.billSnapshot && group.participants.length > 0 && (
-          <>
-            <Text style={s.sectionTitle}>Who had what</Text>
-            <View style={s.listCard}>
-              {group.participants.map((p, idx) => {
-                const b = getPersonBreakdown(p.id);
-                const summary = b.lines
-                  .map((l) => {
-                    const share = l.note?.match(/^shared by (\d+)/);
-                    return share ? `${l.name} (1/${share[1]})` : l.name;
-                  })
-                  .join(", ");
-                const isMe = p.id === currentUser?.uid;
-                return (
-                  <Pressable
-                    key={p.id}
-                    style={[s.whoRow, idx < group.participants.length - 1 && s.txBorder]}
-                    onPress={() => handleShowItems(p.id, isMe ? "Your" : `${p.name}'s`)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${p.name}'s items`}
-                  >
-                    <View style={[s.whoAvatar, { backgroundColor: p.color ?? C.textSubtle }]}>
-                      <Text style={s.whoAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.txName}>{isMe ? "You" : p.name}</Text>
-                      <Text style={s.whoItems} numberOfLines={2}>{summary || "No items"}</Text>
-                    </View>
-                    <Text style={s.whoTotal}>₹{b.total.toFixed(2)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        )}
-
-        <Text style={s.sectionTitle}>Your payments ({mySettlements.length})</Text>
+        {/* ── People: who had what + their share + payments that involve you ── */}
+        <Text style={s.sectionTitle}>People ({group.participants.length})</Text>
         <View style={s.listCard}>
-          {mySettlements.length === 0 ? (
-            <Text style={s.emptyTransactions}>Nothing for you to pay or receive on this bill.</Text>
-          ) : (
-            mySettlements.map((tx, idx) => {
-              const isCurrentUserFrom = tx.fromUserId === currentUser?.uid;
-              const isCurrentUserTo = tx.toUserId === currentUser?.uid;
+          {group.participants.map((p, idx) => {
+            const me = currentUser?.uid;
+            const isMe = p.id === me;
+            const isPayer = p.id === payerId;
+            const b = getPersonBreakdown(p.id);
+            const share = group.customAmounts?.[p.id] ?? b.total;
 
-              const personFromObj = group.participants.find((p) => p.id === tx.fromUserId);
-              const personToObj = group.participants.find((p) => p.id === tx.toUserId);
+            // The payment on this row, only when it involves you:
+            //   your own row → what you owe the payer; someone else's row → what they owe you.
+            const tx = isMe
+              ? group.settlements.find((t) => t.fromUserId === me)
+              : group.settlements.find((t) => t.fromUserId === p.id && t.toUserId === me);
+            const isPending = tx?.status === "pending";
+            const isPaid = tx?.status === "paid";
+            const isCancelled = tx?.status === "cancelled";
+            const counterpart = tx ? group.participants.find((x) => x.id === (isMe ? tx.toUserId : tx.fromUserId)) : undefined;
+            const receiverHasUpi = isMe && !!counterpart?.upiId;
+            const paidVia =
+              tx?.paymentMethod === "cash" ? " in cash"
+              : tx?.paymentMethod === "upi" ? " via UPI"
+              : "";
 
-              let personFrom = personFromObj?.name || "Someone";
-              let personTo = personToObj?.name || "Someone";
+            return (
+              <View key={p.id} style={[s.personRow, idx < group.participants.length - 1 && s.txBorder]}>
+                {/* Two lines: name … share  /  status … buttons. Nothing is cut off. */}
+                <View style={[s.whoAvatar, s.personAvatar, { backgroundColor: p.color ?? C.textSubtle }]}>
+                  <Text style={s.whoAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
+                </View>
 
-              if (isCurrentUserFrom) personFrom = "You";
-              if (isCurrentUserTo) personTo = "You";
-
-              const isPaid = tx.status === "paid";
-              const isCancelled = tx.status === "cancelled";
-              const isPending = tx.status === "pending";
-              const receiverHasUpi = !!personToObj?.upiId;
-              const paidVia =
-                tx.paymentMethod === "cash" ? " in cash"
-                : tx.paymentMethod === "upi" ? " via UPI"
-                : tx.paymentMethod === "other" ? " via another method"
-                : "";
-
-              return (
-                <View key={idx} style={[s.txRow, idx < mySettlements.length - 1 && s.txBorder]}>
-                  <View style={s.txMain}>
-                    <View style={s.txIconWrap}>
-                      <Ionicons
-                        name={isPaid ? "checkmark-circle" : (isCurrentUserFrom ? "arrow-up" : isCurrentUserTo ? "arrow-down" : "swap-horizontal")}
-                        size={18}
-                        color={isPaid ? C.success : (isCurrentUserFrom ? C.danger : isCurrentUserTo ? C.success : C.textMuted)}
-                      />
-                    </View>
-                    <View style={s.txTextContent}>
-                      <Text style={s.txText}>
-                        <Text style={s.txName}>{personFrom}</Text>{" "}
-                        {personFrom === "You" ? "owe" : "owes"}{" "}
-                        <Text style={s.txName}>{personTo}</Text>
-                      </Text>
-                      {isPaid ? (
-                        <Text style={s.txPaidStatus}>
-                          ✓ Paid{paidVia}{tx.paidAt ? ` on ${new Date(tx.paidAt).toLocaleDateString()}` : ""}
-                        </Text>
-                      ) : isCancelled ? (
-                        <Text style={s.txCancelledStatus}>Cancelled · bill closed</Text>
-                      ) : (
-                        <Text style={s.txPendingStatus}>Pending</Text>
-                      )}
-                    </View>
-                    <Text style={s.txAmount}>₹{tx.amount.toFixed(2)}</Text>
+                <View style={s.personBody}>
+                  <View style={s.personLine}>
+                    <Text style={[s.personName, s.txName]}>{isMe ? "You" : p.name}</Text>
+                    <Text style={s.personShare}>₹{share.toFixed(2)}</Text>
                   </View>
 
-                  {/* No UPI ID on file for the receiver — state the fact and
-                      offer the non-UPI paths instead of dead-ending. */}
-                  {isPending && isCurrentUserFrom && !receiverHasUpi && (
-                    <View style={s.upiMissingRow}>
-                      <Ionicons name="information-circle-outline" size={15} color="#92400E" />
-                      <Text style={s.upiMissingText}>
-                        UPI ID not available for {personToObj?.name ?? "this person"}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={[s.personLine, s.personLineBottom]}>
+                    <Text style={s.personStatus}>
+                      {tx ? (
+                        <>
+                          {isMe ? `You owe ${counterpart?.name ?? "them"} · ` : "Owes you · "}
+                          {isPaid ? (
+                            <Text style={s.txPaidStatus}>
+                              ✓ Paid{paidVia}{tx.paidAt ? ` ${new Date(tx.paidAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}
+                            </Text>
+                          ) : isCancelled ? (
+                            <Text style={s.txCancelledStatus}>Cancelled</Text>
+                          ) : (
+                            <Text style={s.txPendingStatus}>Pending</Text>
+                          )}
+                        </>
+                      ) : isPayer ? (
+                        "Paid the bill"
+                      ) : isMe ? (
+                        "Your share"
+                      ) : (
+                        "Share of the bill"
+                      )}
+                    </Text>
 
-                  {/* Actions: the item breakdown stays available once paid,
-                      so a settled bill can still be inspected from History. */}
-                  <View style={s.txActions}>
-                    {/* Secondary actions — matching glass chips */}
-                    <View style={s.chipRow}>
+                    <View style={s.personActions}>
                       <Pressable
-                        style={({ pressed }) => [s.chipBtn, pressed && s.pressedBtn]}
-                        onPress={() => handleShowItems(
-                          tx.fromUserId,
-                          isCurrentUserFrom ? "Your" : `${personFromObj?.name ?? "Their"}'s`
-                        )}
+                        style={({ pressed }) => [s.itemsIconBtn, pressed && s.pressedBtn]}
+                        onPress={() => handleShowItems(p.id, isMe ? "Your" : `${p.name}'s`)}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Review ${isMe ? "your" : `${p.name}'s`} items`}
                       >
-                        <Ionicons name="receipt-outline" size={15} color={C.primary} />
-                        <Text style={s.chipBtnText}>Items</Text>
+                        <Ionicons name="receipt-outline" size={16} color={C.primary} />
                       </Pressable>
-                      {isPending && isCurrentUserTo && (
+
+                      {tx && isPending && !isMe && (
                         <Pressable
-                          style={({ pressed }) => [s.chipBtn, pressed && s.pressedBtn]}
-                          onPress={() => handleRequestPayment(tx, personFromObj)}
-                          accessibilityLabel={`Request payment from ${personFromObj?.name ?? "them"}`}
+                          style={({ pressed }) => [s.actionPill, pressed && s.pressedBtn]}
+                          onPress={() => handleMarkReceivedClick(tx, p)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Mark ₹${tx.amount.toFixed(2)} from ${p.name} as received`}
                         >
-                          <Ionicons name="paper-plane-outline" size={15} color={C.primary} />
-                          <Text style={s.chipBtnText}>Request</Text>
+                          <Ionicons name="checkmark-done" size={14} color={C.white} />
+                          <Text style={s.actionPillText}>Received</Text>
+                        </Pressable>
+                      )}
+                      {tx && isPending && isMe && (
+                        <Pressable
+                          style={({ pressed }) => [s.actionPill, pressed && s.pressedBtn]}
+                          onPress={() => receiverHasUpi ? handlePayClick(tx, counterpart) : handleMarkPaidOtherClick(tx, counterpart)}
+                          accessibilityRole="button"
+                          accessibilityLabel={receiverHasUpi ? `Pay ₹${tx.amount.toFixed(2)} with UPI` : "Mark as paid"}
+                        >
+                          <Ionicons name={receiverHasUpi ? "flash" : "checkmark-done"} size={14} color={C.white} />
+                          <Text style={s.actionPillText}>{receiverHasUpi ? "Pay" : "Mark paid"}</Text>
                         </Pressable>
                       )}
                     </View>
-
-                    {/* Main action — one full-width button, same style for every role */}
-                    {isPending && (isCurrentUserFrom ? (
-                      <Pressable
-                        style={({ pressed }) => [s.mainBtn, pressed && s.pressedBtn]}
-                        onPress={() => receiverHasUpi ? handlePayClick(tx, personToObj) : handleMarkPaidOtherClick(tx, personToObj)}
-                      >
-                        <Ionicons name={receiverHasUpi ? "flash-outline" : "checkmark-done-outline"} size={17} color={C.white} />
-                        <Text style={s.mainBtnText}>
-                          {receiverHasUpi ? `Pay ₹${tx.amount.toFixed(2)} with UPI` : "Mark as paid"}
-                        </Text>
-                      </Pressable>
-                    ) : isCurrentUserTo ? (
-                      <Pressable
-                        style={({ pressed }) => [s.mainBtn, pressed && s.pressedBtn]}
-                        onPress={() => handleMarkReceivedClick(tx, personFromObj)}
-                      >
-                        <Ionicons name="checkmark-done-outline" size={17} color={C.white} />
-                        <Text style={s.mainBtnText}>Mark as received</Text>
-                      </Pressable>
-                    ) : (
-                      <View style={s.waitingRow}>
-                        <View style={s.waitingDot} />
-                        <Text style={s.waitingText}>Waiting for {personFromObj?.name ?? "them"} to pay</Text>
-                      </View>
-                    ))}
                   </View>
+
+                  {/* You owe someone with no UPI ID on file */}
+                  {tx && isPending && isMe && !receiverHasUpi && (
+                    <View style={s.upiMissingRow}>
+                      <Ionicons name="information-circle-outline" size={15} color="#92400E" />
+                      <Text style={s.upiMissingText}>
+                        No UPI ID for {counterpart?.name ?? "this person"} — pay them directly, then tap Mark paid
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              );
-            })
-          )}
-        </View>
-
-        <Text style={s.sectionTitle}>Participants ({group.participants.length})</Text>
-        <View style={s.listCard}>
-          {group.participants.map((p, idx) => (
-            <Pressable
-              key={p.id}
-              style={({ pressed }) => [
-                s.participantRow,
-                idx < group.participants.length - 1 && s.txBorder,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={() => handleShowItems(p.id, p.id === currentUser?.uid ? "Your" : `${p.name}'s`)}
-              accessibilityRole="button"
-              accessibilityLabel={`View ${p.name}'s share breakdown`}
-            >
-              <View style={[s.avatar, { backgroundColor: p.color }]}>
-                <Text style={s.avatarText}>{p.name.charAt(0).toUpperCase()}</Text>
               </View>
-              <View style={s.participantInfo}>
-                <Text style={s.participantName}>{p.id === currentUser?.uid ? "You" : p.name}</Text>
-                {p.phone ? <Text style={s.participantPhone}>{p.phone}</Text> : null}
-                {p.upiId ? (
-                  <View style={s.upiRow}>
-                    <Ionicons name="logo-google" size={11} color={C.textMuted} />
-                    <Text style={s.participantUpi}>{p.upiId}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Ionicons name="receipt-outline" size={17} color={C.primaryMuted} />
-            </Pressable>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -636,7 +581,7 @@ export default function GroupDetailsScreen() {
               {(itemsModal?.lines ?? []).map((line, i) => (
                 <View key={line.key} style={[s.itemBreakdownRow, i < (itemsModal?.lines.length ?? 0) - 1 && s.itemBreakdownBorder]}>
                   <View style={s.itemBreakdownInfo}>
-                    <Text style={s.itemBreakdownName} numberOfLines={1}>{line.name}</Text>
+                    <Text style={s.itemBreakdownName}>{line.name}</Text>
                     {line.note ? <Text style={s.itemBreakdownNote}>{line.note}</Text> : null}
                   </View>
                   <Text style={s.itemBreakdownPrice}>₹{line.amount.toFixed(2)}</Text>
@@ -881,7 +826,7 @@ const s = StyleSheet.create({
   listCard: { backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, marginBottom: 32, overflow: "hidden" },
   emptyTransactions: { padding: 20, color: C.textMuted, textAlign: "center" },
 
-  txRow: { paddingHorizontal: 20, paddingVertical: 16 },
+  txRow: { paddingHorizontal: 16, paddingVertical: 14 },
   txMain: { flexDirection: "row", alignItems: "center" },
   txBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   txIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", marginRight: 12 },
@@ -904,10 +849,37 @@ const s = StyleSheet.create({
   closedText: { fontSize: 12, color: C.textMuted, lineHeight: 17 },
   txPendingStatus: { fontSize: 11, color: C.statusActiveText, fontWeight: "600", marginTop: 2 },
   txAmount: { fontSize: 14, fontWeight: "700", color: C.ink },
+  personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
+  personAvatar: { width: 38, height: 38, borderRadius: 19, marginRight: 12 },
+  personBody: { flex: 1 },
+  // Each line: text on the left (wraps), fixed-width content on the right.
+  personLine: { flexDirection: "row", alignItems: "center", gap: 10 },
+  personLineBottom: { marginTop: 6 },
+  personName: { flex: 1, fontSize: 14, lineHeight: 19 },
+  personShare: { fontSize: 14, fontWeight: "700", color: C.ink, lineHeight: 19, fontVariant: ["tabular-nums"] },
+  personStatus: { flex: 1, fontSize: 12, color: C.textMuted, lineHeight: 16 },
+  personActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  txSub: { fontSize: 11, marginTop: 2 },
+  txAmountInline: { fontSize: 12, fontWeight: "700", color: C.ink },
+  itemsIconBtn: {
+    width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center",
+    backgroundColor: C.primarySoft,
+  },
+  actionPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: C.primary, paddingHorizontal: 12, height: 30, borderRadius: 15,
+  },
+  actionPillText: { color: C.white, fontSize: 12, fontWeight: "700" },
 
   // Actions row below transaction info
   txActions: { marginTop: 12, gap: 10 },
   chipRow: { flexDirection: "row", gap: 8 },
+  shareBillBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    paddingVertical: 13, borderRadius: 14, marginTop: -16, marginBottom: 24,
+    backgroundColor: C.primarySoft, borderWidth: 1, borderColor: C.primary,
+  },
+  shareBillText: { fontSize: 14, fontWeight: "700", color: C.primary },
   chipBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,

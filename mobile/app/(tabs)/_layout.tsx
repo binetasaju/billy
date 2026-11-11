@@ -11,9 +11,6 @@ import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useEffect } from "react";
-import { groupStore } from "../../services/groupStore";
-import { contactGroupStore } from "../../services/contactGroupStore";
 import { C } from "@/constants/colors";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -40,11 +37,7 @@ const icon = (active: IconName, inactive: IconName) => {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  // Restore persisted stores when the tab layout mounts
-  useEffect(() => {
-    groupStore.restore();
-    contactGroupStore.restore();
-  }, []);
+  // Saved bills / groups are restored once at app start (app/_layout.tsx).
 
   // Extra space at the bottom so the icons sit above the system navigation
   // area while the black background reaches the screen edge.

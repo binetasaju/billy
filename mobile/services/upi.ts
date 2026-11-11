@@ -55,6 +55,57 @@ export function buildPaymentRequestMessage(opts: {
   return lines.join("\n");
 }
 
+/**
+ * One message for the whole bill — shared to the group chat from the bill
+ * page (replaces per-person "Request" messages).
+ */
+export function buildBillShareMessage(opts: {
+  title: string;
+  date: string;
+  total: number;
+  payerName: string;
+  payerUpiId?: string | null;
+  rows: { name: string; amount: number; status: "pending" | "paid" | "cancelled" }[];
+  closed?: boolean;
+  /** Link that opens this bill in the Billy app. */
+  link?: string;
+}): string {
+  const money = (n: number) => `₹${Number.isInteger(n) ? n : n.toFixed(2)}`;
+  const lines = [
+    `🧾 ${opts.title} · ${opts.date}`,
+    `Bill total: ${money(opts.total)}`,
+    `Paid by ${opts.payerName}`,
+  ];
+  if (opts.closed) lines.push("This bill was closed — a corrected bill will follow.");
+  if (opts.rows.length > 0) {
+    lines.push("", "Shares:");
+    for (const r of opts.rows) {
+      const state = r.status === "paid" ? "✓ paid" : r.status === "cancelled" ? "cancelled" : "pending";
+      lines.push(`• ${r.name} — ${money(Math.round(r.amount * 100) / 100)} (${state})`);
+    }
+  }
+  const anyPending = opts.rows.some((r) => r.status === "pending");
+  if (anyPending && opts.payerUpiId && isValidUpiId(opts.payerUpiId)) {
+    lines.push("", `Pay ${opts.payerName} on UPI: ${opts.payerUpiId.trim()}`);
+  }
+  if (opts.link) lines.push("", `Open in Billy: ${opts.link}`);
+  lines.push("— sent from Billy");
+  return lines.join("\n");
+}
+
+/** Web host for shared bill links (Firebase Hosting, see /web). */
+export const BILL_LINK_HOST = "billy-ed9eb.web.app";
+
+/**
+ * Tappable link to a saved bill. WhatsApp only links https URLs, so this is a
+ * web link: with Billy installed Android opens it straight in the app (App
+ * Links, verified by web/public/.well-known/assetlinks.json); otherwise the
+ * web page offers an "Open in Billy" button.
+ */
+export function billLink(billId: string): string {
+  return `https://${BILL_LINK_HOST}/bill/${encodeURIComponent(billId)}`;
+}
+
 export async function openUpiPayment(config: UpiPaymentConfig): Promise<void> {
   const { upiId } = config;
   const url = buildUpiUri(config);

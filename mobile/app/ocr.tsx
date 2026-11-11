@@ -455,8 +455,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   subtitle: { fontSize: 12, color: C.textMuted, marginBottom: 20 },
+  // Fills the free space so there's no empty gap and the button sits at the bottom.
   imageContainer: {
-    height: 200,
+    flex: 1,
+    minHeight: 200,
     borderRadius: 14,
     overflow: "hidden",
     backgroundColor: C.border,

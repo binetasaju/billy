@@ -22,6 +22,8 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 import { authStore } from "../services/authStore";
+import { groupStore } from "../services/groupStore";
+import { contactGroupStore } from "../services/contactGroupStore";
 import { initFirebaseAuth } from "../services/auth/initFirebaseAuth";
 import { useAuth } from "../hooks/useAuth";
 import { AppAlertHost } from "@/components/ui/AppAlert";
@@ -69,6 +71,10 @@ export default function RootLayout() {
   useEffect(() => {
     initFirebaseAuth();
     authStore.restore();
+    // Saved bills and groups load at start-up (not only when the tabs open),
+    // so a shared bill link that opens a bill page directly can find it.
+    groupStore.restore();
+    contactGroupStore.restore();
   }, []);
 
   return (
