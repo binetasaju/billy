@@ -50,7 +50,7 @@ export const C = {
   glass: "rgba(255,255,255,0.62)",       // cards, lists
   glassStrong: "rgba(255,255,255,0.82)", // inputs, chips, secondary buttons
   glassBorder: "rgba(255,255,255,0.95)", // bright edge that sells the glass
-  glassBase: "#F1F5F3",                  // screen base under the glows
+  glassBase: "#F2F2F2",                  // plain screen background (no gradient)
   glowPrimary: "#047857",                // deep emerald
   glowSecondary: "#10B981",              // emerald
   glowTertiary: "#D1D5DB",               // soft grey

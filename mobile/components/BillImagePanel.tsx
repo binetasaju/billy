@@ -132,13 +132,13 @@ const styles = StyleSheet.create({
   },
   hintText: {
     color: "rgba(255,255,255,0.9)",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
   },
   errorText: {
     color: C.textSubtle,
     marginBottom: 10,
-    fontSize: 14,
+    fontSize: 12,
   },
   retryText: {
     color: "#fff",
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     overflow: "hidden",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
 });

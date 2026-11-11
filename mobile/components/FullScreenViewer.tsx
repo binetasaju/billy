@@ -107,14 +107,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.85)",
     zIndex: 10,
   },
-  headerTitle:  { color: "#fff", fontSize: 17, fontWeight: "600" },
+  headerTitle:  { color: "#fff", fontSize: 14, fontWeight: "600" },
   closeBtn: {
     paddingVertical: 7,
     paddingHorizontal: 14,
     backgroundColor: "#374151",
     borderRadius: 10,
   },
-  closeBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  closeBtnText: { color: "#fff", fontWeight: "600", fontSize: 12 },
 
   imageContainer: {
     flex: 1,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.6)",
   },
-  footerText: { color: "rgba(255,255,255,0.6)", fontSize: 12 },
+  footerText: { color: "rgba(255,255,255,0.6)", fontSize: 11 },
 
   errorContainer: {
     flex: 1,
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#9CA3AF",
-    fontSize: 16,
+    fontSize: 14,
     marginBottom: 16,
   },
   retryBtn: {

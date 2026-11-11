@@ -5,6 +5,6 @@
 /**
  * The tab bar floats (transparent) over the bottom of the tab screens, so
  * their scrolling content needs this much extra bottom space to scroll clear
- * of it (bar 64 + gap 10 + room for the system navigation area).
+ * of it (bar 60 + room for the system navigation area + a little space).
  */
 export const TAB_BAR_CLEARANCE = 120;

@@ -26,7 +26,7 @@ const AddBillSheet = forwardRef<BottomSheet, Props>(
                 >
                     <Text
                         style={{
-                            fontSize: 18,
+                            fontSize: 15,
                             fontWeight: "600",
                             marginBottom: 20,
                         }}

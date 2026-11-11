@@ -388,8 +388,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#374151",
   },
   headerBtn:     { paddingVertical: 6, paddingHorizontal: 4, minWidth: 70 },
-  headerBtnText: { fontSize: 15, color: "#D1D5DB", fontWeight: "500" },
-  headerTitle:   { fontSize: 17, fontWeight: "700", color: "#F9FAFB" },
+  headerBtnText: { fontSize: 13, color: "#D1D5DB", fontWeight: "500" },
+  headerTitle:   { fontSize: 14, fontWeight: "700", color: "#F9FAFB" },
   saveBtn: {
     backgroundColor: "#2563EB",
     paddingVertical: 8,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     minWidth: 70,
     alignItems: "center",
   },
-  saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
   canvas: {
     flex: 1,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#374151",
   },
-  hintText: { color: "#6B7280", fontSize: 12 },
+  hintText: { color: "#6B7280", fontSize: 11 },
 
   toolbar: {
     flexDirection: "row",
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   },
   toolBtnActive: { backgroundColor: "#065F46" },
   toolBtnDanger: { backgroundColor: "#7F1D1D" },
-  toolBtnIcon:   { fontSize: 22, color: "#E5E7EB" },
+  toolBtnIcon:   { fontSize: 17, color: "#E5E7EB" },
   toolBtnLabel:  { fontSize: 11, color: "#9CA3AF", fontWeight: "600" },
   toolBtnLabelActive: { color: "#BFDBFE" },
 });

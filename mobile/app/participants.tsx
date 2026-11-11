@@ -17,11 +17,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   LayoutAnimation,
   Modal,
   TextInput,
 } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
@@ -219,7 +219,7 @@ export default function ParticipantsScreen() {
 
   const handleRemoveParticipant = useCallback((person: Person) => {
     if (participants.length <= 2) {
-      Alert.alert("Cannot remove", "A bill must have at least 2 participants.");
+      appAlert.alert("Cannot remove", "A bill must have at least 2 participants.");
       return;
     }
 
@@ -256,7 +256,7 @@ export default function ParticipantsScreen() {
   }, []);
 
   const handleParticipantOptions = useCallback((person: Person) => {
-    Alert.alert(person.name, undefined, [
+    appAlert.alert(person.name, undefined, [
       { text: "Edit name", onPress: () => handleEditName(person) },
       { text: "Remove", style: "destructive", onPress: () => handleRemoveParticipant(person) },
       { text: "Cancel", style: "cancel" },
@@ -267,7 +267,7 @@ export default function ParticipantsScreen() {
     if (!editingParticipant) return;
     const name = editName.trim();
     if (!name) {
-      Alert.alert("Invalid Name", "Please enter a valid name.");
+      appAlert.alert("Invalid Name", "Please enter a valid name.");
       return;
     }
 
@@ -286,7 +286,7 @@ export default function ParticipantsScreen() {
   const handleContinue = useCallback(() => {
     if (!canContinue || !payerId) {
       setShowValidation(true);
-      Alert.alert("Can't split yet", validationStatus.text + ".");
+      appAlert.alert("Can't split yet", validationStatus.text + ".");
       return;
     }
 
@@ -502,21 +502,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 20,
   },
 
   // Header
   header: {
-    marginTop: 24,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   title: {
     ...T.largeTitle,
     color: C.ink,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: C.textMuted,
     marginTop: 4,
   },
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   addBtnText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: C.ink,
   },
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   summaryTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: C.textMuted,
     letterSpacing: 0.3,
@@ -571,11 +571,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: C.textMuted,
   },
   summaryValue: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     color: C.ink,
   },
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
 
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
     color: C.ink,
     marginBottom: 16,
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 16,
+    fontSize: 14,
     color: C.ink,
     marginBottom: 20,
   },
@@ -649,8 +649,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: C.surfaceAlt,
   },
-  groupOptionName: { fontSize: 16, fontWeight: "600", color: C.ink },
-  groupOptionMeta: { fontSize: 13, color: C.textMuted, marginTop: 2 },
+  groupOptionName: { fontSize: 14, fontWeight: "600", color: C.ink },
+  groupOptionMeta: { fontSize: 12, color: C.textMuted, marginTop: 2 },
   modalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modalCancelBtnText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
     color: C.textMuted,
   },
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modalSaveBtnText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
     color: C.white,
   },

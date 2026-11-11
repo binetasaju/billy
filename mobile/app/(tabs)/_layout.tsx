@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
 // app/(tabs)/_layout.tsx — bottom navigation
 //
-// A floating black capsule tab bar (matches the black balance card on Home):
-// grey outline icons, and a deep-green pill with a white filled icon for the
-// active tab. Tab screens pad their scroll content by TAB_BAR_CLEARANCE so
+// A black tab bar docked to the bottom edge (matches the black balance card on
+// Home), with rounded top corners. Its background runs down behind the system
+// navigation area so no content shows below it. Grey outline icons, and a
+// deep-green pill with a white filled icon for the active tab. Tab screens pad their scroll content by TAB_BAR_CLEARANCE so
 // their last items scroll clear of the bar.
 // ---------------------------------------------------------------------------
 import { Tabs } from "expo-router";
@@ -18,7 +19,6 @@ import { C } from "@/constants/colors";
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 const BAR_HEIGHT = 60;
-const BAR_GAP = 10; // space between the bar and the bottom edge / system bar
 
 function TabIcon({ focused, color, active, inactive }: {
   focused: boolean; color: string; active: IconName; inactive: IconName;
@@ -46,7 +46,9 @@ export default function TabLayout() {
     contactGroupStore.restore();
   }, []);
 
-  const bottom = insets.bottom + BAR_GAP;
+  // Extra space at the bottom so the icons sit above the system navigation
+  // area while the black background reaches the screen edge.
+  const systemBar = insets.bottom;
 
   return (
     <Tabs
@@ -56,22 +58,23 @@ export default function TabLayout() {
         tabBarInactiveTintColor: "#8A8A8A",
         tabBarShowLabel: true,
         tabBarStyle: {
-          // Floating black capsule — matches the black balance card on Home.
+          // Docked black bar — reaches the bottom edge of the screen.
           position: "absolute",
-          left: 40,
-          right: 40,
-          bottom,
-          height: BAR_HEIGHT,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: BAR_HEIGHT + systemBar,
           paddingTop: 8,
-          paddingBottom: 8,
-          borderRadius: 32,
+          paddingBottom: 8 + systemBar,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
           borderTopWidth: 0,
           backgroundColor: C.primaryDark,
           elevation: 12,
           shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.2,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: -4 },
         },
         tabBarItemStyle: { paddingVertical: 0 },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginTop: 2 },

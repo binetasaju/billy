@@ -24,6 +24,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { authStore } from "../services/authStore";
 import { initFirebaseAuth } from "../services/auth/initFirebaseAuth";
 import { useAuth } from "../hooks/useAuth";
+import { AppAlertHost } from "@/components/ui/AppAlert";
 
 // ── Auth-aware navigator ──────────────────────────────────────────────────────
 // Separated into a child component so useRouter() has a valid context.
@@ -79,6 +80,8 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           {/* AuthGate runs alongside the stack — redirects happen inside */}
           <AuthGate />
+          {/* Billy-styled pop-ups (appAlert.alert) */}
+          <AppAlertHost />
         </ThemeProvider>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

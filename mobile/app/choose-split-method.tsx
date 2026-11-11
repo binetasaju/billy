@@ -136,18 +136,18 @@ export default function ChooseSplitMethodScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
 
-  header: { marginTop: 28, marginBottom: 28 },
+  header: { marginBottom: 20 },
   title: {
     ...T.largeTitle,
     color: C.ink,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: C.textMuted,
     marginTop: 6,
-    lineHeight: 22,
+    lineHeight: 18,
   },
 
   cards: { gap: 16 },
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  badgeText: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3 },
+  badgeText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
   iconWrap: {
     width: 60,
     height: 60,
@@ -186,16 +186,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
     color: C.ink,
     marginBottom: 8,
     letterSpacing: -0.3,
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: 12,
     color: C.textMuted,
-    lineHeight: 20,
+    lineHeight: 17,
     marginBottom: 16,
   },
   cardArrow: {

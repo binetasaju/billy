@@ -105,14 +105,14 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: C.white,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
   },
   nameContainer: {
     flex: 1,
   },
   name: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: C.ink,
   },
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     color: C.textSubtle,
   },
   phone: {
-    fontSize: 13,
+    fontSize: 12,
     color: C.textMuted,
     marginTop: 2,
   },

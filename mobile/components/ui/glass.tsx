@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // components/ui/glass.tsx — Billy's glassmorphism design system
 //
-//   GlassScreen      screen wrapper: soft emerald / mint / grey glows behind
-//                    the content (drop-in replacement for SafeAreaView)
+//   GlassScreen      screen wrapper: plain solid background behind the
+//                    content (drop-in replacement for SafeAreaView)
 //   GlassCard        translucent white card with a bright edge
 //   GlassButton      primary (solid indigo) or glass (translucent) button
 //   GlassTextInput   translucent input
@@ -22,42 +22,12 @@ import { C } from "@/constants/colors";
 
 // ── Background glows ────────────────────────────────────────────────────────
 
-/** A soft radial glow: concentric circles, each fainter than the last. */
-function Glow({ color, size, top, left, right, bottom, strength = 0.22 }: {
-  color: string; size: number; strength?: number;
-  top?: number; left?: number; right?: number; bottom?: number;
-}) {
-  const RINGS = 7;
-  return (
-    <View pointerEvents="none" style={[s.glowBox, { width: size, height: size, top, left, right, bottom }]}>
-      {Array.from({ length: RINGS }, (_, i) => {
-        const d = size * (1 - i / RINGS);
-        return (
-          <View
-            key={i}
-            style={{
-              position: "absolute",
-              width: d,
-              height: d,
-              borderRadius: d / 2,
-              backgroundColor: color,
-              opacity: strength / RINGS * 1.6,
-            }}
-          />
-        );
-      })}
-    </View>
-  );
-}
-
+/**
+ * Plain, solid screen background (no gradient glows).
+ */
 export function GlassBackground() {
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: C.glassBase }]} />
-      <Glow color={C.glowPrimary} size={520} top={-200} left={-180} strength={0.22} />
-      <Glow color={C.glowTertiary} size={420} top={220} right={-220} strength={0.30} />
-      <Glow color={C.glowSecondary} size={480} bottom={-200} left={-80} strength={0.24} />
-    </View>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: C.glassBase }]} />
   );
 }
 
@@ -115,7 +85,6 @@ export function GlassTextInput({ style, ...rest }: TextInputProps) {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.glassBase, overflow: "hidden" },
   transparent: { backgroundColor: "transparent" },
-  glowBox: { position: "absolute", alignItems: "center", justifyContent: "center" },
 
   card: {
     backgroundColor: C.glass,
@@ -132,8 +101,8 @@ const s = StyleSheet.create({
   buttonPrimary: { backgroundColor: C.primary },
   buttonGlass: { backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.glassBorder },
   buttonDisabled: { opacity: 0.5 },
-  buttonPrimaryText: { color: C.white, fontSize: 16, fontWeight: "600" },
-  buttonGlassText: { color: C.primary, fontSize: 16, fontWeight: "600" },
+  buttonPrimaryText: { color: C.white, fontSize: 14, fontWeight: "600" },
+  buttonGlassText: { color: C.primary, fontSize: 14, fontWeight: "600" },
   pressed: { opacity: 0.8 },
 
   input: {
@@ -143,7 +112,7 @@ const s = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 50,
-    fontSize: 16,
+    fontSize: 14,
     color: C.ink,
   },
 });

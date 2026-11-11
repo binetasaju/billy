@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   },
   text: {
     marginTop: 20,
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "600",
     color: C.text,
   },

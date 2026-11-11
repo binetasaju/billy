@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: C.text,
   },
@@ -378,13 +378,13 @@ const styles = StyleSheet.create({
   avatarText: {
     color: C.white,
     fontWeight: "700",
-    fontSize: 12,
+    fontSize: 11,
   },
   chipTextContainer: {
     justifyContent: "center",
   },
   chipName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: C.text,
   },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   activeBannerValue: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     color: C.ink,
   },
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   itemName: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     color: C.ink,
   },
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemPrice: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "700",
     color: C.ink,
   },
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: C.textSubtle,
     paddingVertical: 20,
-    fontSize: 14,
+    fontSize: 12,
   },
 
   // Navigation between participants
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceAlt,
   },
   navBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: C.text,
   },
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   warningText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
     color: "#92400E",
     flex: 1,
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   successText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
     color: "#065F46",
     flex: 1,
@@ -583,6 +583,6 @@ const styles = StyleSheet.create({
   continueBtnText: {
     color: C.white,
     fontWeight: "600",
-    fontSize: 16,
+    fontSize: 14,
   },
 });

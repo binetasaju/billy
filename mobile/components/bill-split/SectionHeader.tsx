@@ -28,14 +28,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: C.textMuted,
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: C.textSubtle,
     marginTop: 2,
   },

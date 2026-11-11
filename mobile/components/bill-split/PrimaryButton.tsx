@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: C.white,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
   },
 });

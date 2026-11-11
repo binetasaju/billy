@@ -13,7 +13,8 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from "react";
-import { View, Text, Image, Pressable, StyleSheet, Dimensions, Alert, ActivityIndicator } from "react-native";
+import { View, Text, Image, Pressable, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -39,7 +40,7 @@ export default function PreviewScreen() {
       if (result.status === "cropped") {
         router.setParams({ uri: result.uri });
       } else {
-        Alert.alert("Auto-crop", result.message);
+        appAlert.alert("Auto-crop", result.message);
       }
     } finally {
       setAutoCropping(false);
@@ -136,7 +137,7 @@ export default function PreviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: C.bg, padding: 24, paddingTop: 20 },
+  safeArea: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
   container: {
     flex: 1,
     backgroundColor: C.bg,
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: C.textMuted,
     marginBottom: 24,
   },
@@ -163,11 +164,11 @@ const styles = StyleSheet.create({
   },
   image: { width: "100%", height: "100%" },
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  imagePlaceholderText: { color: C.textSubtle, fontSize: 16 },
+  imagePlaceholderText: { color: C.textSubtle, fontSize: 14 },
 
   actions: { gap: 10 },
   retakeBtn: { alignItems: "center", paddingVertical: 6 },
-  retakeBtnText: { fontSize: 14, color: C.textMuted, fontWeight: "500" },
+  retakeBtnText: { fontSize: 12, color: C.textMuted, fontWeight: "500" },
 
   btnInner: { flexDirection: "row", alignItems: "center", gap: 7 },
   mainButtons: { flexDirection: "row", gap: 12 },
@@ -184,6 +185,6 @@ const styles = StyleSheet.create({
     borderColor: C.glassBorder,
   },
   buttonPressed: { opacity: 0.75 },
-  buttonTextPrimary: { color: C.white, fontWeight: "600", fontSize: 16 },
-  buttonTextSecondary: { color: C.ink, fontWeight: "600", fontSize: 16 },
+  buttonTextPrimary: { color: C.white, fontWeight: "600", fontSize: 14 },
+  buttonTextSecondary: { color: C.ink, fontWeight: "600", fontSize: 14 },
 });
