@@ -1,4 +1,4 @@
-import { extractChargesAndTotal, parseBill } from "../services/parseBill";
+import { extractChargesAndTotal, isZeroRateTax, parseBill } from "../services/parseBill";
 
 // Offline = no Gemini key, so parseBill uses the local parser.
 const originalKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -99,5 +99,31 @@ describe("extractChargesAndTotal", () => {
 
   it("returns no total when none is printed", () => {
     expect(extractChargesAndTotal(["Tea  30.00"]).printedTotal).toBeNull();
+  });
+});
+
+describe("0% tax lines", () => {
+  it("recognises taxes printed at 0%", () => {
+    expect(isZeroRateTax("CGST @ 0%")).toBe(true);
+    expect(isZeroRateTax("SGST 0.00 %")).toBe(true);
+    expect(isZeroRateTax("CGST 0%")).toBe(true);
+  });
+
+  it("does not flag real rates or non-tax lines", () => {
+    expect(isZeroRateTax("CGST 2.5%")).toBe(false);
+    expect(isZeroRateTax("SGST @ 10%")).toBe(false);
+    expect(isZeroRateTax("GST 20%")).toBe(false);
+    expect(isZeroRateTax("CGST 2.50%")).toBe(false);
+    expect(isZeroRateTax("Discount 0%")).toBe(false);
+  });
+
+  it("drops 0% CGST/SGST even when a number was read next to them", () => {
+    const { charges } = extractChargesAndTotal([
+      "Sub Total 400.00",
+      "CGST @ 0%  20.00",
+      "SGST @ 0%  20.00",
+      "Grand Total 400.00",
+    ]);
+    expect(charges).toEqual([]);
   });
 });

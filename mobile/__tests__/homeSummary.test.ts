@@ -44,3 +44,20 @@ describe("computeHomeSummary", () => {
     expect(computeHomeSummary([], "me")).toEqual({ youOwe: 0, owedToYou: 0, toPay: [], toReceive: [], people: [], recent: [] });
   });
 });
+
+describe("bills made under a different account on this phone", () => {
+  // An old test login: its own "me" is flagged isCurrentUser on the bill.
+  const oldMe = P("old_account", "Old me", true);
+  const oldBill = bill("Old trip", "2026-06-25T00:00:00Z", [oldMe, ravi], [tx("ravi", "old_account", 31450.32)]);
+
+  it("are not counted as mine", () => {
+    const s = computeHomeSummary([...groups, oldBill], "me");
+    expect(s.owedToYou).toBe(300);
+    expect(s.toReceive.find((r) => r.billTitle === "Old trip")).toBeUndefined();
+  });
+
+  it("without a signed-in uid, the isCurrentUser flag is still used", () => {
+    const s = computeHomeSummary([oldBill], undefined);
+    expect(s.owedToYou).toBe(31450.32);
+  });
+});

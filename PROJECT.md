@@ -2,7 +2,7 @@
 
 **Billy** is a mobile-first expense splitting app that turns a photo of any restaurant receipt into itemized, per-person settlements with one-tap UPI payments. Built with React Native (Expo), powered by Gemini AI for OCR and bill parsing, and architected for an eventual Firebase backend — Billy eliminates the mental math, awkward conversations, and manual data entry that plague every group dining experience.
 
-> *Split bills, not friendships.*
+> *Every bill matters.*
 
 ---
 

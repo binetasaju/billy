@@ -12,10 +12,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  View, Text, Pressable, FlatList, StyleSheet,
-  Alert, StatusBar, Dimensions, TextInput, Modal,
+  View,
+  Text,
+  Pressable,
+  FlatList,
+  StyleSheet,
+  StatusBar,
+  Dimensions,
+  TextInput,
+  Modal,
   KeyboardAvoidingView,
 } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 import { Ionicons } from "@expo/vector-icons";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
@@ -28,6 +36,7 @@ import type { BillItem, ChargeInfo } from "../types/bill";
 import BillImagePanel from "../components/BillImagePanel";
 import FullScreenViewer from "../components/FullScreenViewer";
 import { C } from "@/constants/colors";
+import { T } from "@/constants/typography";
 
 const { height: SH } = Dimensions.get("window");
 // 42% gives enough vertical room to read the bill inline before going fullscreen
@@ -53,8 +62,8 @@ function EditItemModal({
 
   const save = () => {
     const p = parseFloat(price);
-    if (!name.trim()) { Alert.alert("Error", "Item name cannot be empty."); return; }
-    if (isNaN(p) || p < 0) { Alert.alert("Error", "Enter a valid price."); return; }
+    if (!name.trim()) { appAlert.alert("Error", "Item name cannot be empty."); return; }
+    if (isNaN(p) || p < 0) { appAlert.alert("Error", "Enter a valid price."); return; }
     onSave(item!.id, name.trim(), p);
   };
 
@@ -117,7 +126,7 @@ function EditTitleModal({
 
   const save = () => {
     const trimmed = draft.trim();
-    if (!trimmed) { Alert.alert("Error", "Title cannot be empty."); return; }
+    if (!trimmed) { appAlert.alert("Error", "Title cannot be empty."); return; }
     onSave(trimmed);
   };
 
@@ -176,8 +185,8 @@ function AddChargeModal({
   const save = () => {
     const trimmed = name.trim();
     const value = parseFloat(amount.replace(/,/g, ""));
-    if (!trimmed) { Alert.alert("Missing name", "Enter a name, e.g. CGST or Service Charge."); return; }
-    if (!Number.isFinite(value) || value === 0) { Alert.alert("Invalid amount", "Enter an amount, e.g. 25.50."); return; }
+    if (!trimmed) { appAlert.alert("Missing name", "Enter a name, e.g. CGST or Service Charge."); return; }
+    if (!Number.isFinite(value) || value === 0) { appAlert.alert("Invalid amount", "Enter an amount, e.g. 25.50."); return; }
     // Discounts always reduce the bill.
     const isDiscount = /discount|round.?off|coupon|offer/i.test(trimmed);
     onSave({ name: trimmed, amount: isDiscount ? -Math.abs(value) : value });
@@ -248,7 +257,7 @@ function RemoveItemModal({
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Remove Item</Text>
-          <Text style={{ fontSize: 15, color: C.text, marginBottom: 20 }}>
+          <Text style={{ fontSize: 13, color: C.text, marginBottom: 20 }}>
             Are you sure you want to remove <Text style={{ fontWeight: "600" }}>{item.name}</Text> (₹{(item.price || 0).toFixed(2)}) from this bill?
           </Text>
           
@@ -352,7 +361,7 @@ export default function ReviewItemsScreen() {
   };
 
   const confirmRemoveCharge = (index: number, name: string) => {
-    Alert.alert("Remove charge?", `Remove "${name}" from this bill?`, [
+    appAlert.alert("Remove charge?", `Remove "${name}" from this bill?`, [
       { text: "Cancel", style: "cancel" },
       { text: "Remove", style: "destructive", onPress: () => billStore.removeCharge(index) },
     ]);
@@ -541,17 +550,30 @@ export default function ReviewItemsScreen() {
                       onLongPress={() => confirmRemoveCharge(i, charge.name)}
                       accessibilityHint="Long-press to remove"
                     >
-                      <Text style={styles.totalLabel}>{charge.name}</Text>
-                      <Text
-                        style={[
-                          styles.totalValue,
-                          charge.amount < 0 && styles.totalValueDiscount,
-                        ]}
-                      >
-                        {charge.amount < 0
-                          ? `-₹${Math.abs(charge.amount).toFixed(2)}`
-                          : `₹${charge.amount.toFixed(2)}`}
+                      <Text style={[styles.totalLabel, styles.chargeLabel]} numberOfLines={1}>
+                        {charge.name}
                       </Text>
+                      <View style={styles.chargeRight}>
+                        <Text
+                          style={[
+                            styles.totalValue,
+                            charge.amount < 0 && styles.totalValueDiscount,
+                          ]}
+                        >
+                          {charge.amount < 0
+                            ? `-₹${Math.abs(charge.amount).toFixed(2)}`
+                            : `₹${charge.amount.toFixed(2)}`}
+                        </Text>
+                        <Pressable
+                          onPress={() => confirmRemoveCharge(i, charge.name)}
+                          style={[styles.chargeRemoveBtn, styles.deleteActionBtn]}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove ${charge.name}`}
+                        >
+                          <Text style={styles.chargeRemoveText}>✕</Text>
+                        </Pressable>
+                      </View>
                     </Pressable>
                   ))}
                 </View>
@@ -658,9 +680,9 @@ const styles = StyleSheet.create({
 
   headerRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
-    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6,
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 6,
   },
-  title: { fontSize: 22, fontWeight: "700", color: C.ink, letterSpacing: -0.5 },
+  title: { ...T.largeTitle, color: C.ink },
 
   titleEditRow: {
     flexDirection: "row",
@@ -670,7 +692,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   restaurantName: {
-    fontSize: 15, fontWeight: "600", color: C.primary,
+    fontSize: 13, fontWeight: "600", color: C.primary,
     flexShrink: 1, flexWrap: "wrap",
   },
   pencilIcon: {
@@ -679,16 +701,16 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: "#BFDBFE",
   },
-  pencilText: { fontSize: 12, color: C.primaryMuted, lineHeight: 14 },
+  pencilText: { fontSize: 11, color: C.primaryMuted, lineHeight: 12 },
 
-  subtitle: { fontSize: 12, color: C.textSubtle, marginTop: 1 },
+  subtitle: { fontSize: 11, color: C.textSubtle, marginTop: 1 },
   verificationHint: {
     marginHorizontal: 16, marginBottom: 8,
     backgroundColor: C.warningSoft, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: "#FDE68A",
   },
-  verificationHintText: { fontSize: 13, color: "#92400E", fontWeight: "500" },
+  verificationHintText: { fontSize: 12, color: "#92400E", fontWeight: "500" },
 
   fallbackWarning: {
     marginHorizontal: 16, marginBottom: 8,
@@ -696,8 +718,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: "#FDBA74",
   },
-  fallbackWarningTitle: { fontSize: 13, fontWeight: "700", color: "#C2410C", marginBottom: 3 },
-  fallbackWarningText: { fontSize: 12, color: "#9A3412", lineHeight: 18 },
+  fallbackWarningTitle: { fontSize: 12, fontWeight: "700", color: "#C2410C", marginBottom: 3 },
+  fallbackWarningText: { fontSize: 11, color: "#9A3412", lineHeight: 15 },
 
 
   list: { flex: 1, paddingHorizontal: 16 },
@@ -710,8 +732,8 @@ const styles = StyleSheet.create({
 
   itemInfo: { flex: 1 },
   itemNameRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  itemName: { fontSize: 14, fontWeight: "500", color: C.ink, flex: 1 },
-  itemMeta: { fontSize: 12, color: C.textMuted, marginTop: 2 },
+  itemName: { fontSize: 12, fontWeight: "500", color: C.ink, flex: 1 },
+  itemMeta: { fontSize: 11, color: C.textMuted, marginTop: 2 },
 
   childrenContainer: {
     marginTop: 6, marginLeft: 0,
@@ -720,7 +742,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2, borderLeftColor: C.borderStrong,
   },
   childrenLabel: { fontSize: 10, fontWeight: "600", color: C.textSubtle, marginBottom: 3, letterSpacing: 0.3 },
-  childItem: { fontSize: 12, color: C.textMuted, lineHeight: 18 },
+  childItem: { fontSize: 11, color: C.textMuted, lineHeight: 15 },
 
   modifiersContainer: { marginTop: 6, marginLeft: 2, gap: 2 },
   modifierRow: { flexDirection: "row", justifyContent: "space-between" },
@@ -733,51 +755,56 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center",
   },
   deleteActionBtn: { backgroundColor: C.dangerSoft },
-  actionBtnText: { fontSize: 14, color: C.text },
+  actionBtnText: { fontSize: 12, color: C.text },
 
   addBtn: {
     margin: 4, marginBottom: 16, padding: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: C.borderStrong, borderStyle: "dashed", alignItems: "center",
+    borderWidth: 1.5, borderColor: C.primary, borderStyle: "dashed",
+    backgroundColor: C.primarySoft, alignItems: "center",
   },
-  addBtnText: { color: C.textMuted, fontWeight: "500", fontSize: 14 },
-  emptyText: { textAlign: "center", color: C.textSubtle, marginTop: 32, fontSize: 14 },
+  addBtnText: { color: C.primary, fontWeight: "700", fontSize: 13 },
+  emptyText: { textAlign: "center", color: C.textSubtle, marginTop: 32, fontSize: 12 },
 
   totalsBox: {
     backgroundColor: C.glass, marginHorizontal: 16, borderRadius: 12,
     borderWidth: 1, borderColor: C.glassBorder, padding: 14, marginBottom: 12, gap: 6,
   },
   totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  totalLabel: { fontSize: 13, color: C.textMuted },
-  totalValue: { fontSize: 13, color: C.text },
+  totalLabel: { fontSize: 12, color: C.textMuted },
+  totalValue: { fontSize: 12, color: C.text },
   totalValueDiscount: { color: "#16A34A" },
   chargesToggleRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     paddingVertical: 8,
   },
-  chargesToggleLabel: { fontSize: 14, color: C.text, fontWeight: "500" },
-  chargesDetail: { gap: 5, paddingTop: 4, paddingBottom: 2 },
+  chargesToggleLabel: { fontSize: 12, color: C.text, fontWeight: "500" },
+  chargesDetail: { gap: 8, paddingTop: 4, paddingBottom: 2 },
+  chargeLabel: { flex: 1, paddingRight: 8 },
+  chargeRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  chargeRemoveBtn: { width: 24, height: 24, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  chargeRemoveText: { fontSize: 11, color: C.danger },
   addChargeBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8 },
-  addChargeText: { fontSize: 14, color: C.primary, fontWeight: "600" },
+  addChargeText: { fontSize: 12, color: C.primary, fontWeight: "600" },
   presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   presetChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: C.borderStrong },
   presetChipActive: { backgroundColor: C.primary, borderColor: C.primary },
-  presetChipText: { fontSize: 13, color: C.text },
+  presetChipText: { fontSize: 12, color: C.text },
   presetChipTextActive: { color: "#fff" },
-  taxInclusiveText: { fontSize: 12, color: C.textMuted, marginTop: 6 },
+  taxInclusiveText: { fontSize: 11, color: C.textMuted, marginTop: 6 },
   mismatchBox: {
     marginTop: 8, padding: 10, borderRadius: 10,
     backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FCD34D",
   },
-  mismatchText: { fontSize: 13, color: "#92400E", lineHeight: 18 },
+  mismatchText: { fontSize: 12, color: "#92400E", lineHeight: 15 },
   grandRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, paddingTop: 8, marginTop: 4 },
-  grandLabel: { fontSize: 16, fontWeight: "700", color: C.ink },
-  grandValue: { fontSize: 16, fontWeight: "700", color: C.ink },
+  grandLabel: { fontSize: 14, fontWeight: "700", color: C.ink },
+  grandValue: { fontSize: 14, fontWeight: "700", color: C.ink },
 
   continueBtn: {
     backgroundColor: C.primary, marginHorizontal: 16, marginBottom: 24,
     paddingVertical: 16, borderRadius: 12, alignItems: "center",
   },
-  continueBtnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  continueBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
 
   modalBackdrop: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.5)",
@@ -787,11 +814,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 40,
   },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: C.ink, marginBottom: 20 },
-  modalLabel: { fontSize: 13, color: C.textMuted, marginBottom: 6 },
+  modalTitle: { fontSize: 15, fontWeight: "700", color: C.ink, marginBottom: 20 },
+  modalLabel: { fontSize: 12, color: C.textMuted, marginBottom: 6 },
   modalInput: {
     borderWidth: 1, borderColor: C.border, borderRadius: 10,
-    padding: 12, fontSize: 15, color: C.ink, marginBottom: 16,
+    padding: 12, fontSize: 13, color: C.ink, marginBottom: 16,
   },
   modalActions: { flexDirection: "row", gap: 12, marginTop: 4 },
   modalCancelBtn: {
@@ -809,10 +836,10 @@ const styles = StyleSheet.create({
     backgroundColor: C.dangerSoft, borderRadius: 12, padding: 16, margin: 24,
     borderWidth: 1, borderColor: "#FECACA",
   },
-  errorText: { fontSize: 14, color: C.dangerDark, marginBottom: 12 },
+  errorText: { fontSize: 12, color: C.dangerDark, marginBottom: 12 },
   backBtn: {
     backgroundColor: C.glassStrong, borderWidth: 1, borderColor: "#FECACA",
     borderRadius: 10, paddingVertical: 10, alignItems: "center",
   },
-  backBtnText: { color: "#991B1B", fontWeight: "600", fontSize: 14 },
+  backBtnText: { color: "#991B1B", fontWeight: "600", fontSize: 12 },
 });

@@ -1,4 +1,5 @@
-import { Linking, Alert } from "react-native";
+import { Linking } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 import * as Clipboard from "expo-clipboard";
 
 /**
@@ -64,13 +65,13 @@ export async function openUpiPayment(config: UpiPaymentConfig): Promise<void> {
       await Linking.openURL(url);
     } else {
       await Clipboard.setStringAsync(upiId);
-      Alert.alert(
+      appAlert.alert(
         "No UPI App Found",
         "We couldn't find a UPI app installed on your device. The receiver's UPI ID has been copied to your clipboard."
       );
     }
   } catch (err) {
-    Alert.alert("Payment Error", "Something went wrong while trying to open a UPI app.");
+    appAlert.alert("Payment Error", "Something went wrong while trying to open a UPI app.");
     console.error("[UPI Error]", err);
   }
 }

@@ -109,7 +109,7 @@ export default function HistoryScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={s.rowTitle} numberOfLines={1}>{g.title}</Text>
                       <Text style={s.rowSub}>
-                        Settled {formatDay(settledAt(g))} · {g.participants.length} people
+                        {g.status === "closed" ? "Closed" : "Settled"} {formatDay(settledAt(g))} · {g.participants.length} people
                       </Text>
                     </View>
                     <Text style={s.rowAmount}>{money(g.totalAmount)}</Text>
@@ -126,7 +126,7 @@ export default function HistoryScreen() {
 
 const s = StyleSheet.create({
   safeArea: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: TAB_BAR_CLEARANCE },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: TAB_BAR_CLEARANCE },
   pressed: { opacity: 0.7 },
   title: { ...T.largeTitle, color: C.ink, marginBottom: 16 },
 
@@ -144,7 +144,7 @@ const s = StyleSheet.create({
   statCol: { flex: 1 },
   statDivider: { width: 1, alignSelf: "stretch", backgroundColor: C.onDarkLine, marginHorizontal: 18 },
   statLabel: { ...T.footnote, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.6 },
-  statValue: { fontSize: 26, fontWeight: "700", letterSpacing: -0.3, marginTop: 6 },
+  statValue: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3, marginTop: 6 },
   spent: { color: "#FB7185" },
   received: { color: "#10B981" },
   statFoot: { ...T.footnote, color: C.onDarkMuted, marginTop: 16 },

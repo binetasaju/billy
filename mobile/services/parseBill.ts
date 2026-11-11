@@ -86,6 +86,8 @@ FIELD DEFINITIONS:
 "subtotal": Pre-tax sum of all items (numeric or null).
 "charges": All non-item lines in order — taxes, fees, discounts, round-off.
   - Keep each tax line separate: CGST, SGST, IGST, GST, VAT, SERC, Cess, etc.
+  - Keep the printed rate in the name, e.g. "CGST 2.5%", "SGST @ 9%".
+  - A tax printed at 0% (e.g. "CGST @ 0%") is zero — omit it, even if a number appears near it.
   - Include Service Charge, Packaging Charge, Convenience Fee, Tip.
   - Discounts/Round Off: use NEGATIVE amounts (e.g. -0.48 for Round Off).
   - Do NOT include Subtotal or Total rows. Do NOT include 0.00 rows.
@@ -361,7 +363,10 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
 
   const extractedCharges = rawCharges
     .map((c) => ({ name: String(c?.name ?? "").trim(), amount: toAmount(c?.amount) ?? 0 }))
-    .filter((c) => c.name && c.amount !== 0 && !/gstin/i.test(c.name));
+    .filter((c) => c.name && c.amount !== 0 && !/gstin/i.test(c.name))
+    // A tax printed at 0% (e.g. "CGST @ 0%") is always ₹0, whatever amount was
+    // read next to it — usually a number from another column.
+    .filter((c) => !isZeroRateTax(c.name));
 
   // Check charges against the printed total: drops tax lines that are only a
   // breakdown of tax-inclusive prices, so GST is never added twice.
@@ -594,7 +599,7 @@ export function extractChargesAndTotal(lines: string[]): {
     if (!NOT_TOTAL.test(name) && STRONG_TOTAL.test(name)) { strongTotal = amount; continue; }
     if (!NOT_TOTAL.test(name) && WEAK_TOTAL.test(name) && !CHARGE.test(name)) { weakTotal = amount; continue; }
 
-    if (CHARGE.test(name) && !NOT_A_CHARGE.test(name) && amount !== 0) {
+    if (CHARGE.test(name) && !NOT_A_CHARGE.test(name) && amount !== 0 && !isZeroRateTax(name)) {
       const signed = /discount/i.test(name) ? -Math.abs(amount) : amount;
       const key = `${name.toLowerCase()}|${signed}`;
       if (seen.has(key)) continue; // tax summary tables often repeat lines
@@ -604,6 +609,11 @@ export function extractChargesAndTotal(lines: string[]): {
   }
 
   return { charges, printedTotal: strongTotal ?? weakTotal };
+}
+
+/** True for a tax line whose printed rate is 0%, e.g. "CGST @ 0%", "SGST 0.00 %". */
+export function isZeroRateTax(name: string): boolean {
+  return isTaxCharge(name) && /(?<![\d.])0+(?:\.0+)?\s*%/.test(name);
 }
 
 function isMetadataOrTax(name: string): boolean {

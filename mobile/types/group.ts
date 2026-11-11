@@ -9,7 +9,8 @@ import type { Person, ParsedBill } from "./bill";
 import type { SettlementTransaction } from "../services/calculateSettlement";
 
 export interface GroupSettlement extends SettlementTransaction {
-  status: "pending" | "paid";
+  /** "cancelled" = was still unpaid when the bill was closed (see closeBill). */
+  status: "pending" | "paid" | "cancelled";
   paidAt?: string;
   paymentMethod?: "upi" | "cash" | "other";
 }
@@ -32,6 +33,13 @@ export interface ContactGroup {
   /** Display name of the group, e.g. "Flatmates" */
   name: string;
   members: GroupMember[];
+  /**
+   * User ID of the person who created the group — the group admin. Only the
+   * admin can remove members. Missing on groups saved before this field
+   * existed; those were all created on this phone, so their admin is the
+   * signed-in user (see isGroupAdmin).
+   */
+  createdBy?: string;
   /** ISO 8601 */
   createdAt: string;
   /** ISO 8601 — bumped on rename / member changes */
@@ -67,8 +75,17 @@ export interface BillGroup {
   /** ISO 8601 timestamp */
   updatedAt: string;
 
-  /** Group status */
-  status: "active" | "settled";
+  /**
+   * "active"  — someone still owes money
+   * "settled" — everyone paid
+   * "closed"  — the creator closed it because of a mistake after someone had
+   *             paid; unpaid rows are cancelled, the payer repays whoever
+   *             already paid, and a corrected new bill is made.
+   */
+  status: "active" | "settled" | "closed";
+
+  /** ISO 8601 — when the bill was closed (status "closed" only). */
+  closedAt?: string;
 
   /** Original parsed bill snapshot */
   billSnapshot?: ParsedBill;

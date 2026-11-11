@@ -106,8 +106,9 @@ export function computeGroupBalances(
 
   linked.forEach((bg) => {
     bg.settlements.forEach((tx) => {
-      // Paid rows remain in the bill's history but no longer count here.
-      if (tx.status === "paid") return;
+      // Paid (and cancelled, closed-bill) rows remain in the bill's history
+      // but no longer count here.
+      if (tx.status !== "pending") return;
       if (tx.fromUserId === tx.toUserId) return;
       if (!tx.amount) return;
 

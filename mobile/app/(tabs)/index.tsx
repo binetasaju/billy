@@ -7,8 +7,9 @@
 // there); "Enter Manually" opens an empty bill for review.
 // ---------------------------------------------------------------------------
 
-import { useMemo } from "react";
-import { Alert, View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { useMemo, useState } from "react";
+import { Modal, View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import * as ImagePicker from "expo-image-picker";
@@ -22,6 +23,8 @@ import type { ParsedBill } from "../../types/bill";
 import { C } from "@/constants/colors";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { rupeesExact } from "../../utils/formatRupees";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,22 +32,27 @@ export default function HomeScreen() {
   const { groups } = useGroups();
   const summary = useMemo(() => computeHomeSummary(groups, user?.uid), [groups, user?.uid]);
   const firstName = user?.name?.split(" ")[0];
-  const net = Math.round((summary.owedToYou - summary.youOwe) * 100) / 100;
+  // Balance card: everything still unpaid, all time — what you'll get and
+  // what you'll give, side by side.
+  const toGet = summary.owedToYou;
+  const toGive = summary.youOwe;
   const isNewUser = groups.length === 0;
 
-  const handleScanBill = () => {
-    Alert.alert(
-      "Add Bill",
-      "Choose how you want to add the bill",
-      [
-        { text: "Take Photo",          onPress: handleCameraPress },
-        { text: "Choose From Gallery", onPress: handleGalleryPress },
-        { text: "Enter Manually",      onPress: handleManualEntry },
-      ],
-      // Android shows at most 3 buttons — tap outside to cancel.
-      { cancelable: true }
-    );
+  // "Add Bill" sheet. A custom sheet (not Alert.alert) so the options always
+  // appear in this order — Android re-orders Alert buttons — and so there is
+  // a real Cancel button.
+  const [addBillOpen, setAddBillOpen] = useState(false);
+  const handleScanBill = () => setAddBillOpen(true);
+  const chooseAddBill = (action: () => void) => () => {
+    setAddBillOpen(false);
+    // Let the sheet close before opening the camera / gallery.
+    setTimeout(action, 250);
   };
+  const addBillOptions = [
+    { label: "Take Photo",          onPress: () => handleCameraPress() },
+    { label: "Choose From Gallery", onPress: () => handleGalleryPress() },
+    { label: "Enter Manually",      onPress: () => handleManualEntry() },
+  ];
 
   // ── Manual entry (no photo, no AI) ───────────────────────────────────────
   const handleManualEntry = () => {
@@ -67,7 +75,7 @@ export default function HomeScreen() {
   const handleCameraPress = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission Required", "Please allow camera access.");
+      appAlert.alert("Permission Required", "Please allow camera access.");
       return;
     }
 
@@ -85,7 +93,7 @@ export default function HomeScreen() {
   const handleGalleryPress = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission Required", "Please allow gallery access.");
+      appAlert.alert("Permission Required", "Please allow gallery access.");
       return;
     }
 
@@ -103,7 +111,7 @@ export default function HomeScreen() {
   const openBill = (groupId: string) => router.push(`/group/${groupId}` as any);
 
   const handleSplitAmount = () => {
-    Alert.alert(
+    appAlert.alert(
       "Split an amount",
       "Open a group (or create one), then tap “Split an Amount”.",
       [{ text: "Go to Groups", onPress: () => router.push("/(tabs)/groups" as any) }],
@@ -114,6 +122,14 @@ export default function HomeScreen() {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
   const money = (n: number) => `₹${n.toFixed(2)}`;
+  // Balance card: whole rupees with Indian grouping (₹9,009 / ₹1,25,000),
+  // both amounts in one shared size so they always line up and never cut off.
+  // Exact (paise shown when present) so it adds up with the Pay tab.
+  const getText = rupeesExact(toGet);
+  const giveText = rupeesExact(toGive);
+  const longest = Math.max(getText.length, giveText.length);
+  const countText = (n: number) => (n === 0 ? "Nothing pending" : `${n} payment${n === 1 ? "" : "s"} pending`);
+  const amountSize = longest <= 7 ? 24 : longest <= 9 ? 21 : longest <= 11 ? 18 : 16;
 
   const pending = [
     ...summary.toPay.map((r) => ({ ...r, kind: "pay" as const })),
@@ -137,7 +153,7 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
             accessibilityLabel="Profile"
           >
-            <Text style={styles.avatarText}>{(firstName ?? "B").charAt(0).toUpperCase()}</Text>
+            <UserAvatar photoUrl={user?.photoUrl} name={firstName ?? "B"} size={44} textStyle={styles.avatarText} />
           </Pressable>
         </View>
 
@@ -148,15 +164,36 @@ export default function HomeScreen() {
           style={({ pressed }) => pressed && styles.pressed}
           accessibilityRole="button"
         >
-          <Text style={styles.caption}>Total balance</Text>
-          <Text style={[styles.balance, net > 0 && styles.positiveOnDark, net < 0 && styles.negativeOnDark]}>
-            {net > 0 ? "+" : net < 0 ? "−" : ""}{money(Math.abs(net))}
-          </Text>
-          <Text style={styles.balanceSub}>
-            {net === 0 && summary.youOwe === 0
-              ? "You're all settled up"
-              : `Owed to you ${money(summary.owedToYou)}  ·  You owe ${money(summary.youOwe)}`}
-          </Text>
+          {/* You'll get | You'll give — all unpaid bills */}
+          <View style={styles.balanceRow}>
+            <View style={styles.balanceCol}>
+              <Text style={styles.caption} numberOfLines={1}>You&apos;ll get</Text>
+              <Text
+                style={[styles.balance, { fontSize: amountSize, lineHeight: amountSize + 6 }, toGet > 0 && styles.positiveOnDark]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                {getText}
+              </Text>
+              <Text style={styles.balanceColSub} numberOfLines={1}>{countText(summary.toReceive.length)}</Text>
+            </View>
+
+            <View style={styles.balanceDivider} />
+
+            <View style={styles.balanceCol}>
+              <Text style={styles.caption} numberOfLines={1}>You&apos;ll give</Text>
+              <Text
+                style={[styles.balance, { fontSize: amountSize, lineHeight: amountSize + 6 }, toGive > 0 && styles.negativeOnDark]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                {giveText}
+              </Text>
+              <Text style={styles.balanceColSub} numberOfLines={1}>{countText(summary.toPay.length)}</Text>
+            </View>
+          </View>
         </Pressable>
 
         {/* Main action */}
@@ -209,7 +246,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, styles.sectionTitleAlone]}>Recent</Text>
             <View style={styles.list}>
               {recent.map((g, i) => {
-                const open = g.settlements.filter((t) => t.status !== "paid").length;
+                const open = g.settlements.filter((t) => t.status === "pending").length;
                 return (
                   <Pressable
                     key={g.id}
@@ -220,8 +257,8 @@ export default function HomeScreen() {
                       <Text style={styles.rowTitle} numberOfLines={1}>{g.title}</Text>
                       <Text style={styles.rowSub}>
                         {formatDate(g.createdAt)} ·{" "}
-                        <Text style={g.status === "settled" ? styles.statusSettled : styles.statusActive}>
-                          {g.status === "settled" ? "Settled" : `${open} pending`}
+                        <Text style={g.status === "active" ? styles.statusActive : styles.statusSettled}>
+                          {g.status === "settled" ? "Settled" : g.status === "closed" ? "Closed" : `${open} pending`}
                         </Text>
                       </Text>
                     </View>
@@ -239,31 +276,88 @@ export default function HomeScreen() {
           )
         )}
       </ScrollView>
+
+      {/* Add Bill sheet */}
+      <Modal
+        visible={addBillOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setAddBillOpen(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setAddBillOpen(false)}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <Text style={styles.sheetTitle}>Add Bill</Text>
+            <Text style={styles.sheetSub}>Choose how you want to add the bill</Text>
+            {addBillOptions.map((o) => (
+              <Pressable
+                key={o.label}
+                onPress={chooseAddBill(o.onPress)}
+                style={({ pressed }) => [styles.sheetOption, pressed && styles.pressed]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.sheetOptionText}>{o.label}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={() => setAddBillOpen(false)}
+              style={({ pressed }) => [styles.sheetCancel, pressed && styles.pressed]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: TAB_BAR_CLEARANCE },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: TAB_BAR_CLEARANCE },
   pressed: { opacity: 0.7 },
+
+  // Add Bill sheet
+  sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  sheet: {
+    backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 36,
+  },
+  sheetTitle: { ...T.title3, color: C.ink },
+  sheetSub: { ...T.subhead, color: C.textMuted, marginTop: 4, marginBottom: 12 },
+  sheetOption: {
+    paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.separator,
+  },
+  sheetOptionText: { ...T.body, color: C.ink, fontWeight: "600" },
+  sheetCancel: {
+    marginTop: 16, paddingVertical: 14, borderRadius: 14, alignItems: "center", backgroundColor: C.surfaceAlt,
+  },
+  sheetCancelText: { ...T.body, color: C.textMuted, fontWeight: "600" },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 28 },
   hello: { ...T.subhead, color: C.textMuted },
   name: { ...T.title1, color: C.ink },
   avatar: {
     width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
-    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.glassBorder,
+    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.glassBorder, overflow: "hidden",
   },
   avatarText: { ...T.headline, color: C.primary },
 
   heroCard: {
     backgroundColor: C.primaryDark, borderRadius: 28,
-    paddingTop: 26, paddingHorizontal: 22, paddingBottom: 8, marginBottom: 8,
+    paddingTop: 22, paddingHorizontal: 18, paddingBottom: 8, marginBottom: 8,
   },
-  caption: { ...T.footnote, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.6 },
-  balance: { fontSize: 40, fontWeight: "700", color: C.onDark, letterSpacing: -0.5, marginTop: 6 },
-  balanceSub: { ...T.footnote, color: C.onDarkMuted, marginTop: 8, marginBottom: 22 },
+  caption: { ...T.footnote, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.6, textAlign: "center" },
+  // Two equal, centred columns: this month | earlier months
+  balance: {
+    fontSize: 22, lineHeight: 28, fontWeight: "700", color: C.onDark, letterSpacing: -0.5,
+    marginTop: 6, textAlign: "center", fontVariant: ["tabular-nums"],
+  },
+  balanceRow: { flexDirection: "row", alignItems: "center", marginBottom: 22 },
+  balanceCol: { flex: 1, alignItems: "center" },
+  balanceDivider: { width: 1, height: 56, backgroundColor: C.onDarkLine, marginHorizontal: 12 },
+  balanceColSub: { fontSize: 11, lineHeight: 14, color: C.onDarkMuted, marginTop: 6, textAlign: "center" },
   positive: { color: C.successDark },
   negative: { color: C.danger },
   // Brighter variants that stay readable on the black card

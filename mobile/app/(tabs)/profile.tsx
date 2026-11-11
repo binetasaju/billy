@@ -1,41 +1,111 @@
 // ---------------------------------------------------------------------------
 // app/profile.tsx
 //
-// Profile screen — shows current user info and provides logout.
+// Profile: avatar, quick stats, personal details (name / phone editable,
+// email shown as verified), payments (UPI), account (change password,
+// log out) and about (version, privacy note).
 // ---------------------------------------------------------------------------
 
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, Alert, Modal, TextInput, KeyboardAvoidingView,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
 } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
+import { useGroups } from "../../hooks/useGroups";
+import { myIdOn } from "../../services/homeSummary";
+import { useContactGroups } from "../../hooks/useContactGroups";
+import { friendlyAuthError } from "../../services/auth/authErrors";
+import { isValidUpiId } from "../../services/upi";
+import { isValidPhoneNumber, normalizePhoneNumber } from "../../utils/normalizePhoneNumber";
+import Constants from "expo-constants";
 import { C } from "@/constants/colors";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+
+type EditField = "name" | "phone" | "upi";
+
+const EDIT_CONFIG: Record<EditField, {
+  title: string;
+  hint: string;
+  placeholder: string;
+  keyboard: "default" | "phone-pad" | "email-address";
+  capitalize: "none" | "words";
+}> = {
+  name: { title: "Edit name", hint: "This is how friends see you on bills.", placeholder: "Your name", keyboard: "default", capitalize: "words" },
+  phone: { title: "Edit phone number", hint: "Friends add you from their contacts by this number.", placeholder: "98765 43210", keyboard: "phone-pad", capitalize: "none" },
+  upi: { title: "Edit UPI ID", hint: "So friends can pay you directly, e.g. name@okbank.", placeholder: "yourname@upi", keyboard: "email-address", capitalize: "none" },
+};
 
 export default function ProfileScreen() {
   const { user } = useAuth();
-  
-  const [editUpiVisible, setEditUpiVisible] = useState(false);
-  const [upiDraft, setUpiDraft] = useState("");
+  const { groups: bills } = useGroups();
+  const { groups: savedGroups } = useContactGroups();
 
-  const openUpiEdit = () => {
-    setUpiDraft(user?.upiId ?? "");
-    setEditUpiVisible(true);
+  const [editing, setEditing] = useState<EditField | null>(null);
+  const [draft, setDraft] = useState("");
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const openEdit = (field: EditField) => {
+    setDraft(
+      field === "name" ? user?.name ?? "" : field === "phone" ? user?.phoneNumber ?? "" : user?.upiId ?? ""
+    );
+    setDraftError(null);
+    setEditing(field);
   };
 
-  const saveUpi = async () => {
-    const trimmed = upiDraft.trim();
-    await authStore.updateUser({ upiId: trimmed || undefined });
-    setEditUpiVisible(false);
+  const saveEdit = async () => {
+    if (!editing) return;
+    const value = draft.trim();
+    if (editing === "name") {
+      if (!value) return setDraftError("Please enter your name.");
+      await authStore.updateUser({ name: value });
+    } else if (editing === "phone") {
+      if (!isValidPhoneNumber(value)) return setDraftError("Enter a valid 10-digit mobile number.");
+      await authStore.updateUser({ phoneNumber: normalizePhoneNumber(value) ?? value });
+    } else {
+      if (value && !isValidUpiId(value)) return setDraftError("That UPI ID doesn't look right (e.g. name@okbank).");
+      await authStore.updateUser({ upiId: value || undefined });
+    }
+    setEditing(null);
+  };
+
+  const handleChangePassword = () => {
+    if (!user?.email) return;
+    appAlert.alert(
+      "Change password",
+      `We'll email a password reset link to ${user.email}.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Send link",
+          onPress: async () => {
+            try {
+              await authStore.sendPasswordReset(user.email!);
+              appAlert.alert("Email sent", "Check your inbox for the reset link.");
+            } catch (e) {
+              appAlert.alert("Couldn't send", friendlyAuthError(e, "Please try again later."));
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    appAlert.alert(
       "Log Out",
       "Are you sure you want to log out?",
       [
@@ -52,6 +122,14 @@ export default function ProfileScreen() {
     );
   };
 
+  const memberSince = user?.createdAt
+    ? new Date(user.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+    : null;
+  const myBills = bills.filter((b) => myIdOn(b, user?.uid) !== null);
+  const settledCount = myBills.filter((b) => b.status === "settled").length;
+  const config = editing ? EDIT_CONFIG[editing] : null;
+  const appVersion = Constants.expoConfig?.version ?? "—";
+
   return (
     <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
@@ -64,61 +142,111 @@ export default function ProfileScreen() {
         {/* ── Avatar + name ── */}
         <View style={s.avatarCard}>
           <View style={s.avatar}>
-            <Text style={s.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() ?? "?"}
-            </Text>
+            <UserAvatar photoUrl={user?.photoUrl} name={user?.name} size={80} textStyle={s.avatarText} />
           </View>
-          <Text style={s.name}>{user?.name ?? "—"}</Text>
-          <Text style={s.phone}>{user?.phoneNumber ?? "No phone"}</Text>
+          <Text style={s.name}>{user?.name || "—"}</Text>
+          {user?.email ? <Text style={s.sub}>{user.email}</Text> : null}
+          {memberSince ? <Text style={s.memberSince}>Member since {memberSince}</Text> : null}
         </View>
 
-        {/* ── Details ── */}
+        {/* ── Quick stats ── */}
+        <View style={s.statsRow}>
+          <View style={s.stat}>
+            <Text style={s.statValue}>{myBills.length}</Text>
+            <Text style={s.statLabel}>Bills</Text>
+          </View>
+          <View style={s.statDivider} />
+          <View style={s.stat}>
+            <Text style={s.statValue}>{settledCount}</Text>
+            <Text style={s.statLabel}>Settled</Text>
+          </View>
+          <View style={s.statDivider} />
+          <View style={s.stat}>
+            <Text style={s.statValue}>{savedGroups.length}</Text>
+            <Text style={s.statLabel}>Groups</Text>
+          </View>
+        </View>
+
+        {/* ── Personal details ── */}
+        <Text style={s.sectionTitle}>Personal details</Text>
         <View style={s.card}>
-          <Row icon="call-outline" label="Phone" value={user?.phoneNumber ?? "—"} />
-          <View style={s.divider} />
-          <Pressable onPress={openUpiEdit}>
-            <Row 
-              icon="wallet-outline" 
-              label="UPI ID" 
-              value={user?.upiId ?? "Not set — tap to edit"} 
-              muted={!user?.upiId} 
-              actionIcon="pencil-outline"
-            />
+          <Pressable onPress={() => openEdit("name")}>
+            <Row icon="person-outline" label="Name" value={user?.name || "Not set — tap to add"} muted={!user?.name} actionIcon="pencil-outline" />
           </Pressable>
           <View style={s.divider} />
-          <Row icon="finger-print-outline" label="User ID" value={user?.uid ?? "—"} mono />
+          <Pressable onPress={() => openEdit("phone")}>
+            <Row icon="call-outline" label="Phone" value={user?.phoneNumber || "Not set — tap to add"} muted={!user?.phoneNumber} actionIcon="pencil-outline" />
+          </Pressable>
+          <View style={s.divider} />
+          <Row
+            icon="mail-outline"
+            label="Email"
+            value={user?.email || "Not linked"}
+            muted={!user?.email}
+            badge={user?.email ? "Verified" : undefined}
+          />
         </View>
 
-        {/* ── Logout ── */}
-        <Pressable style={s.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color={C.danger} />
-          <Text style={s.logoutText}>Log Out</Text>
-        </Pressable>
+        {/* ── Payments ── */}
+        <Text style={s.sectionTitle}>Payments</Text>
+        <View style={s.card}>
+          <Pressable onPress={() => openEdit("upi")}>
+            <Row icon="wallet-outline" label="UPI ID" value={user?.upiId || "Not set — tap to add"} muted={!user?.upiId} actionIcon="pencil-outline" />
+          </Pressable>
+        </View>
 
+        {/* ── Account ── */}
+        <Text style={s.sectionTitle}>Account</Text>
+        <View style={s.card}>
+          {user?.email && (
+            <>
+              <Pressable onPress={handleChangePassword}>
+                <Row icon="key-outline" label="Password" value="Change password" actionIcon="chevron-forward" />
+              </Pressable>
+              <View style={s.divider} />
+            </>
+          )}
+          <Pressable onPress={handleLogout}>
+            <Row icon="log-out-outline" label="Session" value="Log out" danger actionIcon="chevron-forward" />
+          </Pressable>
+        </View>
+
+        {/* ── About ── */}
+        <Text style={s.sectionTitle}>About</Text>
+        <View style={s.card}>
+          <Row icon="information-circle-outline" label="Version" value={`Billy ${appVersion}`} />
+          <View style={s.divider} />
+          <Row icon="shield-checkmark-outline" label="Privacy" value="Bills are stored on this phone. Billy never moves money." multiline />
+        </View>
+
+        <Text style={s.tagline}>Every bill matters.</Text>
       </ScrollView>
 
-      {/* ── Edit UPI Modal ── */}
-      <Modal visible={editUpiVisible} animationType="slide" transparent>
+      {/* ── Edit modal (name / phone / UPI) ── */}
+      <Modal visible={!!editing} animationType="slide" transparent onRequestClose={() => setEditing(null)}>
         <KeyboardAvoidingView style={s.modalBackdrop} behavior="padding">
           <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Edit UPI ID</Text>
-            <Text style={s.modalLabel}>Enter your UPI ID (e.g., name@okbank)</Text>
+            <Text style={s.modalTitle}>{config?.title}</Text>
+            <Text style={s.modalLabel}>{config?.hint}</Text>
             <TextInput
-              style={s.modalInput}
-              value={upiDraft}
-              onChangeText={setUpiDraft}
-              placeholder="yourname@upi"
-              autoCapitalize="none"
+              style={[s.modalInput, draftError && s.modalInputError]}
+              value={draft}
+              onChangeText={(t) => { setDraft(t); setDraftError(null); }}
+              placeholder={config?.placeholder}
+              placeholderTextColor={C.textSubtle}
+              keyboardType={config?.keyboard}
+              autoCapitalize={config?.capitalize}
               autoCorrect={false}
               returnKeyType="done"
-              onSubmitEditing={saveUpi}
+              onSubmitEditing={saveEdit}
               autoFocus
             />
+            {draftError && <Text style={s.modalError}>{draftError}</Text>}
             <View style={s.modalActions}>
-              <Pressable onPress={() => setEditUpiVisible(false)} style={s.modalCancelBtn}>
+              <Pressable onPress={() => setEditing(null)} style={s.modalCancelBtn}>
                 <Text style={s.modalCancelText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={saveUpi} style={s.modalSaveBtn}>
+              <Pressable onPress={saveEdit} style={s.modalSaveBtn}>
                 <Text style={s.modalSaveText}>Save</Text>
               </Pressable>
             </View>
@@ -130,25 +258,39 @@ export default function ProfileScreen() {
 }
 
 function Row({
-  icon, label, value, muted = false, mono = false, actionIcon,
+  icon, label, value, muted = false, mono = false, danger = false, multiline = false, badge, actionIcon,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   value: string;
   muted?: boolean;
   mono?: boolean;
+  danger?: boolean;
+  multiline?: boolean;
+  badge?: string;
   actionIcon?: React.ComponentProps<typeof Ionicons>["name"];
 }) {
   return (
     <View style={s.row}>
       <View style={s.rowIcon}>
-        <Ionicons name={icon} size={18} color={C.textMuted} />
+        <Ionicons name={icon} size={18} color={danger ? C.danger : C.textMuted} />
       </View>
       <View style={s.rowContent}>
         <Text style={s.rowLabel}>{label}</Text>
-        <Text style={[s.rowValue, muted && s.rowValueMuted, mono && s.rowValueMono]} numberOfLines={1}>
-          {value}
-        </Text>
+        <View style={s.rowValueLine}>
+          <Text
+            style={[s.rowValue, muted && s.rowValueMuted, mono && s.rowValueMono, danger && s.rowValueDanger, { flexShrink: 1 }]}
+            numberOfLines={multiline ? 2 : 1}
+          >
+            {value}
+          </Text>
+          {badge ? (
+            <View style={s.badge}>
+              <Ionicons name="checkmark-circle" size={11} color={C.successDark} />
+              <Text style={s.badgeText}>{badge}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
       {actionIcon && (
         <View style={{ paddingLeft: 8 }}>
@@ -161,9 +303,9 @@ function Row({
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 16, paddingBottom: TAB_BAR_CLEARANCE },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: TAB_BAR_CLEARANCE },
 
-  header: { marginTop: 24, marginBottom: 24 },
+  header: { marginBottom: 20 },
   title: { ...T.largeTitle, color: C.ink },
 
   avatarCard: { alignItems: "center", marginBottom: 24 },
@@ -171,13 +313,29 @@ const s = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: C.primary,
     alignItems: "center", justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 12, overflow: "hidden",
     shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3, shadowRadius: 12, elevation: 0,
   },
-  avatarText: { color: "#fff", fontSize: 32, fontWeight: "700" },
-  name: { fontSize: 22, fontWeight: "700", color: C.ink, letterSpacing: -0.3 },
-  phone: { fontSize: 14, color: C.textMuted, marginTop: 4 },
+  avatarText: { color: "#fff", fontSize: 24, fontWeight: "700" },
+  name: { fontSize: 17, fontWeight: "700", color: C.ink, letterSpacing: -0.3 },
+  sub: { fontSize: 12, color: C.textMuted, marginTop: 4 },
+  memberSince: { fontSize: 11, color: C.textSubtle, marginTop: 4 },
+
+  statsRow: {
+    flexDirection: "row", alignItems: "center", backgroundColor: C.glass, borderRadius: 16,
+    borderWidth: 1, borderColor: C.glassBorder, paddingVertical: 14, marginBottom: 24,
+  },
+  stat: { flex: 1, alignItems: "center" },
+  statValue: { fontSize: 17, fontWeight: "800", color: C.ink },
+  statLabel: { fontSize: 11, color: C.textMuted, marginTop: 2, fontWeight: "600" },
+  statDivider: { width: 1, height: 28, backgroundColor: C.surfaceAlt },
+
+  sectionTitle: {
+    fontSize: 11, fontWeight: "700", color: C.textMuted, textTransform: "uppercase",
+    letterSpacing: 0.6, marginBottom: 8, marginLeft: 4,
+  },
+  tagline: { textAlign: "center", fontSize: 11, color: C.textSubtle, marginTop: 4, marginBottom: 8 },
 
   card: {
     backgroundColor: C.glass, borderRadius: 16,
@@ -188,26 +346,35 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   rowIcon: { width: 36, alignItems: "center" },
   rowContent: { flex: 1 },
-  rowLabel: { fontSize: 12, color: C.textSubtle, fontWeight: "500", marginBottom: 2 },
-  rowValue: { fontSize: 15, color: C.ink, fontWeight: "500" },
+  rowLabel: { fontSize: 11, color: C.textSubtle, fontWeight: "500", marginBottom: 2 },
+  rowValue: { fontSize: 13, color: C.ink, fontWeight: "500" },
   rowValueMuted: { color: C.textSubtle },
-  rowValueMono: { fontFamily: "monospace", fontSize: 12, color: C.text },
+  rowValueMono: { fontFamily: "monospace", fontSize: 11, color: C.text },
+  rowValueDanger: { color: C.danger, fontWeight: "700" },
+  rowValueLine: { flexDirection: "row", alignItems: "center", gap: 6 },
+  badge: {
+    flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.successSoft,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8,
+  },
+  badgeText: { fontSize: 10, fontWeight: "700", color: C.successDark },
 
   logoutBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 10, paddingVertical: 16, borderRadius: 14,
     borderWidth: 1.5, borderColor: "#FEE2E2", backgroundColor: "#FFF5F5",
   },
-  logoutText: { fontSize: 16, fontWeight: "700", color: C.danger },
+  logoutText: { fontSize: 14, fontWeight: "700", color: C.danger },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: C.ink, marginBottom: 6 },
-  modalLabel: { fontSize: 14, color: C.textMuted, marginBottom: 16 },
-  modalInput: { borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 14, fontSize: 16, color: C.ink, marginBottom: 24, backgroundColor: C.bg },
-  modalActions: { flexDirection: "row", gap: 12 },
+  modalTitle: { fontSize: 16, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  modalLabel: { fontSize: 12, color: C.textMuted, marginBottom: 16 },
+  modalInput: { borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 14, fontSize: 14, color: C.ink, marginBottom: 8, backgroundColor: C.bg },
+  modalInputError: { borderColor: C.danger, backgroundColor: C.dangerSoft },
+  modalError: { fontSize: 11, color: C.danger, marginBottom: 8 },
+  modalActions: { flexDirection: "row", gap: 12, marginTop: 16 },
   modalCancelBtn: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border, alignItems: "center" },
-  modalCancelText: { color: C.text, fontWeight: "600", fontSize: 15 },
+  modalCancelText: { color: C.text, fontWeight: "600", fontSize: 13 },
   modalSaveBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: C.primary, alignItems: "center" },
-  modalSaveText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  modalSaveText: { color: "#fff", fontWeight: "600", fontSize: 13 },
 });

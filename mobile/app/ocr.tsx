@@ -177,7 +177,8 @@ export default function OcrScreen() {
 
       // ── Step 5: Parse raw text into structured JSON ────────────────────────
       setState("parsing");
-      setMessages(["Receipt extracted successfully.\nBuilding bill details..."]);
+      // The button now says "Extracted successfully"; only this line shows below it.
+      setMessages(["Building bill details..."]);
       setLoadingMsgIdx(0);
 
       const parsed = await parseBill(rawText);
@@ -259,6 +260,9 @@ export default function OcrScreen() {
     state === "ocr" ||
     state === "parsing" ||
     state === "matching";
+
+  // Text has been read from the receipt; Billy is now building the bill.
+  const isExtracted = state === "parsing" || state === "matching";
 
   const stepLabel: Record<OcrState, string> = {
     idle: "Review the receipt below and extract items from the bill.",
@@ -407,10 +411,15 @@ export default function OcrScreen() {
           style={({ pressed }) => [
             styles.button,
             isLoading && styles.buttonLoading,
+            isExtracted && styles.buttonExtracted,
             pressed && !isLoading && styles.buttonPressed,
           ]}
         >
-          {isLoading && !isSlow ? (
+          {isExtracted && !isSlow ? (
+            <View style={styles.buttonInner}>
+              <Text style={styles.buttonLoadingText}>✓  Extracted successfully</Text>
+            </View>
+          ) : isLoading && !isSlow ? (
             <View style={styles.buttonInner}>
               <ActivityIndicator color={C.white} size="small" />
               <Text style={styles.buttonLoadingText}>Extracting Bill…</Text>
@@ -436,14 +445,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   title: {
     ...T.largeTitle,
     color: C.ink,
     marginBottom: 6,
   },
-  subtitle: { fontSize: 14, color: C.textMuted, marginBottom: 20 },
+  subtitle: { fontSize: 12, color: C.textMuted, marginBottom: 20 },
   imageContainer: {
     height: 200,
     borderRadius: 14,
@@ -454,7 +465,7 @@ const styles = StyleSheet.create({
   },
   image: { flex: 1, width: "100%" },
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  imagePlaceholderText: { color: C.textSubtle, fontSize: 14 },
+  imagePlaceholderText: { color: C.textSubtle, fontSize: 12 },
   button: {
     backgroundColor: "#000",
     paddingVertical: 16,
@@ -463,8 +474,9 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { backgroundColor: C.text },
   buttonLoading: { backgroundColor: C.text },
+  buttonExtracted: { backgroundColor: C.primary },
   buttonPressed: { opacity: 0.75 },
-  buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  buttonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
   buttonInner: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
@@ -474,14 +486,14 @@ const styles = StyleSheet.create({
   progressMessage: {
     marginTop: 12,
     textAlign: "center",
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 17,
     color: C.textMuted,
   },
   buttonLoadingText: {
     color: "#fff",
     fontWeight: "600" as const,
-    fontSize: 15,
+    fontSize: 13,
     textAlign: "center" as const,
     flex: 1,
   },
@@ -493,15 +505,15 @@ const styles = StyleSheet.create({
     borderColor: "#FECACA",
   },
   errorTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     color: "#991B1B",
     marginBottom: 6,
   },
   errorMessage: {
-    fontSize: 13,
+    fontSize: 12,
     color: C.dangerDark,
-    lineHeight: 20,
+    lineHeight: 17,
     marginBottom: 12,
   },
   errorActions: { gap: 8 },
@@ -519,7 +531,7 @@ const styles = StyleSheet.create({
   errorButtonSecondaryText: {
     color: "#991B1B",
     fontWeight: "600" as const,
-    fontSize: 14,
+    fontSize: 12,
   },
   // ── Not-a-bill card ────────────────────────────────────────────────────────
   notBillBox: {
@@ -532,19 +544,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   notBillIcon: {
-    fontSize: 48,
+    fontSize: 36,
     marginBottom: 4,
   },
   notBillTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "700" as const,
     color: "#92400E",
     textAlign: "center" as const,
   },
   notBillMessage: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#78350F",
-    lineHeight: 22,
+    lineHeight: 18,
     textAlign: "center" as const,
     marginBottom: 8,
   },
@@ -559,18 +571,18 @@ const styles = StyleSheet.create({
   notBillButtonText: {
     color: C.white,
     fontWeight: "700" as const,
-    fontSize: 16,
+    fontSize: 14,
     letterSpacing: 0.3,
   },
   successContainer: { flex: 1 },
   successLabel: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
     color: "#15803D",
     marginBottom: 4,
   },
   successHelper: {
-    fontSize: 12,
+    fontSize: 11,
     color: C.textMuted,
     marginBottom: 16,
   },
@@ -592,9 +604,9 @@ const styles = StyleSheet.create({
   },
   debugText: {
     fontFamily: "monospace",
-    fontSize: 12,
+    fontSize: 11,
     color: C.ink,
-    lineHeight: 20,
+    lineHeight: 17,
   },
   debugItemRow: {
     paddingVertical: 4, paddingHorizontal: 4,

@@ -4,20 +4,28 @@ import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
+import { useAuth } from "../../hooks/useAuth";
 import { C } from "@/constants/colors";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
+import { rupeesExact } from "../../utils/formatRupees";
 
 export default function PayBillsScreen() {
   const router = useRouter();
   const { groups } = useGroups();
-  const activeGroups = groups.filter((g) => g.status === "active");
+  const { user } = useAuth();
+  const me = user?.uid;
+  // Only bills where YOU still owe or are owed money. A bill whose open
+  // payments are between other people belongs on their screens, not yours.
+  const myOpen = (g: (typeof groups)[number]) =>
+    g.settlements.filter((t) => t.status === "pending" && (t.fromUserId === me || t.toUserId === me));
+  const activeGroups = groups.filter((g) => g.status === "active" && myOpen(g).length > 0);
   return (
     <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
       <View style={s.header}>
         <Text style={s.title}>Pay Bills</Text>
-        <Text style={s.subtitle}>Active groups & settlements</Text>
+        <Text style={s.subtitle}>Active bills & settlements</Text>
       </View>
 
       <ScrollView contentContainerStyle={s.scroll}>
@@ -26,9 +34,9 @@ export default function PayBillsScreen() {
             <View style={s.emptyIconWrap}>
               <Ionicons name="card-outline" size={40} color={C.textSubtle} />
             </View>
-            <Text style={s.emptyTitle}>No active groups yet</Text>
+            <Text style={s.emptyTitle}>No active bills yet</Text>
             <Text style={s.emptySubtitle}>
-              When you scan a bill and split it, the active group will appear here.
+              Bills where you owe money or are owed money will appear here.
             </Text>
 
             <Pressable
@@ -59,15 +67,37 @@ export default function PayBillsScreen() {
                   {new Date(group.createdAt).toLocaleDateString(undefined, {
                     month: "short", day: "numeric", year: "numeric"
                   })}
+                  {"  ·  "}Bill total {rupeesExact(group.totalAmount)}
                 </Text>
 
-                <View style={s.groupFooter}>
-                  <View style={s.footerItem}>
-                    <Ionicons name="people" size={16} color={C.textMuted} />
-                    <Text style={s.footerText}>{group.participants.length} participants</Text>
-                  </View>
-                  <Text style={s.groupAmount}>₹{group.totalAmount.toFixed(2)}</Text>
-                </View>
+                {/* Your share is the big number — these add up to Home's card */}
+                {(() => {
+                  const open = myOpen(group);
+                  const youOwe = open.filter((t) => t.fromUserId === me).reduce((sum, t) => sum + t.amount, 0);
+                  const owedToYou = open.filter((t) => t.toUserId === me).reduce((sum, t) => sum + t.amount, 0);
+                  return (
+                    <View style={s.groupFooter}>
+                      <View style={s.footerItem}>
+                        <Ionicons name="people" size={16} color={C.textMuted} />
+                        <Text style={s.footerText}>{group.participants.length} participants</Text>
+                      </View>
+                      <View style={s.myShare}>
+                        {owedToYou > 0 && (
+                          <>
+                            <Text style={s.myShareLabel}>You&apos;ll get</Text>
+                            <Text style={[s.groupAmount, s.myAmountOwed]}>{rupeesExact(owedToYou)}</Text>
+                          </>
+                        )}
+                        {youOwe > 0 && (
+                          <>
+                            <Text style={s.myShareLabel}>You&apos;ll give</Text>
+                            <Text style={[s.groupAmount, s.myAmountOwe]}>{rupeesExact(youOwe)}</Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })()}
               </Pressable>
             ))}
           </View>
@@ -78,12 +108,16 @@ export default function PayBillsScreen() {
 }
 
 const s = StyleSheet.create({
+  myShare: { alignItems: "flex-end" },
+  myShareLabel: { fontSize: 11, color: C.textMuted, fontWeight: "600" },
+  myAmountOwe: { color: C.danger },
+  myAmountOwed: { color: C.success },
   safeArea: { flex: 1, backgroundColor: C.bg },
-  header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
   title: { ...T.largeTitle, color: C.ink, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: C.textMuted },
+  subtitle: { fontSize: 14, color: C.textMuted },
 
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: TAB_BAR_CLEARANCE, justifyContent: "center" },
+  scroll: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, justifyContent: "center" },
   emptyState: { alignItems: "center", justifyContent: "center", marginTop: -60 },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40,
@@ -91,8 +125,8 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     marginBottom: 20,
   },
-  emptyTitle: { fontSize: 20, fontWeight: "700", color: C.ink, marginBottom: 8 },
-  emptySubtitle: { fontSize: 15, color: C.textMuted, textAlign: "center", lineHeight: 22, maxWidth: 280, marginBottom: 32 },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: C.ink, marginBottom: 8 },
+  emptySubtitle: { fontSize: 13, color: C.textMuted, textAlign: "center", lineHeight: 18, maxWidth: 280, marginBottom: 32 },
 
   btn: {
     backgroundColor: C.primary,
@@ -101,7 +135,7 @@ const s = StyleSheet.create({
   },
   btnPressed: { opacity: 0.8 },
   btnDisabled: { backgroundColor: C.borderStrong },
-  btnText: { color: C.white, fontSize: 16, fontWeight: "700" },
+  btnText: { color: C.white, fontSize: 14, fontWeight: "700" },
 
   groupList: { gap: 16, paddingTop: 8 },
   groupCard: {
@@ -113,11 +147,11 @@ const s = StyleSheet.create({
   },
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  groupTitle: { fontSize: 18, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
-  groupDate: { fontSize: 13, color: C.textSubtle, marginBottom: 20 },
+  groupTitle: { fontSize: 15, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
+  groupDate: { fontSize: 12, color: C.textSubtle, marginBottom: 20 },
   
   groupFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   footerItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  footerText: { fontSize: 14, color: C.text, fontWeight: "500" },
-  groupAmount: { fontSize: 20, fontWeight: "800", color: C.ink, letterSpacing: -0.5 },
+  footerText: { fontSize: 12, color: C.text, fontWeight: "500" },
+  groupAmount: { fontSize: 16, fontWeight: "800", color: C.ink, letterSpacing: -0.5 },
 });

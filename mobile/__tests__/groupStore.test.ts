@@ -51,3 +51,44 @@ describe("groupStore payments", () => {
     expect(get().settlements[1].paymentMethod).toBeUndefined();
   });
 });
+
+describe("groupStore closeBill", () => {
+  const b2: BillGroup = {
+    ...bill,
+    id: "b2",
+    settlements: [
+      { fromUserId: "ravi", toUserId: "me", amount: 300, status: "pending" },
+      { fromUserId: "anu", toUserId: "me", amount: 200, status: "pending" },
+    ],
+  };
+  const get2 = () => groupStore.get().groups.find((g) => g.id === "b2")!;
+
+  beforeAll(async () => {
+    await groupStore.createGroup(b2);
+  });
+
+  it("cannot close before anyone has paid (Edit is used then)", async () => {
+    expect(await groupStore.closeBill("b2", "me")).toBe(false);
+    expect(get2().status).toBe("active");
+  });
+
+  it("only the creator can close", async () => {
+    await groupStore.markSettlementPaid("b2", "ravi", "me");
+    expect(await groupStore.closeBill("b2", "anu")).toBe(false);
+    expect(get2().status).toBe("active");
+  });
+
+  it("closes: unpaid rows cancelled, paid rows kept", async () => {
+    expect(await groupStore.closeBill("b2", "me")).toBe(true);
+    const g = get2();
+    expect(g.status).toBe("closed");
+    expect(g.closedAt).toBeDefined();
+    expect(g.settlements.map((t) => t.status)).toEqual(["paid", "cancelled"]);
+  });
+
+  it("a cancelled row can no longer be paid", async () => {
+    await groupStore.markSettlementPaid("b2", "anu", "me");
+    expect(get2().settlements[1].status).toBe("cancelled");
+    expect(get2().status).toBe("closed");
+  });
+});

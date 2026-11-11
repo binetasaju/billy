@@ -1,6 +1,6 @@
 # Billy — Next Steps
 
-_Last updated: 11 Nov 2026. Checked against the code on `main`._
+_Last updated: 11 Nov 2026 (evening). Checked against the code on `main`._
 
 **Goal right now:** finish the **local, single-phone MVP** before adding Firebase.
 
@@ -26,9 +26,9 @@ Almost every piece of that journey is now built. What's left is **proving it wor
 | Payments | 🟡 MVP | UPI deep link + manual "mark as paid" (duplicate taps ignored). **No automatic confirmation yet** |
 | Groups + balances | 🟢 Done | Net balances + "Settle up in N payments" suggestion |
 | History | 🟢 Done | Settled bills → full bill detail |
-| Auth | 🟡 Local only | Firebase phone OTP not switched on |
+| Auth | 🟡 Email sign-in built (11 Nov 2026) | Firebase **email + password** with a verification email (free plan). Needs **Email/Password** enabled in Firebase → Authentication. Phone OTP code is kept but not used: real SMS needs the paid Blaze plan. Release build: add the release key's SHA-1/SHA-256 in Firebase |
 | Firebase / Firestore / sync / push | 🔴 Not started | |
-| Tests | 🟢 171 Jest tests | `cd mobile && npm test` |
+| Tests | 🟢 174 Jest tests | `cd mobile && npm test` |
 
 **Not yet tested on the phone:** the local-MVP features now on `main` (see step 1 below).
 
@@ -42,18 +42,22 @@ Run `npx expo start --dev-client` (from `mobile/`) with the phone connected, the
 - [ ] Scan a receipt → Preview → Adjust Crop → crop is exactly what you selected
 - [ ] Auto-crop (AI) button works / says when it can't find a tighter crop
 - [ ] Review: items and prices correct, Taxes & Charges arrow easy to tap, totals match the bill (or a clear warning)
-- [ ] Review: add a tax/charge/discount; long-press a charge to remove it
+- [ ] Review: add a tax/charge/discount; ✕ (or long-press) removes a charge; a 0% CGST/SGST line is not added
+- [ ] Extract Bill: button turns green "✓ Extracted successfully", only "Building bill details..." below
+- [ ] Home → Split a bill → sheet shows Take Photo, Choose From Gallery, Enter Manually, Cancel (in that order)
 - [ ] Home → Add Bill → **Enter Manually** → add items + GST → continue
 - [ ] Participants: no warning at first; pressing Continue with fewer than 2 people shows "Select at least 2 people sharing"; ⋮ → Edit name / Remove
 - [ ] Split **Equally** → Save
 - [ ] Split **Item-wise** → totals update live while assigning → Done (unassigned warning) → Save
 - [ ] Groups → open/create a group → **Split an Amount** → title + total → tap a box (it clears), type a share, others re-balance; your share ₹0 works → Save
 - [ ] Saved bill: Who had what, progress bar, **Request** (WhatsApp message has UPI link), **Pay**, **Received**
+- [ ] Saved bill: "Your payments" lists only what you pay / receive; **Mark as paid** asks once ("Yes, paid"), no cash/UPI question
 - [ ] Saved bill: **Edit** → change a price → save → shares recalculated; Edit disappears after a payment
-- [ ] Saved group: balances + "Settle up in N payments"
+- [ ] Saved group: balances + "Your settle-up" (only your payments)
 - [ ] Fully paid bill appears in **History**
 - [ ] Login rejects short / invalid numbers
-- [ ] No screen content under the status bar or navigation bar
+- [ ] No screen content under the status bar or navigation bar; nothing visible below the tab bar
+- [ ] Pop-ups are the new Billy style (white card, green / red / grey buttons); text size feels right everywhere
 
 For any receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill] Response` lines from the Metro terminal.
 
@@ -79,11 +83,26 @@ All local-MVP work is merged into `main` (PR #1).
 - **Before any public release:** move the Gemini key to a server proxy (`backend/`). Keys in `EXPO_PUBLIC_*` can be extracted from the APK.
 
 ### Step 6 — Cloud / multi-user Billy (after the local MVP is solid)
-1. Firebase phone OTP (real auth)
+1. Real auth — ✅ email + password with email verification (free). Phone OTP only once billing (Blaze) is affordable
 2. Gemini server proxy (`backend/`)
 3. Firestore data model + sync (offline-first: store locally, sync when online)
 4. Group invites (phone number + link/QR)
 5. Real-time updates ("Rahul ✓ Paid") + push notifications
+   - **Goal:** when someone pays their share, it shows up on the receiver's screen automatically — no "Mark as received" tap. The payer's "Paid" (or the UPI result from Step 3) updates the shared bill in Firestore; the receiver's app listens and updates, with a push notification.
+   - "Mark as received" stays only for cash / payments made outside Billy.
+
+### Step 7 — Gmail
+1. **Sign in with Google** — ✅ built (11 Nov 2026): "Continue with Google" on the login screen (`services/auth/googleSignIn.ts`), same email = same Billy account, onboarding asks for the phone number. Needs: Google provider enabled in Firebase, a fresh `google-services.json` (has the Web client ID), and one native rebuild.
+2. **Import e-bills from Gmail** (Swiggy, Zomato, Amazon, BigBasket… order emails): user taps "Import from Gmail" → picks an email → Billy sends the email text to Gemini (same parser as receipts) → Review screen. No photo needed.
+   - Gmail read access (`gmail.readonly`) is a Google **restricted scope**: a public release needs Google's app verification + a security assessment. Fine for testing with up to 100 test users before that.
+   - Do the Gmail API calls from `backend/` (with the Gemini proxy), never with keys in the app.
+3. Optional: share the payment request by email as well as WhatsApp/SMS (already possible through the share sheet).
+
+### iOS
+- Code is cross-platform; `app.json` now has static frameworks (needed by Firebase) and camera / photos permission texts.
+- Still needed: **`mobile/GoogleService-Info.plist`** (Firebase → add an iOS app with bundle ID `com.anonymous.mobile` → download).
+- Then `npx expo prebuild -p ios` to refresh `ios/`, and build on a **Mac with Xcode** (`npx expo run:ios`) — or in the cloud with **EAS Build** (`eas build -p ios`, needs an Apple Developer account to install on a real iPhone).
+- UPI on iOS: no app chooser like Android — `upi://` opens one installed UPI app; test with GPay / PhonePe.
 
 ### Later
 - Receipt dataset → custom receipt model
@@ -100,12 +119,12 @@ All local-MVP work is merged into `main` (PR #1).
 - **No "Owe someone" / debts without a bill** — removed on purpose; every record in Billy comes from a bill.
 - **Bills can be edited only by their creator, and only until the first payment.** After that: delete & rescan.
 - **"Settle up in N payments"** is a suggestion only — payments are still marked per bill.
-- **Payments are self-reported** (Pay → UPI app → Mark as paid / Received) until Step 3 is done.
+- **Payments are self-reported** (Pay → UPI app → Mark as paid / Received) until Step 3 is done. Marking paid / received asks once — no payment-method question.
+- **You only see your own payments** on a bill and in a group's settle-up, not what other people owe each other.
 - **Tax-inclusive receipts:** if items already add up to the printed total, GST lines are treated as a breakdown and not added on top.
 
 ## 4. Known limitations
 
-- Android pop-ups show at most 3 buttons, so **Add Bill has no Cancel** — tap outside to close.
 - When editing a saved bill, the Save pop-up suggests the restaurant name, not the group name you chose before.
 - Editing a bill that came from a photo doesn't keep the photo (the bill data is kept).
 - **Split an Amount** uses the group's members — add people to the group first. You are always the one who paid.
@@ -150,6 +169,15 @@ All local-MVP work is merged into `main` (PR #1).
 - Edit a bill until the first payment
 - "Settle up in N payments"
 - Offline parser keeps GST / charges / total + realistic receipt tests
+
+**11 Nov 2026**
+- Add Bill sheet in a fixed order (Take Photo → Gallery → Enter Manually) with Cancel
+- Billy-styled pop-ups everywhere (`components/ui/AppAlert.tsx` replaces `Alert.alert`)
+- Extract Bill: "✓ Extracted successfully" on the button, only "Building bill details..." below
+- Taxes printed at 0% are dropped (no phantom CGST/SGST); ✕ button on each tax / charge line
+- Bills and groups show only your own payments
+- Mark as paid: one confirmation, no cash / UPI question
+- Tab bar docked to the bottom edge; all text ~10% smaller
 
 ## 7. Housekeeping
 

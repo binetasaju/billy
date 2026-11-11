@@ -19,6 +19,16 @@ import type { Person } from "../types/bill";
 import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
 import { nanoid } from "../utils/nanoid";
 
+/**
+ * True when `userId` is the group's admin (its creator). Groups saved before
+ * `createdBy` existed were all made on this phone, so the signed-in user is
+ * their admin.
+ */
+export function isGroupAdmin(group: ContactGroup, userId: string | undefined): boolean {
+  if (!userId) return false;
+  return group.createdBy === undefined || group.createdBy === userId;
+}
+
 const STORAGE_KEY = "@billy_contact_groups";
 
 /** Same palette the participants screen uses, so avatars stay consistent. */
@@ -150,12 +160,18 @@ export const contactGroupStore = {
   },
 
   // ── Mutations ─────────────────────────────────────────────────────────────
-  async createGroup(name: string, members: GroupMember[] = []): Promise<ContactGroup> {
+  /** `createdBy` is the creator's user ID — they become the group admin. */
+  async createGroup(
+    name: string,
+    members: GroupMember[] = [],
+    createdBy?: string
+  ): Promise<ContactGroup> {
     const ts = _now();
     const group: ContactGroup = {
       id: `cg_${Date.now()}_${nanoid(6)}`,
       name: name.trim() || "Untitled Group",
       members: dedupeMembers([], members),
+      createdBy,
       createdAt: ts,
       updatedAt: ts,
     };
@@ -194,10 +210,13 @@ export const contactGroupStore = {
     await _persist(updated);
   },
 
-  /** The current user cannot be removed from their own group. */
-  async removeMember(id: string, memberId: string): Promise<void> {
+  /**
+   * Only the group admin (`byUserId` must be the creator) can remove members.
+   * The current user cannot be removed from their own group.
+   */
+  async removeMember(id: string, memberId: string, byUserId: string | undefined): Promise<void> {
     const group = _state.groups.find((g) => g.id === id);
-    if (!group) return;
+    if (!group || !isGroupAdmin(group, byUserId)) return;
     const member = group.members.find((m) => m.id === memberId);
     if (!member || member.isCurrentUser) return;
 

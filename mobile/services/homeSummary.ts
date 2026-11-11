@@ -40,19 +40,31 @@ export interface HomeSummary {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * Which participant is "me" on a saved bill. The signed-in account decides:
+ * a bill made under a different account (e.g. an old test login on this
+ * phone) is not mine, even though its stored `isCurrentUser` flag says so —
+ * that flag only records who was signed in when the bill was created.
+ * Without a signed-in uid (tests / legacy), fall back to the flag.
+ */
+export function myIdOn(g: BillGroup, userId: string | undefined): string | null {
+  if (userId) return g.participants.some((p) => p.id === userId) ? userId : null;
+  return g.participants.find((p) => p.isCurrentUser)?.id ?? null;
+}
+
 export function computeHomeSummary(groups: BillGroup[], userId: string | undefined, limits = { people: 8, recent: 5 }): HomeSummary {
   const toPay: PendingRow[] = [];
   const toReceive: PendingRow[] = [];
   const people = new Map<string, HomePerson>();
 
   for (const g of groups) {
-    const myId = g.participants.find((p) => p.isCurrentUser)?.id ?? userId;
+    const myId = myIdOn(g, userId);
     if (!myId) continue;
     const nameOf = (id: string) => g.participants.find((p) => p.id === id)?.name ?? "Someone";
 
     // People you split with (any bill, paid or not)
     for (const p of g.participants) {
-      if (p.id === myId || p.isCurrentUser) continue;
+      if (p.id === myId) continue;
       const existing = people.get(p.id);
       if (existing) {
         existing.billCount++;
@@ -63,7 +75,7 @@ export function computeHomeSummary(groups: BillGroup[], userId: string | undefin
     }
 
     for (const tx of g.settlements) {
-      if (tx.status === "paid" || !(tx.amount > 0)) continue;
+      if (tx.status !== "pending" || !(tx.amount > 0)) continue;
       if (tx.fromUserId === myId) {
         toPay.push({ groupId: g.id, billTitle: g.title, personId: tx.toUserId, personName: nameOf(tx.toUserId), amount: tx.amount, createdAt: g.createdAt });
         const p = people.get(tx.toUserId);
@@ -89,7 +101,8 @@ export function computeHomeSummary(groups: BillGroup[], userId: string | undefin
     toPay: toPay.sort(byAmount),
     toReceive: toReceive.sort(byAmount),
     people: peopleList,
-    recent: [...groups]
+    // Only bills you are on (not ones from another account on this phone).
+    recent: groups.filter((g) => myIdOn(g, userId) !== null)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limits.recent),
   };

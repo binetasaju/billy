@@ -1,15 +1,27 @@
 // ---------------------------------------------------------------------------
 // app/itemwise-split-summary.tsx
 //
-// Item-wise split — assignment AND live result on one screen.
-// The assignment section at the top writes each participant's itemIds to
-// billStore; every change re-runs calculateSettlement so the per-person
-// breakdown below is always current.
+// Item-wise split — two steps on one route:
+//   1. "assign"  — tick who had what (running per-person totals in the section).
+//                  Done → warns about unassigned items → step 2.
+//   2. "details" — bill summary + per-person item breakdown → Create Bill
+//                  (name it) → saved.
+// Every assignment change re-runs calculateSettlement, so step 2 is current.
+// Android back on step 2 returns to step 1.
 // ---------------------------------------------------------------------------
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, Alert} from "react-native";
+  BackHandler,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Modal,
+  TextInput,
+} from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
@@ -42,6 +54,17 @@ export default function ItemwiseSplitSummaryScreen() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [groupTitle, setGroupTitle] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [step, setStep] = useState<"assign" | "details">("assign");
+
+  // Android back on the details page returns to assigning items.
+  useEffect(() => {
+    if (step !== "details") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setStep("assign");
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
 
   const recompute = useCallback(() => {
     const store = billStore.get();
@@ -119,10 +142,10 @@ export default function ItemwiseSplitSummaryScreen() {
     else router.replace("/choose-split-method" as any);
   };
 
-  // Done: warn once about unassigned items, otherwise go straight to saving.
+  // Done: warn once about unassigned items, then show the bill details page.
   const handleDone = () => {
     if (unassignedItems.length > 0) setShowUnassignedModal(true);
-    else setShowSaveModal(true);
+    else setStep("details");
   };
 
   const handleCreateGroup = async () => {
@@ -150,7 +173,7 @@ export default function ItemwiseSplitSummaryScreen() {
       savedId = await saveSplit(newGroup);
     } catch (e) {
       setShowSaveModal(false);
-      Alert.alert("Couldn't save", e instanceof Error ? e.message : "Please try again.");
+      appAlert.alert("Couldn't save", e instanceof Error ? e.message : "Please try again.");
       return;
     }
     setShowSaveModal(false);
@@ -160,20 +183,39 @@ export default function ItemwiseSplitSummaryScreen() {
 
   return (
     <SafeAreaView style={s.safeArea}>
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      {/* key resets the scroll position when switching pages */}
+      <ScrollView key={step} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
         <View style={s.header}>
-          <Text style={s.title}>Item-wise Split</Text>
+          {step === "details" && (
+            <Pressable onPress={() => setStep("assign")} hitSlop={8} style={s.backLink}>
+              <Ionicons name="chevron-back" size={18} color={C.primary} />
+              <Text style={s.backLinkText}>Edit items</Text>
+            </Pressable>
+          )}
+          <Text style={s.title}>{step === "assign" ? "Item-wise Split" : "Bill Details"}</Text>
           {restaurantName ? <Text style={s.restaurant}>{restaurantName}</Text> : null}
         </View>
 
-        {/* Assignment — tap a person, tick what they had. Totals below update live. */}
-        <ItemAssignmentSection onChange={recompute} />
+        {step === "assign" ? (
+          <>
+            {/* Step 1 — tap a person, tick what they had. */}
+            <ItemAssignmentSection onChange={recompute} />
 
-
-
-        {/* Summary card */}
+            <View style={s.actions}>
+              <Pressable style={s.changeBtn} onPress={goBackToMethod}>
+                <Ionicons name="swap-horizontal" size={16} color={C.text} />
+                <Text style={s.changeBtnText}>Change Method</Text>
+              </Pressable>
+              <Pressable style={s.doneBtn} onPress={handleDone}>
+                <Text style={s.doneBtnText}>Done ✓</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+        <>
+        {/* Step 2 — Summary card */}
         <View style={s.summaryCard}>
           <View style={s.summaryRow}>
             <Text style={s.summaryLabel}>Total Amount</Text>
@@ -285,14 +327,16 @@ export default function ItemwiseSplitSummaryScreen() {
 
         {/* Actions */}
         <View style={s.actions}>
-          <Pressable style={s.changeBtn} onPress={goBackToMethod}>
-            <Ionicons name="swap-horizontal" size={16} color={C.text} />
-            <Text style={s.changeBtnText}>Change Method</Text>
+          <Pressable style={s.changeBtn} onPress={() => setStep("assign")}>
+            <Ionicons name="create-outline" size={16} color={C.text} />
+            <Text style={s.changeBtnText}>Edit Items</Text>
           </Pressable>
-          <Pressable style={s.doneBtn} onPress={handleDone}>
-            <Text style={s.doneBtnText}>Done ✓</Text>
+          <Pressable style={s.doneBtn} onPress={() => setShowSaveModal(true)}>
+            <Text style={s.doneBtnText}>Create Bill</Text>
           </Pressable>
         </View>
+        </>
+        )}
 
       </ScrollView>
 
@@ -344,7 +388,7 @@ export default function ItemwiseSplitSummaryScreen() {
               </Pressable>
               <Pressable
                 style={s.modalBtnPrimary}
-                onPress={() => { setShowUnassignedModal(false); setShowSaveModal(true); }}
+                onPress={() => { setShowUnassignedModal(false); setStep("details"); }}
               >
                 <Text style={s.modalBtnPrimaryText}>Split Equally</Text>
               </Pressable>
@@ -352,15 +396,15 @@ export default function ItemwiseSplitSummaryScreen() {
           </View>
         </View>
       </Modal>
-      {/* ── Save Group Modal ── */}
+      {/* ── Create Bill Modal ── */}
       <Modal visible={showSaveModal} transparent animationType="fade" statusBarTranslucent>
         <View style={s.saveModalBackdrop}>
           <View style={s.saveModalCard}>
-            <Text style={s.saveModalTitle}>Save Group</Text>
-            <Text style={s.saveModalSubtitle}>Create a group to track these payments.</Text>
-            
+            <Text style={s.saveModalTitle}>Create Bill</Text>
+            <Text style={s.saveModalSubtitle}>Give this bill a name to track its payments.</Text>
+
             <View style={s.inputWrap}>
-              <Text style={s.inputLabel}>Group Name</Text>
+              <Text style={s.inputLabel}>Bill Name</Text>
               <TextInput
                 style={s.input}
                 value={groupTitle}
@@ -376,7 +420,7 @@ export default function ItemwiseSplitSummaryScreen() {
                 <Text style={s.modalBtnSecondaryText}>Cancel</Text>
               </Pressable>
               <Pressable style={s.modalBtnPrimary} onPress={handleCreateGroup}>
-                <Text style={s.modalBtnPrimaryText}>Create Group</Text>
+                <Text style={s.modalBtnPrimaryText}>Create Bill</Text>
               </Pressable>
             </View>
           </View>
@@ -392,16 +436,18 @@ export default function ItemwiseSplitSummaryScreen() {
 // ---------------------------------------------------------------------------
 const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
 
-  header: { marginTop: 28, marginBottom: 24 },
+  header: { marginBottom: 20 },
   title: { ...T.largeTitle, color: C.ink },
-  restaurant: { fontSize: 15, fontWeight: "600", color: C.primary, marginTop: 4 },
+  backLink: { flexDirection: "row", alignItems: "center", gap: 2, marginBottom: 8, alignSelf: "flex-start" },
+  backLinkText: { fontSize: 13, fontWeight: "600", color: C.primary },
+  restaurant: { fontSize: 13, fontWeight: "600", color: C.primary, marginTop: 4 },
 
   summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 20, marginBottom: 28 },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
-  summaryLabel: { fontSize: 14, color: C.onDarkMuted, fontWeight: "500" },
-  summaryValue: { fontSize: 16, color: C.onDark, fontWeight: "700" },
+  summaryLabel: { fontSize: 12, color: C.onDarkMuted, fontWeight: "500" },
+  summaryValue: { fontSize: 14, color: C.onDark, fontWeight: "700" },
   divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
   badge: {
     backgroundColor: C.successDark,
@@ -409,10 +455,10 @@ const s = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 20,
   },
-  badgeText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  badgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
 
   sectionLabel: {
-    fontSize: 13, fontWeight: "600", color: C.textMuted,
+    fontSize: 12, fontWeight: "600", color: C.textMuted,
     textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12,
   },
   personList: {
@@ -430,7 +476,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  expandHint: { fontSize: 12, color: C.textSubtle, marginTop: 3 },
+  expandHint: { fontSize: 11, color: C.textSubtle, marginTop: 3 },
 
   // Expanded detail panel
   expandedPanel: {
@@ -451,9 +497,9 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: C.surfaceAlt,
   },
-  expandedItemName: { flex: 1, fontSize: 14, color: C.ink, fontWeight: "500", paddingRight: 12 },
-  expandedItemPrice: { fontSize: 14, fontWeight: "600", color: C.ink },
-  expandedNoItems: { fontSize: 13, color: C.danger, padding: 14 },
+  expandedItemName: { flex: 1, fontSize: 12, color: C.ink, fontWeight: "500", paddingRight: 12 },
+  expandedItemPrice: { fontSize: 12, fontWeight: "600", color: C.ink },
+  expandedNoItems: { fontSize: 12, color: C.danger, padding: 14 },
   expandedTotal: {
     flexDirection: "row",
     alignItems: "center",
@@ -462,25 +508,25 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: C.primary,
   },
-  expandedTotalLabel: { fontSize: 14, fontWeight: "700", color: C.textSubtle },
-  expandedTotalValue: { fontSize: 16, fontWeight: "800", color: C.white, letterSpacing: -0.3 },
+  expandedTotalLabel: { fontSize: 12, fontWeight: "700", color: C.textSubtle },
+  expandedTotalValue: { fontSize: 14, fontWeight: "800", color: C.white, letterSpacing: -0.3 },
 
   avatar: {
     width: 38, height: 38, borderRadius: 19,
     alignItems: "center", justifyContent: "center", marginRight: 12, marginTop: 2,
   },
-  avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  avatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
   personInfo: { flex: 1, paddingRight: 8 },
-  personName: { fontSize: 15, fontWeight: "600", color: C.ink },
-  itemList: { fontSize: 12, color: C.textMuted, marginTop: 2, lineHeight: 17 },
-  settleLine: { fontSize: 12, color: C.successDark, marginTop: 4, fontWeight: "600" },
+  personName: { fontSize: 13, fontWeight: "600", color: C.ink },
+  itemList: { fontSize: 11, color: C.textMuted, marginTop: 2, lineHeight: 14 },
+  settleLine: { fontSize: 11, color: C.successDark, marginTop: 4, fontWeight: "600" },
 
   breakdownRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
   breakdownText: { fontSize: 11, color: C.textSubtle },
 
   amounts: { alignItems: "flex-end" },
-  personTotal: { fontSize: 16, fontWeight: "700", color: C.ink },
+  personTotal: { fontSize: 14, fontWeight: "700", color: C.ink },
 
   actions: { gap: 12 },
   changeBtn: {
@@ -488,9 +534,9 @@ const s = StyleSheet.create({
     gap: 8, paddingVertical: 14, borderRadius: 12,
     borderWidth: 1, borderColor: C.glassBorder, backgroundColor: C.glassStrong,
   },
-  changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
+  changeBtnText: { fontSize: 13, fontWeight: "600", color: C.text },
   doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
-  doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  doneBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 
   // Unassigned warning banner
   warnBanner: {
@@ -503,12 +549,12 @@ const s = StyleSheet.create({
     gap: 6,
   },
   warnBannerHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
-  warnBannerTitle: { flex: 1, fontSize: 14, fontWeight: "700", color: "#92400E" },
+  warnBannerTitle: { flex: 1, fontSize: 12, fontWeight: "700", color: "#92400E" },
   warnItemRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  warnItemDot: { fontSize: 14, color: C.warningDark },
-  warnItemName: { flex: 1, fontSize: 13, color: "#78350F" },
-  warnItemPrice: { fontSize: 13, fontWeight: "600", color: "#78350F" },
-  warnItemNote: { fontSize: 12, color: "#92400E", marginTop: 6, fontStyle: "italic" },
+  warnItemDot: { fontSize: 12, color: C.warningDark },
+  warnItemName: { flex: 1, fontSize: 12, color: "#78350F" },
+  warnItemPrice: { fontSize: 12, fontWeight: "600", color: "#78350F" },
+  warnItemNote: { fontSize: 11, color: "#92400E", marginTop: 6, fontStyle: "italic" },
 
   // Themed unassigned modal
   modalBackdrop: {
@@ -542,7 +588,7 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
     color: C.ink,
     textAlign: "center",
@@ -550,10 +596,10 @@ const s = StyleSheet.create({
     letterSpacing: -0.3,
   },
   modalSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: C.textMuted,
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 17,
     marginBottom: 20,
   },
   modalItemList: {
@@ -579,8 +625,8 @@ const s = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: C.warning,
   },
-  modalItemName: { flex: 1, fontSize: 14, color: C.ink, fontWeight: "500" },
-  modalItemPrice: { fontSize: 14, fontWeight: "700", color: C.text },
+  modalItemName: { flex: 1, fontSize: 12, color: C.ink, fontWeight: "500" },
+  modalItemPrice: { fontSize: 12, fontWeight: "700", color: C.text },
   modalItemTotalRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -588,8 +634,8 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: C.surfaceAlt,
   },
-  modalItemTotalLabel: { flex: 1, fontSize: 13, color: C.textMuted, fontWeight: "600" },
-  modalItemTotalValue: { fontSize: 15, fontWeight: "700", color: C.ink },
+  modalItemTotalLabel: { flex: 1, fontSize: 12, color: C.textMuted, fontWeight: "600" },
+  modalItemTotalValue: { fontSize: 13, fontWeight: "700", color: C.ink },
   modalActions: { flexDirection: "row", gap: 12 },
   modalBtnSecondary: {
     flex: 1,
@@ -599,7 +645,7 @@ const s = StyleSheet.create({
     borderColor: C.border,
     alignItems: "center",
   },
-  modalBtnSecondaryText: { fontSize: 14, fontWeight: "600", color: C.text },
+  modalBtnSecondaryText: { fontSize: 12, fontWeight: "600", color: C.text },
   modalBtnPrimary: {
     flex: 1,
     paddingVertical: 14,
@@ -607,14 +653,14 @@ const s = StyleSheet.create({
     backgroundColor: C.primary,
     alignItems: "center",
   },
-  modalBtnPrimaryText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  modalBtnPrimaryText: { fontSize: 12, fontWeight: "700", color: "#fff" },
   
   // Save Modal overrides
   saveModalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   saveModalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6 },
-  saveModalTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6 },
-  saveModalSubtitle: { fontSize: 15, color: C.textMuted, marginBottom: 20, lineHeight: 22 },
+  saveModalTitle: { fontSize: 17, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  saveModalSubtitle: { fontSize: 13, color: C.textMuted, marginBottom: 20, lineHeight: 18 },
   inputWrap: { marginBottom: 24 },
-  inputLabel: { fontSize: 13, fontWeight: "600", color: C.text, marginBottom: 8 },
-  input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: C.ink, backgroundColor: C.bg },
+  inputLabel: { fontSize: 12, fontWeight: "600", color: C.text, marginBottom: 8 },
+  input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 14, color: C.ink, backgroundColor: C.bg },
 });

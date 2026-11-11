@@ -2,7 +2,8 @@
 // app/equal-split-summary.tsx — Equal split result screen
 // ---------------------------------------------------------------------------
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
@@ -95,7 +96,7 @@ export default function EqualSplitSummaryScreen() {
       savedId = await saveSplit(newGroup);
     } catch (e) {
       setShowSaveModal(false);
-      Alert.alert("Couldn't save", e instanceof Error ? e.message : "Please try again.");
+      appAlert.alert("Couldn't save", e instanceof Error ? e.message : "Please try again.");
       return;
     }
     setShowSaveModal(false);
@@ -171,15 +172,15 @@ export default function EqualSplitSummaryScreen() {
         </View>
       </ScrollView>
 
-      {/* ── Save Group Modal ── */}
+      {/* ── Create Bill Modal ── */}
       <Modal visible={showSaveModal} transparent animationType="fade" statusBarTranslucent>
         <View style={s.modalBackdrop}>
           <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Save Group</Text>
-            <Text style={s.modalSubtitle}>Create a group to track these payments.</Text>
+            <Text style={s.modalTitle}>Create Bill</Text>
+            <Text style={s.modalSubtitle}>Give this bill a name to track its payments.</Text>
             
             <View style={s.inputWrap}>
-              <Text style={s.inputLabel}>Group Name</Text>
+              <Text style={s.inputLabel}>Bill Name</Text>
               <TextInput
                 style={s.input}
                 value={groupTitle}
@@ -195,7 +196,7 @@ export default function EqualSplitSummaryScreen() {
                 <Text style={s.modalBtnSecondaryText}>Cancel</Text>
               </Pressable>
               <Pressable style={s.modalBtnPrimary} onPress={handleCreateGroup}>
-                <Text style={s.modalBtnPrimaryText}>Create Group</Text>
+                <Text style={s.modalBtnPrimaryText}>Create Bill</Text>
               </Pressable>
             </View>
           </View>
@@ -207,44 +208,44 @@ export default function EqualSplitSummaryScreen() {
 
 const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
-  header: { marginTop: 28, marginBottom: 24 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
+  header: { marginBottom: 20 },
   title: { ...T.largeTitle, color: C.ink },
-  restaurant: { fontSize: 15, fontWeight: "600", color: C.primary, marginTop: 4 },
+  restaurant: { fontSize: 13, fontWeight: "600", color: C.primary, marginTop: 4 },
   summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 20, marginBottom: 28 },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
-  summaryLabel: { fontSize: 14, color: C.onDarkMuted, fontWeight: "500" },
-  summaryValue: { fontSize: 16, color: C.onDark, fontWeight: "700" },
-  highlight: { color: "#34D399", fontSize: 20 },
+  summaryLabel: { fontSize: 12, color: C.onDarkMuted, fontWeight: "500" },
+  summaryValue: { fontSize: 14, color: C.onDark, fontWeight: "700" },
+  highlight: { color: "#34D399", fontSize: 16 },
   divider: { height: 1, backgroundColor: C.onDarkLine, marginVertical: 4 },
-  sectionLabel: { fontSize: 13, fontWeight: "600", color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12 },
+  sectionLabel: { fontSize: 12, fontWeight: "600", color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 12 },
   personList: { backgroundColor: C.glass, borderRadius: 16, borderWidth: 1, borderColor: C.glassBorder, marginBottom: 28, overflow: "hidden" },
   personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   personRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
   avatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  avatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   personInfo: { flex: 1 },
-  personName: { fontSize: 15, fontWeight: "600", color: C.ink },
-  settleLine: { fontSize: 12, color: C.successDark, marginTop: 2, fontWeight: "600" },
+  personName: { fontSize: 13, fontWeight: "600", color: C.ink },
+  settleLine: { fontSize: 11, color: C.successDark, marginTop: 2, fontWeight: "600" },
   breakdownRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
   breakdownText: { fontSize: 11, color: C.textSubtle },
-  personShare: { fontSize: 16, fontWeight: "700", color: C.ink },
+  personShare: { fontSize: 14, fontWeight: "700", color: C.ink },
   actions: { gap: 12 },
   changeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.glassBorder, backgroundColor: C.glassStrong },
-  changeBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
+  changeBtnText: { fontSize: 13, fontWeight: "600", color: C.text },
   doneBtn: { backgroundColor: C.primary, paddingVertical: 16, borderRadius: 12, alignItems: "center" },
-  doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  doneBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6 },
-  modalTitle: { fontSize: 22, fontWeight: "700", color: C.ink, marginBottom: 6 },
-  modalSubtitle: { fontSize: 15, color: C.textMuted, marginBottom: 20, lineHeight: 22 },
+  modalTitle: { fontSize: 17, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  modalSubtitle: { fontSize: 13, color: C.textMuted, marginBottom: 20, lineHeight: 18 },
   inputWrap: { marginBottom: 24 },
-  inputLabel: { fontSize: 13, fontWeight: "600", color: C.text, marginBottom: 8 },
-  input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 16, color: C.ink, backgroundColor: C.bg },
+  inputLabel: { fontSize: 12, fontWeight: "600", color: C.text, marginBottom: 8 },
+  input: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, height: 52, fontSize: 14, color: C.ink, backgroundColor: C.bg },
   modalActions: { flexDirection: "row", gap: 12 },
   modalBtnSecondary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.surfaceAlt },
-  modalBtnSecondaryText: { color: C.text, fontSize: 15, fontWeight: "600" },
+  modalBtnSecondaryText: { color: C.text, fontSize: 13, fontWeight: "600" },
   modalBtnPrimary: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.primary },
-  modalBtnPrimaryText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  modalBtnPrimaryText: { color: "#fff", fontSize: 13, fontWeight: "600" },
 });

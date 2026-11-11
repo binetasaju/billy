@@ -2,7 +2,7 @@
 
 # Billy — AI-Powered Item-Wise Expense Splitting
 
-### Every Bill Matters. Split bills, not friendships.
+### Every Bill Matters.
 
 **Scan a bill. Split by item. Pay your share.**
 
@@ -442,7 +442,7 @@ billy/
 
 **Lead developer:** Bineta Saju
 
-**Guiding principle:** *Every Bill Matters — Split bills, not friendships.*
+**Guiding principle:** *Every Bill Matters.*
 
 **Repository:** [github.com/binetasaju/billy](https://github.com/binetasaju/billy)
 

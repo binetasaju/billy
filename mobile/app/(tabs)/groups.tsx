@@ -8,9 +8,16 @@
 
 import { useMemo, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView,
-  Pressable, ActivityIndicator, Modal, TextInput, Alert,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Modal,
+  TextInput,
 } from "react-native";
+import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { Ionicons } from "@expo/vector-icons";
@@ -72,7 +79,7 @@ export default function GroupsScreen() {
   const handleCreate = async () => {
     const name = draftName.trim();
     if (!name) {
-      Alert.alert("Group name required", "Please enter a name for this group.");
+      appAlert.alert("Group name required", "Please enter a name for this group.");
       return;
     }
     // Start the group with the current user already in it.
@@ -83,7 +90,7 @@ export default function GroupsScreen() {
       color: MEMBER_COLORS[0],
       isCurrentUser: true,
     };
-    const group = await contactGroupStore.createGroup(name, [me]);
+    const group = await contactGroupStore.createGroup(name, [me], user?.uid);
     setDraftName("");
     setCreateVisible(false);
     router.push(`/contact-group/${group.id}` as any);
@@ -200,9 +207,9 @@ export default function GroupsScreen() {
 
 const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
-  header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
   title: { ...T.largeTitle, color: C.ink, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: C.textMuted },
+  subtitle: { fontSize: 14, color: C.textMuted },
 
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE },
@@ -211,8 +218,8 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24,
     backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, borderStyle: "dashed",
   },
-  emptyText: { fontSize: 15, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
-  emptySubtext: { fontSize: 14, color: C.borderStrong, marginTop: 6, textAlign: "center" },
+  emptyText: { fontSize: 13, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
+  emptySubtext: { fontSize: 12, color: C.borderStrong, marginTop: 6, textAlign: "center" },
 
   groupList: { gap: 16 },
   groupCard: {
@@ -223,27 +230,27 @@ const s = StyleSheet.create({
   },
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  groupTitle: { fontSize: 18, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
-  groupMeta: { fontSize: 14, color: C.text, fontWeight: "500" },
-  groupActivity: { fontSize: 13, color: C.textSubtle, marginTop: 6 },
+  groupTitle: { fontSize: 15, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
+  groupMeta: { fontSize: 12, color: C.text, fontWeight: "500" },
+  groupActivity: { fontSize: 12, color: C.textSubtle, marginTop: 6 },
 
   createBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
     backgroundColor: C.primary, paddingVertical: 16, borderRadius: 14, marginTop: 24,
   },
-  createBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  createBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 20, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: C.ink, marginBottom: 6 },
-  modalSubtitle: { fontSize: 14, color: C.textMuted, marginBottom: 18, lineHeight: 20 },
+  modalTitle: { fontSize: 16, fontWeight: "700", color: C.ink, marginBottom: 6 },
+  modalSubtitle: { fontSize: 12, color: C.textMuted, marginBottom: 18, lineHeight: 17 },
   modalInput: {
     borderWidth: 1, borderColor: C.borderStrong, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, color: C.ink, marginBottom: 20,
+    paddingHorizontal: 12, paddingVertical: 12, fontSize: 14, color: C.ink, marginBottom: 20,
   },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 12 },
   modalCancelBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
-  modalCancelText: { fontSize: 15, fontWeight: "600", color: C.textMuted },
+  modalCancelText: { fontSize: 13, fontWeight: "600", color: C.textMuted },
   modalSaveBtn: { backgroundColor: C.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
-  modalSaveText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  modalSaveText: { fontSize: 13, fontWeight: "700", color: "#fff" },
 });

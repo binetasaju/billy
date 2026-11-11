@@ -14,6 +14,7 @@
 // ---------------------------------------------------------------------------
 
 import type { BillGroup } from "../types/group";
+import { myIdOn } from "./homeSummary";
 
 /** "2026-11" for a date (local time). */
 export function monthKey(date: Date | string): string {
@@ -49,8 +50,9 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const paidMonth = (tx: { paidAt?: string }, g: BillGroup) => monthKey(tx.paidAt ?? g.updatedAt ?? g.createdAt);
 
-/** When a settled bill was settled: its latest payment (or last update). */
+/** When a bill was settled (its latest payment, or last update) or closed. */
 export function settledAt(g: BillGroup): string {
+  if (g.status === "closed" && g.closedAt) return g.closedAt;
   const times = g.settlements.filter((t) => t.status === "paid" && t.paidAt).map((t) => t.paidAt as string);
   if (times.length === 0) return g.updatedAt ?? g.createdAt;
   return times.reduce((a, b) => (new Date(a) > new Date(b) ? a : b));
@@ -62,7 +64,7 @@ export function summarizeMonth(groups: BillGroup[], userId: string | undefined, 
   let paymentCount = 0;
 
   for (const g of groups) {
-    const myId = g.participants.find((p) => p.isCurrentUser)?.id ?? userId;
+    const myId = myIdOn(g, userId);
     if (!myId) continue;
     for (const tx of g.settlements) {
       if (tx.status !== "paid" || paidMonth(tx, g) !== month) continue;
@@ -72,7 +74,7 @@ export function summarizeMonth(groups: BillGroup[], userId: string | undefined, 
   }
 
   const settledBills = groups
-    .filter((g) => g.status === "settled" && monthKey(settledAt(g)) === month)
+    .filter((g) => (g.status === "settled" || g.status === "closed") && monthKey(settledAt(g)) === month)
     .sort((a, b) => new Date(settledAt(b)).getTime() - new Date(settledAt(a)).getTime());
 
   return { month, spent: round2(spent), received: round2(received), paymentCount, settledBills };
