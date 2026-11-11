@@ -143,6 +143,12 @@ export interface Person {
   itemIds: string[];
   /** Flag identifying the user running the app */
   isCurrentUser?: boolean;
+  /**
+   * Billy account (Firebase uid) linked to this person — set when they were
+   * added by email / from people on Billy, or after they join via the link.
+   * Linked people see the bill on their own phone.
+   */
+  authUid?: string;
 }
 
 export interface SplitResult {

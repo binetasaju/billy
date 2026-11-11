@@ -30,11 +30,13 @@
   </div>
   <script>
     // /bill/<id>  →  the app's own link: mobile://group/<id>
+    // /bill/<id>?c=<invite code>  →  the app's own link: mobile://bill/<id>?c=<code>
     var id = decodeURIComponent(location.pathname.replace(/^\/bill\/?/, "").replace(/\/$/, ""));
-    var appLink = "mobile://group/" + encodeURIComponent(id);
+    var code = new URLSearchParams(location.search).get("c");
+    var path = "bill/" + encodeURIComponent(id) + (code ? "?c=" + encodeURIComponent(code) : "");
+    var appLink = "mobile://" + path;
     // Android Chrome: an intent:// link opens the installed app directly.
-    var intentLink = "intent://group/" + encodeURIComponent(id) +
-      "#Intent;scheme=mobile;package=com.anonymous.mobile;end";
+    var intentLink = "intent://" + path + "#Intent;scheme=mobile;package=com.anonymous.mobile;end";
     var isAndroid = /Android/i.test(navigator.userAgent);
     var link = isAndroid ? intentLink : appLink;
     document.getElementById("open").href = link;

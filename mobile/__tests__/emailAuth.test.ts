@@ -43,6 +43,7 @@ function fakeFirebase() {
     sendEmailVerification: async (user) => { sent.push(user.email ?? ""); },
     sendPasswordResetEmail: async (email) => { sent.push(`reset:${email}`); },
     reload: async () => {},
+    refreshToken: async () => {},
     updateProfile: async (user, p) => { user.displayName = p.displayName ?? null; },
     signInWithGoogleIdToken: async (idToken) => {
       const email = idToken.replace(/^google:/, "");

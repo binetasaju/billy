@@ -35,20 +35,21 @@ export default function OnboardingScreen() {
   const { user } = useAuth();
   const [upiId, setUpiId] = useState("");
   const [loading, setLoading] = useState(false);
-  // Google sign-in doesn't give a phone number, but Billy matches people by
-  // phone — so ask for it once (required; only the UPI ID can be skipped).
+  // Google sign-in doesn't give a phone number. It's optional (accounts come
+  // first — docs/CLOUD_SYNC_PLAN.md); it only helps friends who add you from
+  // their contacts.
   const needsPhone = !user?.phoneNumber;
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const handleFinish = async (skipUpi = false) => {
-    if (needsPhone && !isValidPhoneNumber(phone)) {
-      setPhoneError(phone.trim() ? "Enter a valid 10-digit mobile number." : "Please enter your phone number.");
+    if (needsPhone && phone.trim() && !isValidPhoneNumber(phone)) {
+      setPhoneError("Enter a valid 10-digit mobile number, or leave it empty.");
       return;
     }
     setLoading(true);
     try {
-      if (needsPhone) {
+      if (needsPhone && phone.trim()) {
         await authStore.updateUser({ phoneNumber: normalizePhoneNumber(phone) ?? phone.trim() });
       }
       if (!skipUpi && upiId.trim()) {
@@ -87,7 +88,7 @@ export default function OnboardingScreen() {
             </Text>
             <Text style={s.subtitle}>
               {needsPhone
-                ? "Add your phone number so friends can find you, and your UPI ID so they can pay you."
+                ? "Add your UPI ID so friends can pay you. Your phone number is optional."
                 : "Add your UPI ID so friends can pay you directly. You can always add it later."}
             </Text>
           </View>
@@ -97,6 +98,7 @@ export default function OnboardingScreen() {
             {needsPhone && (
               <View style={s.phoneGroup}>
                 <Text style={s.label}>Phone number</Text>
+                <Text style={s.labelHint}>Optional · helps friends who add you from contacts</Text>
                 <View style={[s.inputWrap, phoneError && s.inputError]}>
                   <Ionicons name="call-outline" size={18} color={C.textSubtle} style={s.inputIcon} />
                   <TextInput
@@ -147,7 +149,7 @@ export default function OnboardingScreen() {
               onPress={() => handleFinish(true)}
               disabled={loading}
             >
-              <Text style={s.skipText}>{needsPhone ? "Skip UPI for now" : "Skip for now"}</Text>
+              <Text style={s.skipText}>Skip for now</Text>
             </Pressable>
           </View>
 

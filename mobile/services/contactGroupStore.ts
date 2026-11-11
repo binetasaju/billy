@@ -15,6 +15,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ContactGroup, GroupMember } from "../types/group";
+import type { GroupSync } from "./cloud/groupSync";
 import type { Person } from "../types/bill";
 import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
 import { nanoid } from "../utils/nanoid";
@@ -49,13 +50,31 @@ function _notify() {
   _listeners.forEach((fn) => fn());
 }
 
-async function _persist(groups: ContactGroup[]) {
+/**
+ * Cloud backup (services/cloud/groupSync.ts) when signed in with Firebase.
+ * Every change goes through _persist, which also sends what changed.
+ */
+let _remote: GroupSync | null = null;
+
+async function _persist(groups: ContactGroup[], previous: ContactGroup[] = _lastSaved) {
+  _lastSaved = groups;
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
   } catch (e) {
     console.warn("[contactGroupStore] Failed to save groups:", e);
   }
+  if (!_remote) return;
+  const before = new Map(previous.map((g) => [g.id, JSON.stringify(g)]));
+  const now = new Set(groups.map((g) => g.id));
+  try {
+    for (const g of groups) if (before.get(g.id) !== JSON.stringify(g)) await _remote.saveGroup(g);
+    for (const id of before.keys()) if (!now.has(id)) await _remote.deleteGroup(id);
+  } catch (e) {
+    console.warn("[contactGroupStore] cloud backup failed:", e);
+  }
 }
+
+let _lastSaved: ContactGroup[] = [];
 
 function _now() {
   return new Date().toISOString();
@@ -156,6 +175,7 @@ export const contactGroupStore = {
     } catch {
       _state = { groups: [], isLoading: false };
     }
+    _lastSaved = _state.groups;
     _notify();
   },
 
@@ -235,5 +255,35 @@ export const contactGroupStore = {
     _state = { groups: updated, isLoading: false };
     _notify();
     await _persist(updated);
+  },
+
+  // ── Cloud backup hooks (used by services/cloud/cloudSync.ts) ──────────────
+
+  setRemote(remote: GroupSync | null): void {
+    _remote = remote;
+  },
+
+  /** Groups from my cloud backup; phone-only groups stay (and get uploaded). */
+  async applyCloud(cloudGroups: ContactGroup[]): Promise<void> {
+    const ids = new Set(cloudGroups.map((g) => g.id));
+    const phoneOnly = _state.groups.filter((g) => !ids.has(g.id) && !g.inCloud);
+    const groups = [...cloudGroups.map((g) => ({ ...g, inCloud: true })), ...phoneOnly];
+    _state = { groups, isLoading: false };
+    _lastSaved = groups; // came from the cloud — nothing to send back
+    _notify();
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+    } catch (e) {
+      console.warn("[contactGroupStore] Failed to save groups:", e);
+    }
+    if (_remote) {
+      for (const g of phoneOnly) {
+        try {
+          await _remote.saveGroup(g);
+        } catch (e) {
+          console.warn("[contactGroupStore] could not upload group", g.id, e);
+        }
+      }
+    }
   },
 };

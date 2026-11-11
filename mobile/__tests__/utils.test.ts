@@ -146,6 +146,10 @@ describe("bill link", () => {
     expect(billLink("group_123_abc")).toBe("https://billy-ed9eb.web.app/bill/group_123_abc");
   });
 
+  it("carries the invite code for cloud bills", () => {
+    expect(billLink("b1", "abc123")).toBe("https://billy-ed9eb.web.app/bill/b1?c=abc123");
+  });
+
   it("is included in the shared message", () => {
     const msg = buildBillShareMessage({
       title: "Dinner", date: "10 Nov 2026", total: 100, payerName: "Asha",

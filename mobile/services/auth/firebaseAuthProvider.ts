@@ -72,6 +72,8 @@ export interface FirebaseAuthInstance {
   updateProfile(user: FirebaseAuthUser, profile: { displayName?: string | null }): Promise<void>;
   // Google
   signInWithGoogleIdToken(idToken: string): Promise<{ user: FirebaseAuthUser }>;
+  /** Fetch a fresh sign-in token (so the server sees e.g. email_verified). */
+  refreshToken(user: FirebaseAuthUser): Promise<void>;
 }
 
 function emailIdentity(user: FirebaseAuthUser): AuthIdentity {
@@ -171,7 +173,13 @@ export function createFirebaseAuthProvider(sdk: FirebaseAuthSdk): AuthProvider {
       if (!user) return null;
       await auth.reload(user);
       const fresh = auth.currentUser ?? user;
-      return fresh.emailVerified ? emailIdentity(fresh) : null;
+      if (!fresh.emailVerified) return null;
+      try {
+        await auth.refreshToken(fresh); // cloud rules need the verified flag in the token
+      } catch {
+        // Not fatal — the token refreshes by itself within the hour.
+      }
+      return emailIdentity(fresh);
     },
 
     async resendVerificationEmail(): Promise<void> {

@@ -44,6 +44,8 @@ export interface ContactGroup {
   createdAt: string;
   /** ISO 8601 — bumped on rename / member changes */
   updatedAt: string;
+  /** True once backed up to my account in the cloud. */
+  inCloud?: boolean;
 }
 
 export interface BillGroup {
@@ -86,6 +88,14 @@ export interface BillGroup {
 
   /** ISO 8601 — when the bill was closed (status "closed" only). */
   closedAt?: string;
+
+  // ── Cloud sync (set on bills that live in Firestore) ──────────────────────
+  /** Participant id → linked Billy account (Firebase uid). */
+  participantUids?: Record<string, string>;
+  /** Secret code in the share link that lets someone join this bill. */
+  inviteCode?: string;
+  /** True when this bill is stored in the cloud (not only on this phone). */
+  inCloud?: boolean;
 
   /** Original parsed bill snapshot */
   billSnapshot?: ParsedBill;

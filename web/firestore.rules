@@ -1,0 +1,112 @@
+rules_version = '2';
+
+// Billy — Firestore security rules. See docs/CLOUD_SYNC_PLAN.md.
+//
+//  users/{uid}                   profile — anyone signed in can GET one; owner writes
+//  users/{uid}/groups/{id}       saved groups — private to the owner
+//  emails/{email}                "add by email" lookup → { uid }; only your own verified email
+//  invites/{code}                join info for a shared link; GET only (the code is the secret)
+//  bills/{billId}                visible to memberUids; creator edits; others may only JOIN
+//  bills/{billId}/payments/{id}  members read; creator writes; payer or payee marks PAID
+//
+// Accounts are linked to a bill only by the creator (adding by email) or by the
+// person themself holding the invite code — never by matching a phone number.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+
+    // ── Profiles ────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update, delete: if signedIn() && me() == userId;
+
+      match /groups/{groupId} {
+        allow read, write: if signedIn() && me() == userId;
+      }
+    }
+
+    // ── Email lookup ("add by email") ───────────────────────────────────────
+    match /emails/{email} {
+      allow get: if signedIn();
+      allow list: if false;
+      // Only your own, verified email can point at you.
+      allow create, update: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == me()
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == email;
+      allow delete: if signedIn() && resource.data.uid == me();
+    }
+
+    // ── Invites (who can I join as?) ────────────────────────────────────────
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.createdBy == me();
+      allow update, delete: if signedIn() && resource.data.createdBy == me();
+    }
+
+    // ── Bills ───────────────────────────────────────────────────────────────
+    match /bills/{billId} {
+      function isCreator() { return resource.data.createdBy == me(); }
+
+      // Joining: add ONLY yourself, ONLY with the right invite code, and link
+      // yourself to exactly one participant that isn't linked yet.
+      function isJoin() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        let links = request.resource.data.participantUids.diff(resource.data.participantUids);
+        let pid = request.resource.data.joinPid;   // the participant they say they are
+        return changed.hasOnly(['memberUids', 'participantUids', 'joinCode', 'joinPid', 'updatedAt'])
+          && pid is string
+          && resource.data.inviteCode is string
+          && request.resource.data.joinCode == resource.data.inviteCode
+          && !(me() in resource.data.memberUids)
+          && request.resource.data.memberUids.hasAll(resource.data.memberUids)
+          && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
+          && me() in request.resource.data.memberUids
+          && links.removedKeys().size() == 0
+          && links.changedKeys().size() == 0
+          && links.addedKeys().hasOnly([pid])
+          && links.addedKeys().size() == 1
+          && request.resource.data.participantUids[pid] == me();
+      }
+
+      allow get, list: if signedIn() && me() in resource.data.memberUids;
+      allow create: if signedIn()
+        && request.resource.data.createdBy == me()
+        && me() in request.resource.data.memberUids;
+      allow update: if signedIn() && (
+        (isCreator() && request.resource.data.createdBy == resource.data.createdBy)
+        || isJoin()
+      );
+      allow delete: if signedIn() && isCreator();
+
+      // ── Payments ──────────────────────────────────────────────────────────
+      match /payments/{paymentId} {
+        function billBefore() { return get(/databases/$(database)/documents/bills/$(billId)).data; }
+        function billAfter() { return getAfter(/databases/$(database)/documents/bills/$(billId)).data; }
+
+        // Payer or payee marks a pending payment paid (only those fields).
+        function isMarkPaid() {
+          let changed = request.resource.data.diff(resource.data).affectedKeys();
+          let links = billAfter().participantUids;
+          return resource.data.status == 'pending'
+            && request.resource.data.status == 'paid'
+            && changed.hasOnly(['status', 'paidAt', 'paymentMethod', 'markedBy'])
+            && request.resource.data.markedBy == me()
+            && (links.get(resource.data.fromId, '') == me() || links.get(resource.data.toId, '') == me());
+        }
+
+        allow read: if signedIn() && me() in billBefore().memberUids;
+        allow create: if signedIn() && billAfter().createdBy == me();
+        allow update: if signedIn() && (billAfter().createdBy == me() || isMarkPaid());
+        allow delete: if signedIn() && billBefore().createdBy == me();
+      }
+    }
+  }
+}

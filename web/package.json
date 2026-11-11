@@ -1,0 +1,13 @@
+{
+  "name": "billy-firebase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:rules": "firebase emulators:exec --only firestore --project demo-billy \"node --test test/\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.10.0",
+    "firebase-tools": "^15.35.0"
+  }
+}

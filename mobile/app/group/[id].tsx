@@ -267,7 +267,7 @@ export default function GroupDetailsScreen() {
       payerUpiId,
       rows: group.settlements.map((t) => ({ name: nameOf(t.fromUserId), amount: t.amount, status: t.status })),
       closed: group.status === "closed",
-      link: billLink(group.id),
+      link: billLink(group.id, group.inCloud ? group.inviteCode : undefined),
     });
     try {
       await Share.share({ message });

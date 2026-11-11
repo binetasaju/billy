@@ -24,6 +24,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { authStore } from "../services/authStore";
 import { groupStore } from "../services/groupStore";
 import { contactGroupStore } from "../services/contactGroupStore";
+import { initCloudSync } from "../services/cloud/cloudSync";
 import { initFirebaseAuth } from "../services/auth/initFirebaseAuth";
 import { useAuth } from "../hooks/useAuth";
 import { AppAlertHost } from "@/components/ui/AppAlert";
@@ -73,8 +74,12 @@ export default function RootLayout() {
     authStore.restore();
     // Saved bills and groups load at start-up (not only when the tabs open),
     // so a shared bill link that opens a bill page directly can find it.
-    groupStore.restore();
-    contactGroupStore.restore();
+    // Then cloud sync starts (it follows sign-in / sign-out by itself).
+    let stopSync: (() => void) | undefined;
+    Promise.all([groupStore.restore(), contactGroupStore.restore()]).then(() => {
+      stopSync = initCloudSync();
+    });
+    return () => stopSync?.();
   }, []);
 
   return (

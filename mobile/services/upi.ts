@@ -102,8 +102,10 @@ export const BILL_LINK_HOST = "billy-ed9eb.web.app";
  * Links, verified by web/public/.well-known/assetlinks.json); otherwise the
  * web page offers an "Open in Billy" button.
  */
-export function billLink(billId: string): string {
-  return `https://${BILL_LINK_HOST}/bill/${encodeURIComponent(billId)}`;
+export function billLink(billId: string, inviteCode?: string): string {
+  const base = `https://${BILL_LINK_HOST}/bill/${encodeURIComponent(billId)}`;
+  // The invite code lets friends who aren't on the bill yet join it.
+  return inviteCode ? `${base}?c=${encodeURIComponent(inviteCode)}` : base;
 }
 
 export async function openUpiPayment(config: UpiPaymentConfig): Promise<void> {

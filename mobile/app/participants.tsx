@@ -30,6 +30,7 @@ import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
 import { contactGroupStore, membersToParticipants } from "../services/contactGroupStore";
 import ContactPickerModal, { ContactData } from "../components/ContactPickerModal";
+import AddBillyPersonModal, { type BillyPerson } from "../components/AddBillyPersonModal";
 import type { Person } from "../types/bill";
 import type { ContactGroup } from "../types/group";
 
@@ -60,6 +61,7 @@ export default function ParticipantsScreen() {
 
   // Modals
   const [isContactPickerVisible, setContactPickerVisible] = useState(false);
+  const [billyPickerVisible, setBillyPickerVisible] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState<Person | null>(null);
   const [editName, setEditName] = useState("");
 
@@ -171,6 +173,24 @@ export default function ParticipantsScreen() {
       return next;
     });
   }, []);
+
+  // A Billy account added by email / from "On Billy" — linked to the bill.
+  const handleAddBillyPerson = useCallback((person: BillyPerson) => {
+    if (participants.some((p) => p.id === person.id || (person.authUid && p.authUid === person.authUid))) {
+      setBillyPickerVisible(false);
+      return;
+    }
+    const newPerson: Person = {
+      ...person,
+      color: COLORS[participants.length % COLORS.length],
+      itemIds: [],
+    };
+    billStore.addParticipant(newPerson);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setParticipants((prev) => [...prev, newPerson]);
+    setSharingIds((prev) => new Set(prev).add(newPerson.id));
+    setBillyPickerVisible(false);
+  }, [participants]);
 
   const handleAddContacts = useCallback((newContacts: ContactData[]) => {
     const updatedParticipants = [...participants];
@@ -346,7 +366,17 @@ export default function ParticipantsScreen() {
             />
           ))}
 
-          {/* Add contacts button */}
+          {/* Accounts first: Billy users are linked to the bill at once */}
+          <Pressable
+            style={[styles.addBtn, styles.addBillyBtn]}
+            onPress={() => setBillyPickerVisible(true)}
+            accessibilityRole="button"
+          >
+            <Ionicons name="person-add" size={18} color={C.white} />
+            <Text style={[styles.addBtnText, styles.addBillyText]}>Add a Billy User</Text>
+          </Pressable>
+
+          {/* Add contacts button — they join later with the share link */}
           <Pressable
             style={styles.addBtn}
             onPress={() => setContactPickerVisible(true)}
@@ -415,6 +445,13 @@ export default function ParticipantsScreen() {
       </View>
 
       {/* ── Contact Picker Modal ─────────────────────────────────── */}
+      <AddBillyPersonModal
+        visible={billyPickerVisible}
+        existingIds={new Set(participants.flatMap((p) => (p.authUid ? [p.id, p.authUid] : [p.id])))}
+        onAdd={handleAddBillyPerson}
+        onClose={() => setBillyPickerVisible(false)}
+      />
+
       <ContactPickerModal
         visible={isContactPickerVisible}
         onClose={() => setContactPickerVisible(false)}
@@ -542,6 +579,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: C.ink,
   },
+  addBillyBtn: { backgroundColor: C.primary, borderColor: C.primary },
+  addBillyText: { color: C.white },
 
   // Summary card
   summaryCard: {

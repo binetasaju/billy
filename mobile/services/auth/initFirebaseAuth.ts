@@ -34,6 +34,7 @@ export interface FirebaseAuthModule {
   reload: (user: any) => Promise<void>;
   updateProfile: (user: any, profile: { displayName?: string | null }) => Promise<void>;
   signInWithCredential: (auth: any, credential: any) => Promise<any>;
+  getIdToken: (user: any, forceRefresh?: boolean) => Promise<string>;
   GoogleAuthProvider: { credential: (idToken: string | null, accessToken?: string) => any };
 }
 
@@ -59,6 +60,9 @@ export function toFirebaseAuthSdk(mod: FirebaseAuthModule): FirebaseAuthSdk {
         mod.updateProfile(user, profile),
       signInWithGoogleIdToken: (idToken: string) =>
         mod.signInWithCredential(auth, mod.GoogleAuthProvider.credential(idToken)),
+      refreshToken: async (user: any) => {
+        await mod.getIdToken(user, true);
+      },
     };
   };
 }

@@ -123,8 +123,8 @@ export default function LoginScreen() {
     const e: Errors = {};
     if (mode === "signup") {
       if (!name.trim()) e.name = "Please enter your name.";
-      if (!phone.trim()) e.phone = "Please enter your phone number.";
-      else if (!isValidPhoneNumber(phone)) e.phone = "Enter a valid 10-digit mobile number.";
+      // Phone is optional (accounts come first); check it only if given.
+      if (phone.trim() && !isValidPhoneNumber(phone)) e.phone = "Enter a valid 10-digit mobile number, or leave it empty.";
     }
     if (!EMAIL_RE.test(email.trim())) e.email = "Enter a valid email address.";
     if (password.length < 6) e.password = "Password must be at least 6 characters.";
@@ -334,7 +334,7 @@ export default function LoginScreen() {
                   field("phone", "call-outline",
                     <TextInput
                       style={s.input}
-                      placeholder="Phone number"
+                      placeholder="Phone number (optional)"
                       placeholderTextColor={C.borderStrong}
                       value={phone}
                       onChangeText={(t) => { setPhone(t); clearError("phone"); }}
