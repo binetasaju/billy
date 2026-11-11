@@ -1,6 +1,6 @@
 # Billy — Next Steps
 
-_Last updated: 10 Nov 2026. Checked against the code on branch `feat/local-mvp-next`._
+_Last updated: 11 Nov 2026. Checked against the code on `main`._
 
 **Goal right now:** finish the **local, single-phone MVP** before adding Firebase.
 
@@ -28,9 +28,9 @@ Almost every piece of that journey is now built. What's left is **proving it wor
 | History | 🟢 Done | Settled bills → full bill detail |
 | Auth | 🟡 Local only | Firebase phone OTP not switched on |
 | Firebase / Firestore / sync / push | 🔴 Not started | |
-| Tests | 🟢 149 Jest tests | `cd mobile && npm test` |
+| Tests | 🟢 171 Jest tests | `cd mobile && npm test` |
 
-**Not yet tested on the phone:** everything on `feat/local-mvp-next` (see step 1 below).
+**Not yet tested on the phone:** the local-MVP features now on `main` (see step 1 below).
 
 ---
 
@@ -57,8 +57,8 @@ Run `npx expo start --dev-client` (from `mobile/`) with the phone connected, the
 
 For any receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill] Response` lines from the Metro terminal.
 
-### Step 2 — Merge to `main` and push
-See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local-mvp-next`.
+### Step 2 — Merge to `main` and push ✅ Done
+All local-MVP work is merged into `main` (PR #1).
 
 ### Step 3 — Automatic UPI payment confirmation (Android)
 - Billy **cannot move money itself** without becoming an NPCI-approved UPI app (a licensing process, not code).
@@ -131,7 +131,7 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 
 ## 6. Done so far
 
-**Branch `chore/fixes-tests-cleanup`**
+**Fixes, tests & cleanup**
 - Fixed TypeScript + ESLint errors; Jest test setup
 - Phone numbers like `098765…` / `91…` match the same contact
 - Status bar / navigation bar overlap fixed on every screen
@@ -140,7 +140,7 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 - Crop now matches exactly what you select (incl. after rotating)
 - `CONNECT_PHONE.md`, `GITHUB_STEPS.md`, this file
 
-**Branch `feat/local-mvp-next`**
+**Local MVP features**
 - Bigger GST toggle · real 10-digit login check · 2+ sharers · edit/remove participant
 - 1 Gemini call per scan · AI auto-crop button · no retries on quota errors · offline note
 - Manual bill entry · add/remove taxes, charges, discounts
@@ -153,7 +153,5 @@ See `GITHUB_STEPS.md`. Merge `chore/fixes-tests-cleanup` first, then `feat/local
 
 ## 7. Housekeeping
 
-- Delete the empty nested repo: `rm -rf mobile/.git`
-- `app/split.tsx` isn't used by any screen — delete or reuse
 - ~64 `console.log` calls to clean up before release
-- 13 lint warnings left (mostly "missing `router` dependency" — left on purpose)
+- 12 lint warnings left (mostly "missing `router` dependency" — left on purpose)

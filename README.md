@@ -1,11 +1,12 @@
-# Billy — AI-Powered Bill Splitting App
+<div align="center">
+
+# Billy — AI-Powered Item-Wise Expense Splitting
+
 ### Every Bill Matters. Split bills, not friendships.
 
-**Snap a receipt. Split by item. Settle over UPI.**
+**Scan a bill. Split by item. Pay your share.**
 
-Billy is a mobile-first expense-splitting application designed to make sharing restaurant bills fairer and easier. It combines AI-assisted receipt processing, flexible expense allocation, group balance tracking, and UPI payment handoffs in one application.
-
-[Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Limitations](#-current-limitations)
+[Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Roadmap](#-future-roadmap)
 
 <br />
 
@@ -17,6 +18,10 @@ Billy is a mobile-first expense-splitting application designed to make sharing r
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-3DDC84?style=flat-square&logo=android&logoColor=white)
 
 </div>
+
+Billy is an AI-powered expense-splitting mobile application designed to make shared purchases fair, transparent, and easy to settle. From restaurant bills and grocery shopping to household essentials and group purchases, Billy helps people pay for what they actually bought or consumed instead of dividing every expense equally.
+
+By combining AI-assisted receipt processing, flexible item-wise allocation, automatic expense calculations, group balance tracking, and UPI payment links, Billy aims to make splitting expenses simpler for everyone.
 
 ---
 
@@ -37,20 +42,6 @@ Billy is a mobile-first expense-splitting application designed to make sharing r
 - [Future Roadmap](#-future-roadmap)
 - [Project Structure](#-project-structure)
 - [Project Information](#-project-information)
-
-# Billy — AI-Powered Item-Wise Expense Splitting
-
-### Every Bill Matters. Split bills, not friendships.
-
-**Scan a bill. Split by item. Pay your share.**
-
-Billy is an AI-powered expense-splitting mobile application designed to make shared purchases fair, transparent, and easy to settle. From restaurant bills and grocery shopping to household essentials and group purchases, Billy helps people pay for what they actually bought or consumed instead of dividing every expense equally.
-
-By combining AI-assisted receipt processing, flexible item-wise allocation, automatic expense calculations, group balance tracking, and UPI payment links, Billy aims to make splitting expenses simpler for everyone.
-
-[Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Roadmap](#-future-roadmap)
-
-</div>
 
 ---
 
