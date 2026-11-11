@@ -22,6 +22,9 @@ export interface User {
    */
   phoneNumber: string;
 
+  /** Verified email address (email sign-in). */
+  email?: string;
+
   /** UPI ID for future payment integrations. */
   upiId?: string;
 

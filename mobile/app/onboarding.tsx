@@ -28,16 +28,29 @@ import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../services/authStore";
 import { useAuth } from "../hooks/useAuth";
 import { C } from "@/constants/colors";
+import { isValidPhoneNumber, normalizePhoneNumber } from "../utils/normalizePhoneNumber";
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [upiId, setUpiId] = useState("");
   const [loading, setLoading] = useState(false);
+  // Google sign-in doesn't give a phone number, but Billy matches people by
+  // phone — so ask for it once (required; only the UPI ID can be skipped).
+  const needsPhone = !user?.phoneNumber;
+  const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const handleFinish = async (skipUpi = false) => {
+    if (needsPhone && !isValidPhoneNumber(phone)) {
+      setPhoneError(phone.trim() ? "Enter a valid 10-digit mobile number." : "Please enter your phone number.");
+      return;
+    }
     setLoading(true);
     try {
+      if (needsPhone) {
+        await authStore.updateUser({ phoneNumber: normalizePhoneNumber(phone) ?? phone.trim() });
+      }
       if (!skipUpi && upiId.trim()) {
         await authStore.updateUser({ upiId: upiId.trim() });
       }
@@ -73,12 +86,32 @@ export default function OnboardingScreen() {
               {user?.name ? `Hey, ${user.name.split(" ")[0]}! 👋` : "One more thing"}
             </Text>
             <Text style={s.subtitle}>
-              Add your UPI ID so friends can pay you directly. You can always add it later.
+              {needsPhone
+                ? "Add your phone number so friends can find you, and your UPI ID so they can pay you."
+                : "Add your UPI ID so friends can pay you directly. You can always add it later."}
             </Text>
           </View>
 
           {/* ── UPI field ── */}
           <View style={s.card}>
+            {needsPhone && (
+              <View style={s.phoneGroup}>
+                <Text style={s.label}>Phone number</Text>
+                <View style={[s.inputWrap, phoneError && s.inputError]}>
+                  <Ionicons name="call-outline" size={18} color={C.textSubtle} style={s.inputIcon} />
+                  <TextInput
+                    style={s.input}
+                    placeholder="98765 43210"
+                    placeholderTextColor={C.borderStrong}
+                    value={phone}
+                    onChangeText={(t) => { setPhone(t); setPhoneError(null); }}
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                  />
+                </View>
+                {phoneError && <Text style={s.phoneError}>{phoneError}</Text>}
+              </View>
+            )}
             <Text style={s.label}>UPI ID</Text>
             <Text style={s.labelHint}>Optional · e.g. arjun@upi or 9876543210@paytm</Text>
             <View style={s.inputWrap}>
@@ -114,7 +147,7 @@ export default function OnboardingScreen() {
               onPress={() => handleFinish(true)}
               disabled={loading}
             >
-              <Text style={s.skipText}>Skip for now</Text>
+              <Text style={s.skipText}>{needsPhone ? "Skip UPI for now" : "Skip for now"}</Text>
             </Pressable>
           </View>
 
@@ -132,6 +165,9 @@ export default function OnboardingScreen() {
 }
 
 const s = StyleSheet.create({
+  phoneGroup: { marginBottom: 16 },
+  inputError: { borderColor: C.danger, backgroundColor: C.dangerSoft },
+  phoneError: { fontSize: 11, color: C.danger, marginTop: 5 },
   safe: { flex: 1, backgroundColor: C.bg },
   scroll: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 40 },
 
@@ -146,8 +182,8 @@ const s = StyleSheet.create({
     backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center",
     marginBottom: 18,
   },
-  title: { fontSize: 24, fontWeight: "700", color: C.ink, textAlign: "center", letterSpacing: -0.4 },
-  subtitle: { fontSize: 14, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 20, maxWidth: 300 },
+  title: { fontSize: 19, fontWeight: "700", color: C.ink, textAlign: "center", letterSpacing: -0.4 },
+  subtitle: { fontSize: 12, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 17, maxWidth: 300 },
 
   card: {
     backgroundColor: C.glass, borderWidth: 1, borderColor: C.glassBorder, borderRadius: 20,
@@ -155,8 +191,8 @@ const s = StyleSheet.create({
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 12, elevation: 0,
   },
-  label: { fontSize: 14, fontWeight: "600", color: C.text, marginBottom: 3 },
-  labelHint: { fontSize: 12, color: C.textSubtle, marginBottom: 12 },
+  label: { fontSize: 12, fontWeight: "600", color: C.text, marginBottom: 3 },
+  labelHint: { fontSize: 11, color: C.textSubtle, marginBottom: 12 },
   inputWrap: {
     flexDirection: "row", alignItems: "center",
     borderWidth: 1.5, borderColor: C.border,
@@ -164,20 +200,20 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, height: 52, marginBottom: 20,
   },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 16, color: C.ink },
+  input: { flex: 1, fontSize: 14, color: C.ink },
 
   btn: {
     backgroundColor: C.primary, paddingVertical: 16,
     borderRadius: 14, alignItems: "center", marginBottom: 12,
   },
   btnDisabled: { backgroundColor: C.textSubtle },
-  btnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  btnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   skipBtn: { alignItems: "center", paddingVertical: 8 },
-  skipText: { fontSize: 15, color: C.textMuted, fontWeight: "500" },
+  skipText: { fontSize: 13, color: C.textMuted, fontWeight: "500" },
 
   infoBox: {
     flexDirection: "row", alignItems: "flex-start", gap: 8,
     backgroundColor: C.surfaceAlt, borderRadius: 10, padding: 14,
   },
-  infoText: { flex: 1, fontSize: 12, color: C.textMuted, lineHeight: 17 },
+  infoText: { flex: 1, fontSize: 11, color: C.textMuted, lineHeight: 14 },
 });

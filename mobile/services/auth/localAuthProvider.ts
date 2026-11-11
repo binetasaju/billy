@@ -15,6 +15,8 @@ import type {
   AuthIdentity,
   PhoneSignInRequest,
   SignInResult,
+  EmailSignUpRequest,
+  EmailSignInResult,
 } from "./authProvider";
 
 /** Same shape the login screen has always produced: "user_<random>". */
@@ -42,6 +44,43 @@ export const localAuthProvider: AuthProvider = {
         name: request.name,
       },
     };
+  },
+
+  // Local (offline dev) sign-in has no server: email accounts open immediately
+  // with no password check and no verification email.
+  async signUpWithEmail(request: EmailSignUpRequest): Promise<EmailSignInResult> {
+    return {
+      status: "signed-in",
+      identity: {
+        providerUid: generateLocalUid(),
+        phoneNumber: request.phoneNumber,
+        email: request.email,
+        name: request.name,
+      },
+    };
+  },
+
+  async signInWithEmail(email: string): Promise<EmailSignInResult> {
+    return {
+      status: "signed-in",
+      identity: { providerUid: generateLocalUid(), phoneNumber: "", email },
+    };
+  },
+
+  async checkEmailVerified(): Promise<AuthIdentity | null> {
+    return null;
+  },
+
+  async resendVerificationEmail(): Promise<void> {},
+
+  async sendPasswordReset(): Promise<void> {},
+
+  async currentProfile() {
+    return null;
+  },
+
+  async signInWithGoogleIdToken(): Promise<AuthIdentity> {
+    throw new Error("Google sign-in isn't available in this build.");
   },
 
   async confirmCode(): Promise<AuthIdentity> {

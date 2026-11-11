@@ -27,6 +27,14 @@ export interface FirebaseAuthModule {
   getAuth: (app?: any) => any;
   signInWithPhoneNumber: (auth: any, phoneNumber: string) => Promise<any>;
   signOut: (auth: any) => Promise<void>;
+  createUserWithEmailAndPassword: (auth: any, email: string, password: string) => Promise<any>;
+  signInWithEmailAndPassword: (auth: any, email: string, password: string) => Promise<any>;
+  sendEmailVerification: (user: any) => Promise<void>;
+  sendPasswordResetEmail: (auth: any, email: string) => Promise<void>;
+  reload: (user: any) => Promise<void>;
+  updateProfile: (user: any, profile: { displayName?: string | null }) => Promise<void>;
+  signInWithCredential: (auth: any, credential: any) => Promise<any>;
+  GoogleAuthProvider: { credential: (idToken: string | null, accessToken?: string) => any };
 }
 
 /** Wrap the modular functions into the instance-shaped SDK the provider takes. */
@@ -40,6 +48,17 @@ export function toFirebaseAuthSdk(mod: FirebaseAuthModule): FirebaseAuthSdk {
       signInWithPhoneNumber: (phoneNumber: string) =>
         mod.signInWithPhoneNumber(auth, phoneNumber),
       signOut: () => mod.signOut(auth),
+      createUserWithEmailAndPassword: (email: string, password: string) =>
+        mod.createUserWithEmailAndPassword(auth, email, password),
+      signInWithEmailAndPassword: (email: string, password: string) =>
+        mod.signInWithEmailAndPassword(auth, email, password),
+      sendEmailVerification: (user: any) => mod.sendEmailVerification(user),
+      sendPasswordResetEmail: (email: string) => mod.sendPasswordResetEmail(auth, email),
+      reload: (user: any) => mod.reload(user),
+      updateProfile: (user: any, profile: { displayName?: string | null }) =>
+        mod.updateProfile(user, profile),
+      signInWithGoogleIdToken: (idToken: string) =>
+        mod.signInWithCredential(auth, mod.GoogleAuthProvider.credential(idToken)),
     };
   };
 }
@@ -61,7 +80,11 @@ export function initFirebaseAuth(moduleOverride?: FirebaseAuthModule): boolean {
 
     if (
       typeof mod?.getAuth !== "function" ||
-      typeof mod?.signInWithPhoneNumber !== "function"
+      typeof mod?.signInWithPhoneNumber !== "function" ||
+      typeof mod?.createUserWithEmailAndPassword !== "function" ||
+      typeof mod?.signInWithEmailAndPassword !== "function" ||
+      typeof mod?.sendEmailVerification !== "function" ||
+      typeof mod?.reload !== "function"
     ) {
       console.warn("[auth] Firebase auth module is missing expected exports.");
       return false;

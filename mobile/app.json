@@ -55,7 +55,29 @@
         }
       ],
       "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Billy to open your photos so you can pick a picture of a bill.",
+          "cameraPermission": "Allow Billy to use the camera so you can take a photo of a bill."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Billy to use the camera so you can take a photo of a bill."
+        }
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

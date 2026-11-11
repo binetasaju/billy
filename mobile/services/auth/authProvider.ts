@@ -21,8 +21,12 @@ export interface AuthIdentity {
    * see authStore's migration rules, which never rewrite an existing uid.
    */
   providerUid: string;
-  /** E.164 phone number that was verified / supplied. */
+  /** E.164 phone number that was verified / supplied ("" when unknown, e.g. email sign-in). */
   phoneNumber: string;
+  /** Verified email address (email sign-in). */
+  email?: string;
+  /** Profile photo URL (e.g. the Google account picture). */
+  photoUrl?: string;
   /** Display name, when the provider knows one. */
   name?: string;
 }
@@ -52,6 +56,23 @@ export interface PhoneSignInRequest {
   name?: string;
 }
 
+/** Create an account with email + password. Name/phone are profile details. */
+export interface EmailSignUpRequest {
+  email: string;
+  password: string;
+  name: string;
+  /** E.164; not verified — used for contact matching. */
+  phoneNumber: string;
+}
+
+/** The account exists but its email address has not been verified yet. */
+export interface EmailVerificationRequiredResult {
+  status: "email-verification-required";
+  email: string;
+}
+
+export type EmailSignInResult = SignedInResult | EmailVerificationRequiredResult;
+
 export interface AuthProvider {
   readonly id: AuthProviderId;
 
@@ -70,6 +91,36 @@ export interface AuthProvider {
 
   /** Complete an SMS-code sign-in. Throws when the code is wrong/expired. */
   confirmCode(verificationId: string, code: string, name?: string): Promise<AuthIdentity>;
+
+  // ── Email + password (free on Firebase's Spark plan) ──────────────────────
+
+  /** Create an account and send the verification email. */
+  signUpWithEmail(request: EmailSignUpRequest): Promise<EmailSignInResult>;
+
+  /** Sign in. Returns "email-verification-required" until the link is clicked. */
+  signInWithEmail(email: string, password: string): Promise<EmailSignInResult>;
+
+  /**
+   * Re-check the signed-in (but unverified) account. Returns the identity once
+   * the email has been verified, otherwise null.
+   */
+  checkEmailVerified(): Promise<AuthIdentity | null>;
+
+  /** Send the verification email again to the signed-in account. */
+  resendVerificationEmail(): Promise<void>;
+
+  /** Email a password-reset link. */
+  sendPasswordReset(email: string): Promise<void>;
+
+  /**
+   * Profile details of the account already signed in with the provider (e.g.
+   * restored by Firebase at app start), or null. Used to fill in a missing
+   * profile photo without signing in again.
+   */
+  currentProfile(): Promise<{ photoUrl?: string; email?: string } | null>;
+
+  /** Sign in with a Google ID token (from the native Google account picker). */
+  signInWithGoogleIdToken(idToken: string): Promise<AuthIdentity>;
 
   /** Provider-side sign-out. Clearing Billy's own session is authStore's job. */
   signOut(): Promise<void>;

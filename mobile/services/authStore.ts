@@ -32,8 +32,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "../types/user";
 import { getAuthProvider } from "./auth";
-import type { AuthIdentity, SignInResult } from "./auth";
+import type { AuthIdentity, SignInResult, EmailSignInResult } from "./auth";
 import { normalizePhoneNumber } from "../utils/normalizePhoneNumber";
+import { getGoogleIdToken, googleSignOut } from "./auth/googleSignIn";
 
 const STORAGE_KEY = "@billy_auth_user";
 
@@ -43,6 +44,33 @@ const STORAGE_KEY = "@billy_auth_user";
  * in rejoins the same Billy identity and every bill that references it.
  */
 const IDENTITY_KEY = "@billy_auth_identity";
+
+/**
+ * Name + phone typed at email sign-up, kept until the email is verified and the
+ * session opens (the app may be closed while the person checks their inbox).
+ */
+const PENDING_PROFILE_KEY = "@billy_pending_email_profile";
+
+interface PendingProfile {
+  email: string;
+  name: string;
+  phoneNumber: string;
+}
+
+const normalizeEmail = (email: string | undefined | null) =>
+  (email ?? "").trim().toLowerCase() || null;
+
+async function _readPendingProfile(email: string | undefined): Promise<PendingProfile | null> {
+  const key = normalizeEmail(email);
+  if (!key) return null;
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_PROFILE_KEY);
+    const p: PendingProfile | null = raw ? JSON.parse(raw) : null;
+    return p && normalizeEmail(p.email) === key ? p : null;
+  } catch {
+    return null;
+  }
+}
 
 /** How many past accounts this device remembers. Shared devices are rare. */
 const MAX_REMEMBERED_IDENTITIES = 5;
@@ -54,8 +82,10 @@ const MAX_REMEMBERED_IDENTITIES = 5;
 interface CanonicalIdentity {
   /** Billy's canonical uid. This is the value that must never be rewritten. */
   uid: string;
-  /** Normalized E.164 number, used as the match key. */
+  /** Normalized E.164 number, used as a match key ("" for email-only accounts). */
   phoneNumber: string;
+  /** Lower-cased email, used as a match key for email sign-in. */
+  email?: string;
   name?: string;
   createdAt?: string;
   firebaseUid?: string;
@@ -97,7 +127,7 @@ async function _readIdentities(): Promise<CanonicalIdentity[]> {
     const raw = await AsyncStorage.getItem(IDENTITY_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
     return Array.isArray(parsed)
-      ? parsed.filter((r): r is CanonicalIdentity => !!r?.uid && !!r?.phoneNumber)
+      ? parsed.filter((r): r is CanonicalIdentity => !!r?.uid && (!!r?.phoneNumber || !!r?.email))
       : [];
   } catch {
     return [];
@@ -113,19 +143,23 @@ async function _readIdentities(): Promise<CanonicalIdentity[]> {
  */
 async function _rememberIdentity(user: User): Promise<void> {
   const phoneNumber = normalizePhoneNumber(user.phoneNumber);
-  if (!phoneNumber || !user.uid) return;
+  const email = normalizeEmail(user.email);
+  if ((!phoneNumber && !email) || !user.uid) return;
 
   try {
     const existing = await _readIdentities();
-    const prior = existing.find((r) => r.phoneNumber === phoneNumber);
+    const prior =
+      (email ? existing.find((r) => r.email === email) : undefined) ??
+      (phoneNumber ? existing.find((r) => r.phoneNumber === phoneNumber) : undefined);
     const record: CanonicalIdentity = {
       uid: prior?.uid ?? user.uid,
-      phoneNumber,
+      phoneNumber: phoneNumber ?? prior?.phoneNumber ?? "",
+      email: email ?? prior?.email,
       name: user.name || prior?.name,
       createdAt: prior?.createdAt ?? user.createdAt,
       firebaseUid: user.firebaseUid ?? prior?.firebaseUid,
     };
-    const next = [record, ...existing.filter((r) => r.phoneNumber !== phoneNumber)].slice(
+    const next = [record, ...existing.filter((r) => r !== prior)].slice(
       0,
       MAX_REMEMBERED_IDENTITIES
     );
@@ -135,12 +169,17 @@ async function _rememberIdentity(user: User): Promise<void> {
   }
 }
 
-/** The canonical identity this device already holds for a number, if any. */
-async function _recallIdentity(phoneNumber: string): Promise<CanonicalIdentity | null> {
-  const normalized = normalizePhoneNumber(phoneNumber);
-  if (!normalized) return null;
+/** The canonical identity this device already holds for an email or number, if any. */
+async function _recallIdentity(identity: AuthIdentity): Promise<CanonicalIdentity | null> {
+  const email = normalizeEmail(identity.email);
+  const phone = normalizePhoneNumber(identity.phoneNumber);
+  if (!email && !phone) return null;
   const existing = await _readIdentities();
-  return existing.find((r) => r.phoneNumber === normalized) ?? null;
+  return (
+    (email ? existing.find((r) => r.email === email) : undefined) ??
+    (phone ? existing.find((r) => r.phoneNumber === phone) : undefined) ??
+    null
+  );
 }
 
 export const authStore = {
@@ -184,6 +223,7 @@ export const authStore = {
     // rewritten here, and a failure is non-fatal to app start.
     if (_state.user) {
       void _rememberIdentity(_state.user);
+      void _fillMissingPhoto();
     }
   },
 
@@ -258,6 +298,84 @@ export const authStore = {
     return _openSession(identity, name);
   },
 
+  // ── Email sign-in ────────────────────────────────────────────────────────
+
+  /**
+   * Create an account with email + password. Firebase then sends a
+   * verification email; the session opens only once it has been verified
+   * (confirmEmailVerified). Name + phone are kept until then.
+   */
+  async signUpWithEmail(
+    name: string,
+    phoneNumber: string,
+    email: string,
+    password: string
+  ): Promise<EmailSignInResult> {
+    const normalizedPhone = normalizePhoneNumber(phoneNumber) ?? phoneNumber;
+    const cleanEmail = email.trim();
+    try {
+      await AsyncStorage.setItem(
+        PENDING_PROFILE_KEY,
+        JSON.stringify({ email: cleanEmail, name: name.trim(), phoneNumber: normalizedPhone })
+      );
+    } catch (e) {
+      console.warn("[authStore] Failed to keep sign-up details:", e);
+    }
+    const result = await getAuthProvider().signUpWithEmail({
+      email: cleanEmail,
+      password,
+      name: name.trim(),
+      phoneNumber: normalizedPhone,
+    });
+    if (result.status === "signed-in") await _openEmailSession(result.identity);
+    return result;
+  },
+
+  /** Sign in with email + password. Opens the session if the email is verified. */
+  async signInWithEmail(email: string, password: string): Promise<EmailSignInResult> {
+    const result = await getAuthProvider().signInWithEmail(email.trim(), password);
+    if (result.status === "signed-in") await _openEmailSession(result.identity);
+    return result;
+  },
+
+  /**
+   * After the person taps the link in the verification email: re-check, and
+   * open the session if verified. Returns null while still unverified.
+   */
+  async confirmEmailVerified(): Promise<User | null> {
+    const identity = await getAuthProvider().checkEmailVerified();
+    if (!identity) return null;
+    return _openEmailSession(identity);
+  },
+
+  async resendVerificationEmail(): Promise<void> {
+    await getAuthProvider().resendVerificationEmail();
+  },
+
+  async sendPasswordReset(email: string): Promise<void> {
+    await getAuthProvider().sendPasswordReset(email.trim());
+  },
+
+  /**
+   * "Continue with Google". Returns null when the person closes the account
+   * picker. An email this phone already knows rejoins its Billy account.
+   */
+  async signInWithGoogle(): Promise<User | null> {
+    const idToken = await getGoogleIdToken();
+    if (!idToken) return null;
+    const identity = await getAuthProvider().signInWithGoogleIdToken(idToken);
+    return _openEmailSession(identity);
+  },
+
+  /** Leave the "check your email" step without opening a session. */
+  async cancelEmailSignIn(): Promise<void> {
+    try {
+      await getAuthProvider().signOut();
+    } catch (e) {
+      console.warn("[authStore] Provider sign-out failed:", e);
+    }
+  },
+
   /**
    * Attach a verified Firebase identity to the CURRENT session.
    *
@@ -296,6 +414,7 @@ export const authStore = {
     } catch (e) {
       console.warn("[authStore] Provider sign-out failed:", e);
     }
+    await googleSignOut();
     _state = { user: null, isLoading: false };
     _notify();
     try {
@@ -328,8 +447,8 @@ async function _openSession(identity: AuthIdentity, fallbackName: string): Promi
   const linked = await authStore.linkFirebaseIdentity(identity);
   if (linked) return linked;
 
-  // 2 — known number on this device: rejoin its canonical uid.
-  const prior = await _recallIdentity(identity.phoneNumber);
+  // 2 — known email / number on this device: rejoin its canonical uid.
+  const prior = await _recallIdentity(identity);
   if (prior) {
     const user = _reattach(prior, identity, fallbackName);
     await authStore.login(user);
@@ -357,6 +476,8 @@ function _reattach(
     name: (identity.name ?? fallbackName ?? "").trim() || prior.name || "",
     phoneNumber:
       normalizePhoneNumber(identity.phoneNumber) ?? prior.phoneNumber,
+    ...((identity.email ?? prior.email) ? { email: identity.email ?? prior.email } : {}),
+    ...(identity.photoUrl ? { photoUrl: identity.photoUrl } : {}),
     createdAt: prior.createdAt ?? new Date().toISOString(),
     authProvider: providerId,
     ...(providerId === "firebase" ? { firebaseUid: identity.providerUid } : {}),
@@ -374,8 +495,54 @@ function _userFromIdentity(identity: AuthIdentity, fallbackName: string): User {
     uid: identity.providerUid,
     name: (identity.name ?? fallbackName).trim(),
     phoneNumber: identity.phoneNumber,
+    ...(identity.email ? { email: identity.email } : {}),
+    ...(identity.photoUrl ? { photoUrl: identity.photoUrl } : {}),
     createdAt: new Date().toISOString(),
     authProvider: providerId,
     ...(providerId === "firebase" ? { firebaseUid: identity.providerUid } : {}),
   };
+}
+
+/**
+ * Open a session from a verified EMAIL identity: fill in the name + phone
+ * typed at sign-up (stored until verification), then the normal rules apply —
+ * an account this device already knows keeps its uid and its bills.
+ */
+async function _openEmailSession(identity: AuthIdentity): Promise<User> {
+  const pending = await _readPendingProfile(identity.email);
+  const full: AuthIdentity = {
+    ...identity,
+    name: pending?.name || identity.name,
+    phoneNumber: identity.phoneNumber || pending?.phoneNumber || "",
+  };
+  const user = await _openSession(full, full.name ?? "");
+  if (pending) {
+    try {
+      await AsyncStorage.removeItem(PENDING_PROFILE_KEY);
+    } catch {
+      // Harmless: it only matches this email and is overwritten on next sign-up.
+    }
+  }
+  return user;
+}
+
+/**
+ * Sessions saved before Billy kept profile photos (or whose Google account was
+ * linked later) have no photoUrl. Fill it in from the provider's restored
+ * account — only for the same account, and never overwriting a photo.
+ */
+async function _fillMissingPhoto(): Promise<void> {
+  const user = _state.user;
+  if (!user || user.photoUrl || user.authProvider !== "firebase") return;
+  try {
+    const profile = await getAuthProvider().currentProfile();
+    if (!profile?.photoUrl) return;
+    const sameAccount =
+      !profile.email || !user.email || profile.email.toLowerCase() === user.email.toLowerCase();
+    if (sameAccount && _state.user?.uid === user.uid) {
+      await authStore.updateUser({ photoUrl: profile.photoUrl });
+    }
+  } catch {
+    // Not critical — the initial letter is shown instead.
+  }
 }
