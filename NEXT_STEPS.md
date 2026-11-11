@@ -1,10 +1,10 @@
 # Billy — Next Steps
 
-_Last updated: 11 Nov 2026 (night). Checked against the code on branch `feat/login-profile-ui`._
+_Last updated: 11 Nov 2026 (night). Checked against the code on `main`._
 
 **Where we are:** the single-phone app is feature-complete and now has **real sign-in** (email + Google, Firebase free plan) and **shareable bill links**. The big missing piece is **cloud sync** — today every bill lives only on the phone that created it, so friends can't see it, payments don't update on other phones, and shared links only open on your own phone.
 
-**Goal now:** save + test the current work, then build **cloud sync (Firestore)**.
+**Goal now:** build **cloud sync (Firestore)** — everything before it is saved, tested and on `main`.
 
 ---
 
@@ -40,31 +40,31 @@ _Last updated: 11 Nov 2026 (night). Checked against the code on branch `feat/log
 ### Step 1 — Save today's work ✅ Done
 Everything from 11 Nov is committed and pushed on branch `feat/login-profile-ui` (README, PROJECT and this file updated too).
 
-### Step 2 — Test on the phone ⬅ **do this first**
+### Step 2 — Test on the phone ✅ Done (11 Nov 2026 — all 15 checks passed)
 Run `npx expo start --dev-client` (from `mobile/`) with the phone connected, then:
 
-- [ ] **Sign up with email** → verification email → tap the link → Billy continues by itself
-- [ ] **Log out → sign in** with email (email pre-filled) · **Forgot password** email arrives
-- [ ] **Continue with Google** → account picker says "Continue to Billy" → new account asks for phone once
-- [ ] Google **profile photo** on Home (top right) and Profile
-- [ ] Profile: edit name / phone / UPI (bad values rejected) · Change password · **Report a problem** opens email
-- [ ] Home card: **You'll get / You'll give** match the Pay tab totals exactly
-- [ ] Split a bill → sheet order Take Photo, Gallery, Enter Manually, Cancel
-- [ ] Extract Bill: big receipt preview, button at the bottom → "✓ Extracted successfully"
-- [ ] Review: ✕ removes a tax; a 0% CGST/SGST line is not added; **+ Add Item Manually** is clearly visible
-- [ ] Item-wise: assign → **Done** → Bill details → **Create Bill** (name it)
-- [ ] Bill page: People list (no "…"), 🧾 shows items, **Received** / **Pay** / **Mark paid** ask once
-- [ ] **Share bill** → WhatsApp → tap the link → opens this bill in Billy
-- [ ] After a payment: Report Error → **Close Bill** → Closed badge, Start a new bill
-- [ ] Group: Split an Amount under the title; only the admin sees ✕ on members
-- [ ] Fully paid / closed bill appears in **History**
+- [x] **Sign up with email** → verification email → tap the link → Billy continues by itself
+- [x] **Log out → sign in** with email (email pre-filled) · **Forgot password** email arrives
+- [x] **Continue with Google** → account picker says "Continue to Billy" → new account asks for phone once
+- [x] Google **profile photo** on Home (top right) and Profile
+- [x] Profile: edit name / phone / UPI (bad values rejected) · Change password · **Report a problem** opens email
+- [x] Home card: **You'll get / You'll give** match the Pay tab totals exactly
+- [x] Split a bill → sheet order Take Photo, Gallery, Enter Manually, Cancel
+- [x] Extract Bill: big receipt preview, button at the bottom → "✓ Extracted successfully"
+- [x] Review: ✕ removes a tax; a 0% CGST/SGST line is not added; **+ Add Item Manually** is clearly visible
+- [x] Item-wise: assign → **Done** → Bill details → **Create Bill** (name it)
+- [x] Bill page: People list (no "…"), 🧾 shows items, **Received** / **Pay** / **Mark paid** ask once
+- [x] **Share bill** → WhatsApp → tap the link → opens this bill in Billy
+- [x] After a payment: Report Error → **Close Bill** → Closed badge, Start a new bill
+- [x] Group: Split an Amount under the title; only the admin sees ✕ on members
+- [x] Fully paid / closed bill appears in **History**
 
 For a receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill] Response` lines from the Metro terminal.
 
-### Step 3 — Merge to `main`
-Open a PR from `feat/login-profile-ui` → `main` once Step 2 passes.
+### Step 3 — Merge to `main` ✅ Done
+`feat/login-profile-ui` merged into `main`.
 
-### Step 4 — Cloud sync with Firestore (free at Billy's size) ⬅ **next big feature**
+### Step 4 — Cloud sync with Firestore (free at Billy's size) ⬅ **next**
 1. **Data model:** `users/{uid}` (name, phone, UPI, photo), `bills/{billId}` (participants by uid/phone, items snapshot, settlements), `groups/{groupId}`.
 2. **Offline-first:** keep AsyncStorage as the local copy; sync to Firestore when online (Firestore's offline cache does most of this).
 3. **Security rules:** a bill is readable/writable only by its participants; only the payer of a row can mark it received, only the debtor can mark it paid; only a group's admin removes members.
