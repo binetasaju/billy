@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Pla
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -12,6 +12,7 @@ import { canEditBill, payerOf } from "../../services/billEditing";
 import { useGroups } from "../../hooks/useGroups";
 import { authStore } from "../../services/authStore";
 import { billLink, buildBillShareMessage, isValidUpiId, openUpiPayment } from "../../services/upi";
+import { cloudSession } from "../../services/cloud/cloudSync";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
@@ -27,7 +28,7 @@ interface BreakdownLine {
 }
 
 export default function GroupDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, invite } = useLocalSearchParams<{ id: string; invite?: string }>();
   const router = useRouter();
 
   const [activeTx, setActiveTx] = useState<{
@@ -279,6 +280,18 @@ export default function GroupDetailsScreen() {
     }
   };
 
+  // Just created (?invite=1): offer the share sheet once the bill is in the
+  // cloud (that's when it has an invite code), or at once if sync is off.
+  const offeredShare = useRef(false);
+  useEffect(() => {
+    if (invite !== "1" || offeredShare.current || !group) return;
+    if (cloudSession() && !group.inCloud) return; // wait for the upload
+    offeredShare.current = true;
+    const t = setTimeout(() => void handleShareBill(), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invite, group?.inCloud, group?.id]);
+
   // ── Payee-side confirmation ────────────────────────────────────────────────
   // Only the receiver of a settlement may mark it as received.
   const handleMarkReceivedClick = (tx: any, sender: Person | undefined) => {
@@ -421,16 +434,48 @@ export default function GroupDetailsScreen() {
           })()}
         </View>
 
-        {/* ── Share the whole bill ── */}
-        <Pressable
-          style={({ pressed }) => [s.shareBillBtn, pressed && s.pressedBtn]}
-          onPress={handleShareBill}
-          accessibilityRole="button"
-          accessibilityLabel="Share bill"
-        >
-          <Ionicons name="share-social-outline" size={17} color={C.primary} />
-          <Text style={s.shareBillText}>Share bill</Text>
-        </Pressable>
+        {/* ── Invite: people who haven't joined yet ── */}
+        {(() => {
+          const notJoined = group.inCloud && group.status !== "closed"
+            ? group.participants.filter((p) => !p.authUid && p.id !== currentUser?.uid)
+            : [];
+          if (notJoined.length === 0) {
+            return (
+              <Pressable
+                style={({ pressed }) => [s.shareBillBtn, pressed && s.pressedBtn]}
+                onPress={handleShareBill}
+                accessibilityRole="button"
+                accessibilityLabel="Share bill"
+              >
+                <Ionicons name="share-social-outline" size={17} color={C.primary} />
+                <Text style={s.shareBillText}>Share bill</Text>
+              </Pressable>
+            );
+          }
+          const names = notJoined.map((p) => p.name.split(" ")[0]);
+          return (
+            <View style={s.inviteCard}>
+              <View style={s.inviteHead}>
+                <Ionicons name="link-outline" size={18} color={C.primary} />
+                <Text style={s.inviteTitle}>
+                  {notJoined.length === 1 ? "1 person hasn\u2019t joined yet" : `${notJoined.length} people haven\u2019t joined yet`}
+                </Text>
+              </View>
+              <Text style={s.inviteText}>
+                Send {names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and others`} the link {"\u2014"} they join in Billy (and sign up if they{"\u2019"}re new) to see their share and pay.
+              </Text>
+              <Pressable
+                style={({ pressed }) => [s.inviteBtn, pressed && s.pressedBtn]}
+                onPress={handleShareBill}
+                accessibilityRole="button"
+                accessibilityLabel="Share bill link"
+              >
+                <Ionicons name="share-social" size={16} color={C.white} />
+                <Text style={s.inviteBtnText}>Share link</Text>
+              </Pressable>
+            </View>
+          );
+        })()}
 
         {/* ── Closed bill ── */}
         {group.status === "closed" && (
@@ -880,6 +925,18 @@ const s = StyleSheet.create({
     backgroundColor: C.primarySoft, borderWidth: 1, borderColor: C.primary,
   },
   shareBillText: { fontSize: 14, fontWeight: "700", color: C.primary },
+  inviteCard: {
+    backgroundColor: C.primarySoft, borderRadius: 16, padding: 16, marginTop: -16, marginBottom: 24,
+    borderWidth: 1, borderColor: C.primary, gap: 8,
+  },
+  inviteHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  inviteTitle: { fontSize: 14, fontWeight: "700", color: C.ink },
+  inviteText: { fontSize: 12, color: C.text, lineHeight: 17 },
+  inviteBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    backgroundColor: C.primary, borderRadius: 12, paddingVertical: 11, marginTop: 4,
+  },
+  inviteBtnText: { color: C.white, fontSize: 14, fontWeight: "700" },
   chipBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,

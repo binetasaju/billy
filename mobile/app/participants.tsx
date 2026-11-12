@@ -62,6 +62,7 @@ export default function ParticipantsScreen() {
   // Modals
   const [isContactPickerVisible, setContactPickerVisible] = useState(false);
   const [billyPickerVisible, setBillyPickerVisible] = useState(false);
+  const [quickName, setQuickName] = useState("");
   const [editingParticipant, setEditingParticipant] = useState<Person | null>(null);
   const [editName, setEditName] = useState("");
 
@@ -173,6 +174,24 @@ export default function ParticipantsScreen() {
       return next;
     });
   }, []);
+
+  // Someone added by name only — no phone or account needed; they join the
+  // bill later with its share link and pick this name.
+  const handleAddByName = useCallback(() => {
+    const name = quickName.trim();
+    if (!name) return;
+    const newPerson: Person = {
+      id: `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      color: COLORS[participants.length % COLORS.length],
+      itemIds: [],
+    };
+    billStore.addParticipant(newPerson);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setParticipants((prev) => [...prev, newPerson]);
+    setSharingIds((prev) => new Set(prev).add(newPerson.id));
+    setQuickName("");
+  }, [quickName, participants.length]);
 
   // A Billy account added by email / from "On Billy" — linked to the bill.
   const handleAddBillyPerson = useCallback((person: BillyPerson) => {
@@ -366,15 +385,28 @@ export default function ParticipantsScreen() {
             />
           ))}
 
-          {/* Accounts first: Billy users are linked to the bill at once */}
-          <Pressable
-            style={[styles.addBtn, styles.addBillyBtn]}
-            onPress={() => setBillyPickerVisible(true)}
-            accessibilityRole="button"
-          >
-            <Ionicons name="person-add" size={18} color={C.white} />
-            <Text style={[styles.addBtnText, styles.addBillyText]}>Add a Billy User</Text>
-          </Pressable>
+          {/* Quickest: just a name — they join later with the bill's share link */}
+          <View style={styles.nameRow}>
+            <TextInput
+              style={styles.nameInput}
+              placeholder="Add someone by name"
+              placeholderTextColor={C.textSubtle}
+              value={quickName}
+              onChangeText={setQuickName}
+              autoCapitalize="words"
+              returnKeyType="done"
+              onSubmitEditing={handleAddByName}
+            />
+            <Pressable
+              style={[styles.nameAddBtn, !quickName.trim() && styles.nameAddBtnOff]}
+              onPress={handleAddByName}
+              disabled={!quickName.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Add person by name"
+            >
+              <Ionicons name="add" size={20} color={C.white} />
+            </Pressable>
+          </View>
 
           {/* Add contacts button — they join later with the share link */}
           <Pressable
@@ -383,6 +415,16 @@ export default function ParticipantsScreen() {
           >
             <Ionicons name="person-add" size={18} color={C.ink} />
             <Text style={styles.addBtnText}>Add From Contacts</Text>
+          </Pressable>
+
+          {/* Already on Billy? Link their account now (by email / people on Billy) */}
+          <Pressable
+            style={styles.addBtn}
+            onPress={() => setBillyPickerVisible(true)}
+            accessibilityRole="button"
+          >
+            <Ionicons name="at" size={18} color={C.ink} />
+            <Text style={styles.addBtnText}>Add a Billy User</Text>
           </Pressable>
 
           {/* Prefill from a saved group */}
@@ -579,8 +621,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: C.ink,
   },
-  addBillyBtn: { backgroundColor: C.primary, borderColor: C.primary },
-  addBillyText: { color: C.white },
+  nameRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  nameInput: {
+    flex: 1, height: 48, borderRadius: 12, borderWidth: 1.5, borderColor: C.border,
+    backgroundColor: C.surface, paddingHorizontal: 14, fontSize: 14, color: C.ink,
+  },
+  nameAddBtn: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.primary, alignItems: "center", justifyContent: "center" },
+  nameAddBtnOff: { backgroundColor: C.textSubtle },
 
   // Summary card
   summaryCard: {

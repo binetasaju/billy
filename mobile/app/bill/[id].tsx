@@ -44,7 +44,18 @@ export default function BillLinkScreen() {
       setPhase("error");
       return;
     }
-    const cloud = cloudSession();
+    let cancelled = false;
+    // Just signed up? Cloud sync starts a moment after sign-in — wait for it.
+    const waitForCloud = async () => {
+      for (let i = 0; i < 20 && !cancelled; i++) {
+        const cloud = cloudSession();
+        if (cloud) return cloud;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return null;
+    };
+    waitForCloud().then((cloud) => {
+    if (cancelled) return;
     if (!cloud) {
       setMessage("Sign in with your email or Google account to join shared bills.");
       setPhase("error");
@@ -69,6 +80,10 @@ export default function BillLinkScreen() {
         setMessage("Couldn't open this bill. Check your internet and try again.");
         setPhase("error");
       });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isLoading, onPhone, c, id, user?.name]);
 
   // After joining, the bill arrives through sync — then open it.

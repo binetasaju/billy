@@ -165,7 +165,8 @@ export default function CustomSplitScreen() {
     }
     setShowSaveModal(false);
     if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
-    else router.replace("/(tabs)/pay-bills" as any);
+    // Open the new bill and offer to share its link straight away.
+    else router.replace(`/group/${savedId}?invite=1` as any);
   };
 
   const owesLine = (p: Person, amount: number) => {

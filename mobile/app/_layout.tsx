@@ -13,7 +13,7 @@
 import { useEffect } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useGlobalSearchParams, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
@@ -25,6 +25,7 @@ import { authStore } from "../services/authStore";
 import { groupStore } from "../services/groupStore";
 import { contactGroupStore } from "../services/contactGroupStore";
 import { initCloudSync } from "../services/cloud/cloudSync";
+import { savePendingInvite, takePendingInvite } from "../services/pendingInvite";
 import { initFirebaseAuth } from "../services/auth/initFirebaseAuth";
 import { useAuth } from "../hooks/useAuth";
 import { AppAlertHost } from "@/components/ui/AppAlert";
@@ -34,6 +35,8 @@ import { AppAlertHost } from "@/components/ui/AppAlert";
 function AuthGate() {
   const router = useRouter();
   const segments = useSegments();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams<{ c?: string }>();
   const { user, isLoading } = useAuth();
 
   useEffect(() => {
@@ -42,11 +45,22 @@ function AuthGate() {
     const inAuthGroup = segments[0] === "login" || segments[0] === "onboarding";
 
     if (!user && !inAuthGroup) {
+      // A shared bill link opened before signing in: keep it for after sign-up.
+      if (segments[0] === "bill") {
+        const code = typeof params.c === "string" ? params.c : "";
+        void savePendingInvite(code ? `${pathname}?c=${code}` : pathname);
+      }
       // Not signed in — force to login
       router.replace("/login" as any);
-    } else if (user && inAuthGroup) {
-      // Already signed in but on an auth screen — push to app root
-      router.replace("/" as any);
+      return;
+    }
+
+    if (user) {
+      // Signed in: a remembered bill link wins over everything else.
+      void takePendingInvite().then((invite) => {
+        if (invite) router.replace(invite as any);
+        else if (inAuthGroup) router.replace("/" as any); // already signed in — go to app root
+      });
     }
   }, [user, isLoading, segments]);
 
