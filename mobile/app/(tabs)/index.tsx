@@ -194,7 +194,7 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
             accessibilityLabel="Profile"
           >
-            <UserAvatar photoUrl={user?.photoUrl} name={firstName ?? "B"} size={42} textStyle={styles.avatarText} />
+            <UserAvatar photoUrl={user?.photoUrl} name={firstName ?? "B"} size={44} textStyle={styles.avatarText} />
           </Pressable>
         </View>
 
