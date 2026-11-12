@@ -72,9 +72,7 @@ export default function GroupsScreen() {
   }, [billGroups]);
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, {
-      day: "numeric", month: "short", year: "numeric",
-    });
+    new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
   const handleCreate = async () => {
     const name = draftName.trim();
@@ -112,63 +110,95 @@ export default function GroupsScreen() {
 
   return (
     <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
-      <View style={s.header}>
-        <Text style={s.title}>Groups</Text>
-        <Text style={s.subtitle}>People you split with often</Text>
+      <View style={[s.header, s.headerRow]}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.title}>Groups</Text>
+          <Text style={s.subtitle}>People you split with often</Text>
+        </View>
+        {sorted.length > 0 && (
+          <Pressable
+            style={({ pressed }) => [s.newBtn, pressed && { opacity: 0.85 }]}
+            onPress={() => setCreateVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Create a group"
+          >
+            <Ionicons name="add" size={18} color={C.white} />
+            <Text style={s.newBtnText}>New</Text>
+          </Pressable>
+        )}
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[s.scroll, sorted.length === 0 && s.scrollEmpty]}
+        showsVerticalScrollIndicator={false}
+      >
         {sorted.length === 0 ? (
           <View style={s.emptyState}>
-            <Ionicons name="people-outline" size={32} color={C.borderStrong} />
+            <View style={s.emptyIconWrap}>
+              <Ionicons name="people-outline" size={32} color={C.primary} />
+            </View>
             <Text style={s.emptyText}>No groups yet</Text>
             <Text style={s.emptySubtext}>
-              Save a group of people to reuse them on future bills.
+              Save the people you split with — flatmates, friends, the office lunch crew — and reuse them on every bill.
             </Text>
+            <Pressable
+              style={({ pressed }) => [s.createBtn, pressed && { opacity: 0.85 }]}
+              onPress={() => setCreateVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Create a group"
+            >
+              <Ionicons name="add" size={18} color={C.white} />
+              <Text style={s.createBtnText}>Create a group</Text>
+            </Pressable>
           </View>
         ) : (
           <View style={s.groupList}>
             {sorted.map((group) => {
               const activity = lastActivity[group.id];
               const bills = billCount[group.id] ?? 0;
+              const shown = group.members.slice(0, 4);
+              const extra = group.members.length - shown.length;
               return (
                 <Pressable
                   key={group.id}
                   style={({ pressed }) => [s.groupCard, pressed && s.groupCardPressed]}
                   onPress={() => router.push(`/contact-group/${group.id}` as any)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Open ${group.name}`}
+                  accessibilityLabel={`Open ${group.name}, ${group.members.length} members`}
                 >
-                  <View style={s.groupHeader}>
-                    <Text style={s.groupTitle} numberOfLines={1}>{group.name}</Text>
-                    <Ionicons name="chevron-forward" size={18} color={C.borderStrong} />
+                  {/* Overlapping member initials */}
+                  <View style={s.avatars}>
+                    {shown.map((m, i) => (
+                      <View
+                        key={m.id}
+                        style={[s.avatar, { backgroundColor: m.color ?? C.textSubtle, marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i }]}
+                      >
+                        <Text style={s.avatarText}>{(m.name || "?").charAt(0).toUpperCase()}</Text>
+                      </View>
+                    ))}
+                    {extra > 0 && (
+                      <View style={[s.avatar, s.avatarMore, { marginLeft: -10 }]}>
+                        <Text style={s.avatarMoreText}>+{extra}</Text>
+                      </View>
+                    )}
                   </View>
 
-                  <Text style={s.groupMeta}>
-                    {group.members.length} member{group.members.length !== 1 ? "s" : ""}
-                    {bills > 0 ? `  ·  ${bills} bill${bills !== 1 ? "s" : ""}` : ""}
-                  </Text>
+                  <View style={s.groupBody}>
+                    <Text style={s.groupTitle} numberOfLines={1}>{group.name}</Text>
+                    <Text style={s.groupMeta} numberOfLines={1}>
+                      {group.members.length} member{group.members.length !== 1 ? "s" : ""}
+                      {bills > 0 ? ` · ${bills} bill${bills !== 1 ? "s" : ""}` : ""}
+                      {" · "}
+                      {activity ? `last ${formatDate(activity)}` : `created ${formatDate(group.createdAt)}`}
+                    </Text>
+                  </View>
 
-                  <Text style={s.groupActivity}>
-                    {activity
-                      ? `Last bill ${formatDate(activity)}`
-                      : `Created ${formatDate(group.createdAt)}`}
-                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color={C.textSubtle} />
                 </Pressable>
               );
             })}
           </View>
         )}
-
-        <Pressable
-          style={({ pressed }) => [s.createBtn, pressed && { opacity: 0.85 }]}
-          onPress={() => setCreateVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Create a group"
-        >
-          <Ionicons name="add" size={18} color="#fff" />
-          <Text style={s.createBtnText}>Create Group</Text>
-        </Pressable>
       </ScrollView>
 
       {/* ── Create group modal ── */}
@@ -207,38 +237,52 @@ export default function GroupsScreen() {
 
 const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   title: { ...T.largeTitle, color: C.ink, marginBottom: 4 },
   subtitle: { fontSize: 14, color: C.textMuted },
+  newBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: C.primary, paddingHorizontal: 14, height: 36, borderRadius: 18,
+  },
+  newBtnText: { color: C.white, fontSize: 13, fontWeight: "700" },
 
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE },
+  scrollEmpty: { flexGrow: 1, justifyContent: "center" },
 
-  emptyState: {
-    alignItems: "center", justifyContent: "center", paddingVertical: 48, paddingHorizontal: 24,
-    backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, borderStyle: "dashed",
+  emptyState: { alignItems: "center", marginTop: -60, paddingHorizontal: 12 },
+  emptyIconWrap: {
+    width: 72, height: 72, borderRadius: 36, backgroundColor: C.primarySoft,
+    alignItems: "center", justifyContent: "center", marginBottom: 16,
   },
-  emptyText: { fontSize: 13, color: C.textSubtle, marginTop: 12, fontWeight: "500" },
-  emptySubtext: { fontSize: 12, color: C.borderStrong, marginTop: 6, textAlign: "center" },
+  emptyText: { fontSize: 16, color: C.ink, fontWeight: "700", marginBottom: 6 },
+  emptySubtext: { fontSize: 13, color: C.textMuted, textAlign: "center", lineHeight: 18, maxWidth: 280 },
 
-  groupList: { gap: 16 },
+  groupList: { gap: 12 },
   groupCard: {
-    backgroundColor: C.glass, borderRadius: 20, padding: 20,
+    flexDirection: "row", alignItems: "center", gap: 14,
+    backgroundColor: C.glass, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14,
     borderWidth: 1, borderColor: C.glassBorder,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04, shadowRadius: 12, elevation: 0,
   },
-  groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
-  groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  groupTitle: { fontSize: 15, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
-  groupMeta: { fontSize: 12, color: C.text, fontWeight: "500" },
-  groupActivity: { fontSize: 12, color: C.textSubtle, marginTop: 6 },
+  groupCardPressed: { opacity: 0.85, transform: [{ scale: 0.99 }] },
+  avatars: { flexDirection: "row", alignItems: "center" },
+  avatar: {
+    width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: C.white,
+  },
+  avatarText: { color: C.white, fontSize: 12, fontWeight: "700" },
+  avatarMore: { backgroundColor: C.surfaceAlt },
+  avatarMoreText: { color: C.text, fontSize: 11, fontWeight: "700" },
+  groupBody: { flex: 1 },
+  groupTitle: { fontSize: 15, fontWeight: "700", color: C.ink },
+  groupMeta: { fontSize: 12, color: C.textMuted, marginTop: 3 },
 
   createBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: C.primary, paddingVertical: 16, borderRadius: 14, marginTop: 24,
+    backgroundColor: C.primary, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 14, marginTop: 24,
   },
-  createBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  createBtnText: { color: C.white, fontSize: 14, fontWeight: "700" },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modalCard: { width: "100%", backgroundColor: "#fff", borderRadius: 20, padding: 24 },
