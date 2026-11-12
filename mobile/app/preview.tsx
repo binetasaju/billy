@@ -91,28 +91,12 @@ export default function PreviewScreen() {
           <Text style={styles.retakeBtnText}>← Retake / Choose Again</Text>
         </Pressable>
 
-        <Pressable
-          onPress={handleAutoCrop}
-          disabled={autoCropping}
-          style={({ pressed }) => [styles.retakeBtn, (pressed || autoCropping) && { opacity: 0.6 }]}
-          accessibilityRole="button"
-        >
-          <View style={styles.btnInner}>
-            {autoCropping
-              ? <ActivityIndicator size="small" color={C.textMuted} />
-              : <Ionicons name="sparkles-outline" size={16} color={C.textMuted} />}
-            <Text style={styles.retakeBtnText}>{autoCropping ? "Finding the receipt…" : "Auto-crop (AI)"}</Text>
-          </View>
-        </Pressable>
-
-        <View style={styles.mainButtons}>
+        {/* Crop tools — side by side, same size */}
+        <View style={styles.cropRow}>
           <Pressable
             onPress={handleEditImage}
-            style={({ pressed }) => [
-              styles.button,
-              styles.buttonSecondary,
-              pressed && styles.buttonPressed,
-            ]}
+            style={({ pressed }) => [styles.button, styles.buttonSecondary, pressed && styles.buttonPressed]}
+            accessibilityRole="button"
           >
             <View style={styles.btnInner}>
               <Ionicons name="crop-outline" size={18} color={C.ink} />
@@ -121,16 +105,34 @@ export default function PreviewScreen() {
           </Pressable>
 
           <Pressable
-            onPress={handleContinue}
+            onPress={handleAutoCrop}
+            disabled={autoCropping}
             style={({ pressed }) => [
               styles.button,
-              styles.buttonPrimary,
-              pressed && styles.buttonPressed,
+              styles.buttonAi,
+              (pressed || autoCropping) && styles.buttonPressed,
             ]}
+            accessibilityRole="button"
+            accessibilityLabel="Crop automatically with AI"
           >
-            <Text style={styles.buttonTextPrimary}>Continue →</Text>
+            <View style={styles.btnInner}>
+              {autoCropping
+                ? <ActivityIndicator size="small" color={C.primary} />
+                : <Ionicons name="sparkles" size={17} color={C.primary} />}
+              <Text style={styles.buttonTextAi}>{autoCropping ? "Finding…" : "AI Crop"}</Text>
+            </View>
           </Pressable>
         </View>
+
+        {/* Main action — full width */}
+        <Pressable
+          onPress={handleContinue}
+          disabled={autoCropping}
+          style={({ pressed }) => [styles.continueBtn, (pressed || autoCropping) && styles.buttonPressed]}
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonTextPrimary}>Continue →</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -166,25 +168,34 @@ const styles = StyleSheet.create({
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
   imagePlaceholderText: { color: C.textSubtle, fontSize: 14 },
 
-  actions: { gap: 10 },
+  actions: { gap: 12 },
   retakeBtn: { alignItems: "center", paddingVertical: 6 },
   retakeBtnText: { fontSize: 12, color: C.textMuted, fontWeight: "500" },
 
   btnInner: { flexDirection: "row", alignItems: "center", gap: 7 },
-  mainButtons: { flexDirection: "row", gap: 12 },
+  cropRow: { flexDirection: "row", gap: 12 },
   button: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 50,
+    borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
   },
-  buttonPrimary: { backgroundColor: "#000000" },
+  buttonAi: { backgroundColor: C.primarySoft, borderWidth: 1.5, borderColor: C.primary },
+  buttonTextAi: { color: C.primary, fontWeight: "700", fontSize: 14 },
+  continueBtn: {
+    height: 54,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#000000",
+  },
   buttonSecondary: {
     backgroundColor: C.glassStrong,
     borderWidth: 1.5,
     borderColor: C.glassBorder,
   },
   buttonPressed: { opacity: 0.75 },
-  buttonTextPrimary: { color: C.white, fontWeight: "600", fontSize: 14 },
+  buttonTextPrimary: { color: C.white, fontWeight: "700", fontSize: 15 },
   buttonTextSecondary: { color: C.ink, fontWeight: "600", fontSize: 14 },
 });
