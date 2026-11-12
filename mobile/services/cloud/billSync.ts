@@ -61,6 +61,27 @@ export function startBillSync(
     onBills(out);
   };
 
+  let stopped = false;
+
+  // A just-uploaded bill can be seen locally before the server has saved it;
+  // listening to its payments then is refused once. Retry a few times.
+  const listenPayments = (billId: string, attempt: number) => {
+    const unsub = db.listenCollection(
+      `bills/${billId}/payments`,
+      (pdocs) => {
+        payments.set(billId, new Map(pdocs.map((p) => [p.id, p.data as CloudPayment])));
+        emit();
+      },
+      (e) => {
+        paymentListeners.delete(billId);
+        if (stopped || !bills.has(billId)) return;
+        if (attempt < 5) setTimeout(() => !stopped && bills.has(billId) && !paymentListeners.has(billId) && listenPayments(billId, attempt + 1), 1500 * (attempt + 1));
+        else onError(e);
+      }
+    );
+    paymentListeners.set(billId, unsub);
+  };
+
   const stopBills = db.listenWhereContains(
     "bills",
     "memberUids",
@@ -77,19 +98,7 @@ export function startBillSync(
       }
       for (const d of docs) {
         bills.set(d.id, d.data as CloudBill);
-        if (!paymentListeners.has(d.id)) {
-          paymentListeners.set(
-            d.id,
-            db.listenCollection(
-              `bills/${d.id}/payments`,
-              (pdocs) => {
-                payments.set(d.id, new Map(pdocs.map((p) => [p.id, p.data as CloudPayment])));
-                emit();
-              },
-              onError
-            )
-          );
-        }
+        if (!paymentListeners.has(d.id)) listenPayments(d.id, 0);
       }
       emit();
     },
@@ -104,6 +113,7 @@ export function startBillSync(
 
   return {
     stop() {
+      stopped = true;
       stopBills();
       for (const u of paymentListeners.values()) u();
       paymentListeners.clear();

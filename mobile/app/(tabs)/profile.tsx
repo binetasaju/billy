@@ -17,11 +17,12 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
+  Switch,
 } from "react-native";
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
@@ -30,6 +31,7 @@ import { myIdOn } from "../../services/homeSummary";
 import { useContactGroups } from "../../hooks/useContactGroups";
 import { friendlyAuthError } from "../../services/auth/authErrors";
 import { isValidUpiId } from "../../services/upi";
+import { isCloudSyncEnabled, setCloudSyncEnabled, subscribeCloudSyncSwitch } from "../../services/cloud/cloudSync";
 import { isValidPhoneNumber, normalizePhoneNumber } from "../../utils/normalizePhoneNumber";
 import Constants from "expo-constants";
 import * as Clipboard from "expo-clipboard";
@@ -62,6 +64,8 @@ export default function ProfileScreen() {
   const { groups: savedGroups } = useContactGroups();
 
   const [editing, setEditing] = useState<EditField | null>(null);
+  const [syncOn, setSyncOn] = useState(isCloudSyncEnabled());
+  useEffect(() => subscribeCloudSyncSwitch(() => setSyncOn(isCloudSyncEnabled())), []);
   const [draft, setDraft] = useState("");
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -231,6 +235,29 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
+        {/* ── Cloud sync ── */}
+        <Text style={s.sectionTitle}>Sync</Text>
+        <View style={s.card}>
+          <View style={s.syncRow}>
+            <View style={s.rowIcon}>
+              <Ionicons name={syncOn ? "cloud-done-outline" : "cloud-offline-outline"} size={18} color={C.textMuted} />
+            </View>
+            <View style={s.rowContent}>
+              <Text style={s.rowLabel}>Cloud sync</Text>
+              <Text style={s.rowValue}>
+                {syncOn ? "On — bills sync with friends" : "Off — bills stay on this phone"}
+              </Text>
+            </View>
+            <Switch
+              value={syncOn}
+              onValueChange={(v) => void setCloudSyncEnabled(v)}
+              trackColor={{ true: C.primary, false: C.borderStrong }}
+              thumbColor={C.white}
+              accessibilityLabel="Cloud sync"
+            />
+          </View>
+        </View>
+
         {/* ── Account ── */}
         <Text style={s.sectionTitle}>Account</Text>
         <View style={s.card}>
@@ -260,7 +287,7 @@ export default function ProfileScreen() {
         <View style={s.card}>
           <Row icon="information-circle-outline" label="Version" value={`Billy ${appVersion}`} />
           <View style={s.divider} />
-          <Row icon="shield-checkmark-outline" label="Privacy" value="Bills are stored on this phone. Billy never moves money." multiline />
+          <Row icon="shield-checkmark-outline" label="Privacy" value="Bills are shared only with the people on them. Billy never moves money." multiline />
         </View>
 
         <Text style={s.tagline}>Every bill matters.</Text>
@@ -390,6 +417,7 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
   rowIcon: { width: 36, alignItems: "center" },
   rowContent: { flex: 1 },
+  syncRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
   rowLabel: { fontSize: 11, color: C.textSubtle, fontWeight: "500", marginBottom: 2 },
   rowValue: { fontSize: 13, color: C.ink, fontWeight: "500" },
   rowValueMuted: { color: C.textSubtle },

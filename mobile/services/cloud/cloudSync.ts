@@ -8,6 +8,7 @@
 // Without Firestore (old build) nothing happens: Billy works on the phone only.
 // ---------------------------------------------------------------------------
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { authStore } from "../authStore";
 import { groupStore } from "../groupStore";
 import { contactGroupStore } from "../contactGroupStore";
@@ -28,6 +29,34 @@ interface Session {
 }
 
 let session: Session | null = null;
+
+// ── On/off switch (Profile → Cloud sync) ──────────────────────────────────
+const ENABLED_KEY = "@billy_cloud_sync_enabled";
+let enabled = true;
+let rerun: (() => void) | null = null;
+const switchListeners = new Set<() => void>();
+
+export function isCloudSyncEnabled(): boolean {
+  return enabled;
+}
+
+export function subscribeCloudSyncSwitch(fn: () => void): () => void {
+  switchListeners.add(fn);
+  return () => switchListeners.delete(fn);
+}
+
+/** Turn syncing on/off. Off = Billy works on this phone only (cloud copies stay cached). */
+export async function setCloudSyncEnabled(on: boolean): Promise<void> {
+  enabled = on;
+  switchListeners.forEach((fn) => fn());
+  try {
+    await AsyncStorage.setItem(ENABLED_KEY, on ? "1" : "0");
+  } catch {
+    // Not critical — the choice still applies until the app restarts.
+  }
+  if (!on) stop(false);
+  rerun?.();
+}
 
 const profileKey = (u: User) => JSON.stringify([u.name, u.email, u.phoneNumber, u.upiId, u.photoUrl]);
 
@@ -67,6 +96,7 @@ function onSession(getDb: () => CloudDb | null) {
     stop(true);
     return;
   }
+  if (!enabled) return;
 
   if (session && session.me.authUid === authUid) {
     // Same account — just keep the public profile current.
@@ -102,10 +132,18 @@ function onSession(getDb: () => CloudDb | null) {
 /** Call once at start-up, after the local stores have been restored. */
 export function initCloudSync(getDb: () => CloudDb | null = getCloudDb): () => void {
   const handler = () => onSession(getDb);
+  rerun = handler;
   const unsubscribe = authStore.subscribe(handler);
-  handler();
+  AsyncStorage.getItem(ENABLED_KEY)
+    .then((v) => {
+      enabled = v !== "0";
+      switchListeners.forEach((fn) => fn());
+    })
+    .catch(() => {})
+    .finally(handler);
   return () => {
     unsubscribe();
+    rerun = null;
     stop(false);
   };
 }
