@@ -122,3 +122,32 @@ describe("bill sync between phones", () => {
     expect((await cloud.connect().get("bills/b1"))!.title).toBe("Dinner");
   });
 });
+
+describe("UPI IDs from profiles", () => {
+  it("someone added by name gets their UPI ID once they join, so others can Pay them", async () => {
+    const cloud = createFakeCloud();
+    // Anu has a Billy profile with a UPI ID.
+    await cloud.connect().set("users/fb_anu", { name: "Anu", upiId: "anu@okaxis" });
+
+    // Asha's bill: Anu (added by name) paid; Ravi owes Anu.
+    const bill: BillGroup = {
+      ...newBill(),
+      participants: [
+        { id: "fb_asha", name: "Asha", itemIds: [], isCurrentUser: true },
+        { id: "c_17", name: "Anu", itemIds: [] },
+        { id: "fb_ravi", name: "Ravi", itemIds: [], authUid: "fb_ravi" },
+      ],
+      settlements: [{ fromUserId: "fb_ravi", toUserId: "c_17", amount: 300, status: "pending" }],
+    };
+    let raviBills: BillGroup[] = [];
+    const a = startBillSync(cloud.connect(), asha, () => {});
+    startBillSync(cloud.connect(), { billyUid: "fb_ravi", authUid: "fb_ravi" }, (b) => (raviBills = b));
+    await a.saveBill(bill);
+    expect(raviBills[0].participants.find((p) => p.name === "Anu")?.upiId).toBeUndefined();
+
+    const code = (await cloud.connect().get("bills/b1"))!.inviteCode as string;
+    await joinBill(cloud.connect(), "fb_anu", "b1", code, "c_17");
+    await new Promise((r) => setTimeout(r, 0)); // profile fetch
+    expect(raviBills[0].participants.find((p) => p.name === "Anu")?.upiId).toBe("anu@okaxis");
+  });
+});

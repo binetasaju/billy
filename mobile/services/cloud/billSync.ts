@@ -51,12 +51,40 @@ export function startBillSync(
   const payments = new Map<string, Map<string, CloudPayment>>();
   const paymentListeners = new Map<string, Unsubscribe>();
 
+  // UPI IDs from linked people's Billy profiles — so "Pay" works for someone
+  // who was added by name and joined later (their UPI ID wasn't on the bill).
+  const profileUpi = new Map<string, string>();
+  const profileRequested = new Set<string>();
+  const loadProfiles = () => {
+    for (const bill of bills.values()) {
+      for (const uid of Object.values(bill.participantUids ?? {})) {
+        if (uid === me.authUid || profileRequested.has(uid)) continue;
+        profileRequested.add(uid);
+        db.get(`users/${uid}`)
+          .then((profile) => {
+            const upi = typeof profile?.upiId === "string" ? profile.upiId.trim() : "";
+            if (upi && profileUpi.get(uid) !== upi) {
+              profileUpi.set(uid, upi);
+              emit();
+            }
+          })
+          .catch(() => profileRequested.delete(uid)); // try again on the next update
+      }
+    }
+  };
+
   // Only report a bill once its payments have loaded (no flash of "settled").
   const emit = () => {
     const out: BillGroup[] = [];
     for (const [id, bill] of bills) {
       const p = payments.get(id);
-      if (p) out.push(toLocalBill(id, bill, [...p.values()], me));
+      if (!p) continue;
+      const local = toLocalBill(id, bill, [...p.values()], me);
+      local.participants = local.participants.map((person) => {
+        const upi = person.authUid ? profileUpi.get(person.authUid) : undefined;
+        return upi ? { ...person, upiId: upi } : person;
+      });
+      out.push(local);
     }
     onBills(out);
   };
@@ -100,6 +128,7 @@ export function startBillSync(
         bills.set(d.id, d.data as CloudBill);
         if (!paymentListeners.has(d.id)) listenPayments(d.id, 0);
       }
+      loadProfiles();
       emit();
     },
     onError
