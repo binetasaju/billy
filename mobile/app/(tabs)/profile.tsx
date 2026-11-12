@@ -87,8 +87,10 @@ export default function ProfileScreen() {
       if (!isValidPhoneNumber(value)) return setDraftError("Enter a valid 10-digit mobile number.");
       await authStore.updateUser({ phoneNumber: normalizePhoneNumber(value) ?? value });
     } else {
-      if (value && !isValidUpiId(value)) return setDraftError("That UPI ID doesn't look right (e.g. name@okbank).");
-      await authStore.updateUser({ upiId: value || undefined });
+      // Required — friends on your bills pay you with it.
+      if (!value) return setDraftError("Your UPI ID is needed so friends can pay you.");
+      if (!isValidUpiId(value)) return setDraftError("That UPI ID doesn't look right (e.g. name@okbank).");
+      await authStore.updateUser({ upiId: value });
     }
     setEditing(null);
   };

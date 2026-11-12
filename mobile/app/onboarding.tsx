@@ -29,11 +29,14 @@ import { authStore } from "../services/authStore";
 import { useAuth } from "../hooks/useAuth";
 import { C } from "@/constants/colors";
 import { isValidPhoneNumber, normalizePhoneNumber } from "../utils/normalizePhoneNumber";
+import { isValidUpiId } from "../services/upi";
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [upiId, setUpiId] = useState("");
+  // UPI ID is required — it's how friends pay you with "Pay" on a bill.
+  const [upiId, setUpiId] = useState(user?.upiId ?? "");
+  const [upiError, setUpiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Google sign-in doesn't give a phone number. It's optional (accounts come
   // first — docs/CLOUD_SYNC_PLAN.md); it only helps friends who add you from
@@ -42,19 +45,26 @@ export default function OnboardingScreen() {
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
-  const handleFinish = async (skipUpi = false) => {
+  const handleFinish = async () => {
+    let ok = true;
+    if (!upiId.trim()) {
+      setUpiError("Please enter your UPI ID so friends can pay you.");
+      ok = false;
+    } else if (!isValidUpiId(upiId.trim())) {
+      setUpiError("That UPI ID doesn\u2019t look right — it looks like name@bank (e.g. arjun@okaxis).");
+      ok = false;
+    }
     if (needsPhone && phone.trim() && !isValidPhoneNumber(phone)) {
       setPhoneError("Enter a valid 10-digit mobile number, or leave it empty.");
-      return;
+      ok = false;
     }
+    if (!ok) return;
     setLoading(true);
     try {
       if (needsPhone && phone.trim()) {
         await authStore.updateUser({ phoneNumber: normalizePhoneNumber(phone) ?? phone.trim() });
       }
-      if (!skipUpi && upiId.trim()) {
-        await authStore.updateUser({ upiId: upiId.trim() });
-      }
+      await authStore.updateUser({ upiId: upiId.trim() });
       router.replace("/" as any);
     } finally {
       setLoading(false);
@@ -89,7 +99,7 @@ export default function OnboardingScreen() {
             <Text style={s.subtitle}>
               {needsPhone
                 ? "Add your UPI ID so friends can pay you. Your phone number is optional."
-                : "Add your UPI ID so friends can pay you directly. You can always add it later."}
+                : "Add your UPI ID so friends on your bills can pay you directly."}
             </Text>
           </View>
 
@@ -115,27 +125,28 @@ export default function OnboardingScreen() {
               </View>
             )}
             <Text style={s.label}>UPI ID</Text>
-            <Text style={s.labelHint}>Optional · e.g. arjun@upi or 9876543210@paytm</Text>
-            <View style={s.inputWrap}>
+            <Text style={s.labelHint}>Required · e.g. arjun@okaxis or 9876543210@paytm</Text>
+            <View style={[s.inputWrap, upiError && s.inputError]}>
               <Ionicons name="at-outline" size={18} color={C.textSubtle} style={s.inputIcon} />
               <TextInput
                 style={s.input}
                 placeholder="yourname@upi"
                 placeholderTextColor={C.borderStrong}
                 value={upiId}
-                onChangeText={setUpiId}
+                onChangeText={(t) => { setUpiId(t); setUpiError(null); }}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
                 returnKeyType="done"
-                onSubmitEditing={() => handleFinish(false)}
+                onSubmitEditing={() => handleFinish()}
               />
             </View>
+            {upiError && <Text style={s.phoneError}>{upiError}</Text>}
 
             {/* ── Actions ── */}
             <Pressable
               style={[s.btn, loading && s.btnDisabled]}
-              onPress={() => handleFinish(false)}
+              onPress={() => handleFinish()}
               disabled={loading}
             >
               {loading
@@ -144,20 +155,13 @@ export default function OnboardingScreen() {
               }
             </Pressable>
 
-            <Pressable
-              style={s.skipBtn}
-              onPress={() => handleFinish(true)}
-              disabled={loading}
-            >
-              <Text style={s.skipText}>Skip for now</Text>
-            </Pressable>
           </View>
 
           {/* ── Info note ── */}
           <View style={s.infoBox}>
             <Ionicons name="lock-closed-outline" size={14} color={C.textMuted} />
             <Text style={s.infoText}>
-              Your UPI ID is stored locally. Billy never charges or debits your account.
+              Your UPI ID is shown only to people on your bills, so they can pay you. Billy never charges or debits your account.
             </Text>
           </View>
         </ScrollView>

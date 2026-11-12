@@ -56,6 +56,12 @@ function AuthGate() {
     }
 
     if (user) {
+      // A UPI ID is required (so friends can pay you): finish onboarding first.
+      // Any remembered bill link waits until then.
+      if (!user.upiId?.trim()) {
+        if (segments[0] !== "onboarding") router.replace("/onboarding" as any);
+        return;
+      }
       // Signed in: a remembered bill link wins over everything else.
       void takePendingInvite().then((invite) => {
         if (invite) router.replace(invite as any);
