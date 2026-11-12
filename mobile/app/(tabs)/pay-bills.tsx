@@ -67,7 +67,7 @@ export default function PayBillsScreen() {
                   {new Date(group.createdAt).toLocaleDateString(undefined, {
                     month: "short", day: "numeric", year: "numeric"
                   })}
-                  {"  ·  "}Bill total {rupeesExact(group.totalAmount)}
+                  {"  ·  "}Bill total <Text style={s.groupTotal}>{rupeesExact(group.totalAmount)}</Text>
                 </Text>
 
                 {/* Your share is the big number — these add up to Home's card */}
@@ -148,7 +148,8 @@ const s = StyleSheet.create({
   groupCardPressed: { transform: [{ scale: 0.98 }], opacity: 0.9 },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   groupTitle: { fontSize: 15, fontWeight: "700", color: C.ink, flex: 1, marginRight: 12 },
-  groupDate: { fontSize: 12, color: C.textSubtle, marginBottom: 20 },
+  groupDate: { fontSize: 12, color: C.textMuted, marginBottom: 20 },
+  groupTotal: { color: C.ink, fontWeight: "600" },
   
   groupFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   footerItem: { flexDirection: "row", alignItems: "center", gap: 6 },

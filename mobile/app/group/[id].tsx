@@ -450,19 +450,29 @@ export default function GroupDetailsScreen() {
         <Pressable onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={24} color={C.ink} />
         </Pressable>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        {/* Minimal: round icon buttons that match the back button */}
+        <View style={s.headerActions}>
           {canEdit && (
-            <Pressable style={s.editBtn} onPress={handleEditBill} accessibilityRole="button">
-              <Ionicons name="create-outline" size={15} color={C.primary} />
-              <Text style={s.editBtnText}>Edit</Text>
+            <Pressable
+              style={({ pressed }) => [s.backBtn, pressed && s.pressedBtn]}
+              onPress={handleEditBill}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Edit bill"
+            >
+              <Ionicons name="create-outline" size={20} color={C.ink} />
             </Pressable>
           )}
-          <StatusBadge status={group.status} />
           {group.status !== "closed" && (
-          <Pressable style={s.reportBtn} onPress={() => setShowReportModal(true)}>
-            <Ionicons name="flag-outline" size={15} color={C.danger} />
-            <Text style={s.reportBtnText}>Report Error</Text>
-          </Pressable>
+            <Pressable
+              style={({ pressed }) => [s.backBtn, pressed && s.pressedBtn]}
+              onPress={() => setShowReportModal(true)}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Report a problem with this bill"
+            >
+              <Ionicons name="flag-outline" size={19} color={C.ink} />
+            </Pressable>
           )}
         </View>
       </View>
@@ -472,11 +482,14 @@ export default function GroupDetailsScreen() {
         <Text style={s.subtitle}>
           Created by {group.participants.find((p) => p.id === group.createdBy)?.name || "User"}
         </Text>
-        <Text style={s.date}>
-          {new Date(group.createdAt).toLocaleDateString(undefined, {
-            day: "numeric", month: "short", year: "numeric",
-          })}
-        </Text>
+        <View style={s.dateRow}>
+          <Text style={s.date}>
+            {new Date(group.createdAt).toLocaleDateString(undefined, {
+              day: "numeric", month: "short", year: "numeric",
+            })}
+          </Text>
+          <StatusBadge status={group.status} size="sm" />
+        </View>
 
         <View style={s.summaryCard}>
           <Text style={s.summaryLabel}>Total Bill Amount</Text>
@@ -969,20 +982,14 @@ const s = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
 
-  editBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: C.primarySoft },
-  editBtnText: { fontSize: 12, fontWeight: "600", color: C.primary },
   reportEditBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12 },
-  reportBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: C.dangerSoft, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,
-    borderWidth: 1, borderColor: "#FECACA",
-  },
-  reportBtnText: { color: C.danger, fontSize: 12, fontWeight: "600" },
 
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
   title: { ...T.largeTitle, color: C.ink, marginTop: 8, marginBottom: 4 },
   subtitle: { fontSize: 14, color: C.text, fontWeight: "500", marginBottom: 2 },
-  date: { fontSize: 13, color: C.textMuted, marginBottom: 32 },
+  dateRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 32 },
+  date: { fontSize: 13, color: C.textMuted },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
 
   summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 24, marginBottom: 32, alignItems: "center" },
   summaryLabel: { fontSize: 12, color: C.onDarkMuted, fontWeight: "500", marginBottom: 8 },
