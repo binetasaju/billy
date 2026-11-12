@@ -12,7 +12,7 @@
 // latest (possibly edited) image.
 // ---------------------------------------------------------------------------
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
@@ -20,6 +20,7 @@ import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { autoCropReceipt } from "../services/optimizer";
+import { extractBill, ExtractionError, type ExtractionStage } from "../services/billExtraction";
 import { C } from "@/constants/colors";
 import { T } from "@/constants/typography";
 
@@ -30,6 +31,17 @@ export default function PreviewScreen() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
   const router  = useRouter();
   const [autoCropping, setAutoCropping] = useState(false);
+  // Continue → "Extracting bill…" on the button → "Building bill details…" screen → Review
+  const [stage, setStage] = useState<ExtractionStage | null>(null);
+  const [slow, setSlow] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const slowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busy = stage !== null || autoCropping;
+
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    if (slowTimer.current) clearTimeout(slowTimer.current);
+  }, []);
 
   // AI auto-crop costs one Gemini request, so it only runs when asked.
   const handleAutoCrop = async () => {
@@ -61,9 +73,73 @@ export default function PreviewScreen() {
     router.push({ pathname: "/edit-image", params: { uri } });
   };
 
-  const handleContinue = () => {
-    router.push({ pathname: "/ocr", params: { uri } });
+  const stopExtracting = () => {
+    if (slowTimer.current) clearTimeout(slowTimer.current);
+    setSlow(false);
+    setStage(null);
   };
+
+  const handleCancel = () => {
+    abortRef.current?.abort();
+    stopExtracting();
+  };
+
+  const handleContinue = async () => {
+    if (!uri || stage) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSlow(false);
+    if (slowTimer.current) clearTimeout(slowTimer.current);
+    slowTimer.current = setTimeout(() => setSlow(true), 30000);
+    try {
+      await extractBill(uri, { signal: controller.signal, onStage: setStage });
+      if (controller.signal.aborted) return;
+      router.push("/review-items");
+      // Coming back from Review shows the photo again, ready to retry.
+      setTimeout(stopExtracting, 600);
+    } catch (e: any) {
+      if (e?.name === "AbortError" || controller.signal.aborted) return;
+      stopExtracting();
+      if (e instanceof ExtractionError && e.notABill) {
+        appAlert.alert(
+          "This doesn\u2019t look like a bill",
+          "Take a clearer photo of the receipt, or choose another one.",
+          [
+            { text: "OK", style: "cancel" },
+            { text: "Retake", onPress: handleRetake },
+          ]
+        );
+      } else {
+        appAlert.alert(
+          "Couldn\u2019t read the receipt",
+          e instanceof Error ? e.message : "Please try again.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Try again", onPress: () => void handleContinue() },
+          ]
+        );
+      }
+    }
+  };
+
+  // After the text is read: its own loading screen while the bill is built.
+  if (stage === "building") {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.buildingScreen}>
+          <ActivityIndicator size="large" color={C.primary} />
+          <Text style={styles.buildingTitle}>Building bill details…</Text>
+          <Text style={styles.buildingSub}>Finding items, prices, taxes and the total.{"\n"}This takes a few seconds.</Text>
+          {slow && (
+            <Pressable onPress={handleCancel} hitSlop={8} style={styles.cancelLink}>
+              <Text style={styles.slowText}>Taking longer than usual · <Text style={styles.cancelText}>Cancel</Text></Text>
+            </Pressable>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -86,7 +162,8 @@ export default function PreviewScreen() {
         {/* Retake — slim tertiary link above the main buttons */}
         <Pressable
           onPress={handleRetake}
-          style={({ pressed }) => [styles.retakeBtn, pressed && { opacity: 0.6 }]}
+          disabled={busy}
+          style={({ pressed }) => [styles.retakeBtn, (pressed || busy) && { opacity: 0.6 }]}
         >
           <Text style={styles.retakeBtnText}>← Retake / Choose Again</Text>
         </Pressable>
@@ -95,7 +172,8 @@ export default function PreviewScreen() {
         <View style={styles.cropRow}>
           <Pressable
             onPress={handleEditImage}
-            style={({ pressed }) => [styles.button, styles.buttonSecondary, pressed && styles.buttonPressed]}
+            disabled={busy}
+            style={({ pressed }) => [styles.button, styles.buttonSecondary, (pressed || busy) && styles.buttonPressed]}
             accessibilityRole="button"
           >
             <View style={styles.btnInner}>
@@ -106,7 +184,7 @@ export default function PreviewScreen() {
 
           <Pressable
             onPress={handleAutoCrop}
-            disabled={autoCropping}
+            disabled={busy}
             style={({ pressed }) => [
               styles.button,
               styles.buttonAi,
@@ -126,13 +204,30 @@ export default function PreviewScreen() {
 
         {/* Main action — full width */}
         <Pressable
-          onPress={handleContinue}
-          disabled={autoCropping}
-          style={({ pressed }) => [styles.continueBtn, (pressed || autoCropping) && styles.buttonPressed]}
+          onPress={() => void handleContinue()}
+          disabled={busy}
+          style={({ pressed }) => [
+            styles.continueBtn,
+            stage === "reading" && styles.continueBusy,
+            (pressed || autoCropping) && styles.buttonPressed,
+          ]}
           accessibilityRole="button"
+          accessibilityLabel={stage === "reading" ? "Extracting bill" : "Continue"}
         >
-          <Text style={styles.buttonTextPrimary}>Continue →</Text>
+          {stage === "reading" ? (
+            <View style={styles.btnInner}>
+              <ActivityIndicator size="small" color={C.white} />
+              <Text style={styles.buttonTextPrimary}>Extracting bill…</Text>
+            </View>
+          ) : (
+            <Text style={styles.buttonTextPrimary}>Continue →</Text>
+          )}
         </Pressable>
+        {stage === "reading" && slow && (
+          <Pressable onPress={handleCancel} hitSlop={8} style={styles.cancelLink}>
+            <Text style={styles.slowText}>Taking longer than usual · <Text style={styles.cancelText}>Cancel</Text></Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -196,6 +291,14 @@ const styles = StyleSheet.create({
     borderColor: C.glassBorder,
   },
   buttonPressed: { opacity: 0.75 },
+  continueBusy: { backgroundColor: C.text },
+  cancelLink: { alignItems: "center", paddingVertical: 4 },
+  slowText: { fontSize: 12, color: C.textMuted, textAlign: "center", marginTop: 8 },
+  cancelText: { color: C.danger, fontWeight: "700" },
+  // "Building bill details" loading screen (centred column)
+  buildingScreen: { flex: 1, width: "100%", alignItems: "center", justifyContent: "center", paddingBottom: 40 },
+  buildingTitle: { fontSize: 18, fontWeight: "700", color: C.ink, textAlign: "center", marginTop: 20 },
+  buildingSub: { fontSize: 13, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 19, maxWidth: 280 },
   buttonTextPrimary: { color: C.white, fontWeight: "700", fontSize: 15 },
   buttonTextSecondary: { color: C.ink, fontWeight: "600", fontSize: 14 },
 });
