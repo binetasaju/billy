@@ -15,6 +15,7 @@ import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useRouter } from "expo-router";
+import { openNewBill } from "@/utils/openNewBill";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
@@ -165,8 +166,8 @@ export default function CustomSplitScreen() {
     }
     setShowSaveModal(false);
     if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
-    // Open the new bill (its invite card offers WhatsApp / Share link).
-    else router.replace(`/group/${savedId}` as any);
+    // Open the new bill on top of Home, so Back goes Home.
+    else openNewBill(router, savedId);
   };
 
   const owesLine = (p: Person, amount: number) => {
