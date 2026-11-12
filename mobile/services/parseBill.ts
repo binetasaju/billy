@@ -13,13 +13,13 @@
 import type { ParsedBill } from "../types/bill";
 import { toAmount } from "./receiptLayout";
 import { isTaxCharge, reconcileCharges } from "./reconcileBill";
-import { callGemini, geminiConfigured, GEMINI_MODELS } from "./gemini";
+import { callGeminiFast, geminiConfigured } from "./gemini";
 import { devLog } from "../utils/devLog";
 
 export type { ParsedBill };
 
-/** Per-attempt limit for the Gemini call (normal replies take ~2–3 s). */
-const ATTEMPT_TIMEOUT_MS = 15_000;
+/** Per-model limit for the Gemini call (replies take ~3–5 s; a backup model starts after 6 s). */
+const ATTEMPT_TIMEOUT_MS = 20_000;
 
 // ---------------------------------------------------------------------------
 // Prompt
@@ -278,58 +278,22 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
   try {
     if (!geminiConfigured()) throw new Error("Gemini API key not set.");
 
-    let response: Response | null = null;
-    // Speed over persistence: a normal reply takes ~2–5 s. If a model is
-    // overloaded (503/500/timeout) or out of free quota (429), move straight
-    // to the next model — it has its own capacity and limits. After the last
-    // one, fall back to the offline parser.
-    const models = GEMINI_MODELS;
-    let quotaHits = 0;
-
-    for (let attempt = 0; attempt < models.length; attempt++) {
-      const model = models[attempt];
-      const last = attempt === models.length - 1;
-      devLog(`[parseBill] Gemini call ${attempt + 1}/${models.length} (${model})`);
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
-      try {
-        response = await callGemini(
-          model,
-          buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64, mimeType: opts.mimeType } : undefined),
-          controller.signal
-        );
-      } catch (err) {
-        // Timed out (or network error): try the next model.
-        if (!last) {
-          console.warn(`[parseBill] ${model} failed (${(err as Error)?.name}). Trying ${models[attempt + 1]}…`);
-          retryCount++;
-          continue;
-        }
-        throw err;
-      } finally {
-        clearTimeout(timer);
+    // Speed over persistence: a normal reply takes ~3–5 s. A model that is
+    // busy, out of quota or slow is raced by the next one (callGeminiFast);
+    // after the last one, the offline parser takes over.
+    const { response, model, tries, quotaHits } = await callGeminiFast(
+      buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64, mimeType: opts.mimeType } : undefined),
+      { timeoutMs: ATTEMPT_TIMEOUT_MS }
+    );
+    retryCount = tries - 1;
+    devLog(`[parseBill] answered by ${model} (${tries} model${tries === 1 ? "" : "s"} asked)`);
+    if (!response.ok) {
+      // Every model is out of quota → say so (offline parser takes over).
+      if (response.status === 429 && quotaHits === tries) {
+        throw new QuotaExceededError("Gemini quota exceeded (429) on every model");
       }
-
-      if (!response.ok) {
-        if (response.status === 429) quotaHits++;
-        const switchModel = [429, 500, 503, 504].includes(response.status);
-        if (switchModel && !last) {
-          console.warn(`[parseBill] ${model} answered ${response.status}. Trying ${models[attempt + 1]}…`);
-          retryCount++;
-          continue;
-        }
-        // Every model is out of quota → say so (offline parser takes over).
-        if (response.status === 429 && quotaHits === models.length) {
-          throw new QuotaExceededError("Gemini quota exceeded (429) on every model");
-        }
-        const body = await response.text();
-        throw new Error(`Parse API error (${response.status}): ${body}`);
-      }
-      break; // Success
-    }
-
-    if (!response) {
-      throw new Error("Failed to get response from Gemini.");
+      const body = await response.text();
+      throw new Error(`Parse API error (${response.status}): ${body}`);
     }
     const json = await response.json();
   const finishReason = json?.candidates?.[0]?.finishReason;
