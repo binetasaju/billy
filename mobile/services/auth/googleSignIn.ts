@@ -44,6 +44,17 @@ function loadLibrary(): any {
 
 let configured = false;
 
+/** Configure the Google library once (Web client ID from google-services.json). */
+export function ensureGoogleConfigured(): void {
+  if (configured) return;
+  const webClientId = loadWebClientId();
+  if (!webClientId) {
+    throw new Error("Google sign-in isn't switched on for Billy yet.");
+  }
+  loadLibrary().GoogleSignin.configure({ webClientId });
+  configured = true;
+}
+
 /**
  * Show the Google account picker. Returns the ID token, or null when the
  * person closes the picker.
@@ -52,14 +63,7 @@ export async function getGoogleIdToken(): Promise<string | null> {
   const lib = loadLibrary();
   const { GoogleSignin, statusCodes, isErrorWithCode, isSuccessResponse } = lib;
 
-  if (!configured) {
-    const webClientId = loadWebClientId();
-    if (!webClientId) {
-      throw new Error("Google sign-in isn't switched on for Billy yet.");
-    }
-    GoogleSignin.configure({ webClientId });
-    configured = true;
-  }
+  ensureGoogleConfigured();
 
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });

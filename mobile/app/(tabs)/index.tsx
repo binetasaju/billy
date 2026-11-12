@@ -52,6 +52,7 @@ export default function HomeScreen() {
   const addBillOptions = [
     { label: "Take Photo",          onPress: () => handleCameraPress() },
     { label: "Choose From Gallery", onPress: () => handleGalleryPress() },
+    { label: "Import from Gmail",   onPress: () => router.push("/gmail-import" as any) },
     { label: "Enter Manually",      onPress: () => handleManualEntry() },
   ];
 
