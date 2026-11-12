@@ -26,6 +26,7 @@ import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { MemberAvatar } from "@/components/ui/MemberAvatar";
 import { T } from "@/constants/typography";
 import { QrCode } from "@/components/ui/QrCode";
 
@@ -582,9 +583,7 @@ export default function GroupDetailsScreen() {
             return (
               <View key={p.id} style={[s.personRow, idx < group.participants.length - 1 && s.txBorder]}>
                 {/* Two lines: name … share  /  status … buttons. Nothing is cut off. */}
-                <View style={[s.whoAvatar, s.personAvatar, { backgroundColor: p.color ?? C.textSubtle }]}>
-                  <Text style={s.whoAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
-                </View>
+                <MemberAvatar name={p.name} color={p.color} authUid={p.authUid} isMe={isMe} size={38} style={s.avatarGap} />
 
                 <View style={s.personBody}>
                   <View style={s.personLine}>
@@ -1040,7 +1039,7 @@ const s = StyleSheet.create({
   txPendingStatus: { fontSize: 11, color: C.statusActiveText, fontWeight: "600", marginTop: 2 },
   txAmount: { fontSize: 14, fontWeight: "700", color: C.ink },
   personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
-  personAvatar: { width: 38, height: 38, borderRadius: 19, marginRight: 12 },
+  avatarGap: { marginRight: 12 },
   personBody: { flex: 1 },
   // Each line: text on the left (wraps), fixed-width content on the right.
   personLine: { flexDirection: "row", alignItems: "center", gap: 10 },

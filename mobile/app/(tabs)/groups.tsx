@@ -30,6 +30,8 @@ import type { GroupMember } from "../../types/group";
 import { C } from "@/constants/colors";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
+import { MemberAvatar } from "@/components/ui/MemberAvatar";
+import { accountsFromBills } from "../../services/profilePhotos";
 
 export default function GroupsScreen() {
   const router = useRouter();
@@ -61,6 +63,9 @@ export default function GroupsScreen() {
     });
     return map;
   }, [billGroups]);
+
+  // Billy accounts of members (for their profile photos)
+  const accounts = useMemo(() => accountsFromBills(billGroups), [billGroups]);
 
   const billCount = useMemo(() => {
     const map: Record<string, number> = {};
@@ -169,12 +174,16 @@ export default function GroupsScreen() {
                   {/* Overlapping member initials */}
                   <View style={s.avatars}>
                     {shown.map((m, i) => (
-                      <View
+                      <MemberAvatar
                         key={m.id}
-                        style={[s.avatar, { backgroundColor: m.color ?? C.textSubtle, marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i }]}
-                      >
-                        <Text style={s.avatarText}>{(m.name || "?").charAt(0).toUpperCase()}</Text>
-                      </View>
+                        name={m.name || "?"}
+                        color={m.color}
+                        authUid={m.authUid ?? accounts[m.id]}
+                        isMe={m.isCurrentUser || m.id === user?.uid}
+                        size={32}
+                        ring={2}
+                        style={{ marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i }}
+                      />
                     ))}
                     {extra > 0 && (
                       <View style={[s.avatar, s.avatarMore, { marginLeft: -10 }]}>
@@ -271,7 +280,6 @@ const s = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center",
     borderWidth: 2, borderColor: C.white,
   },
-  avatarText: { color: C.white, fontSize: 12, fontWeight: "700" },
   avatarMore: { backgroundColor: C.surfaceAlt },
   avatarMoreText: { color: C.text, fontSize: 11, fontWeight: "700" },
   groupBody: { flex: 1 },
