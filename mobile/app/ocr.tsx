@@ -10,6 +10,7 @@ import {
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import { compressImage } from "../services/ocr";
 import { extractTextWithMLKit } from "../services/mlkitOcr";
@@ -295,6 +296,23 @@ export default function OcrScreen() {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+  // Receipt has been read → its own loading screen while the bill is built.
+  if (isExtracted && !isSlow) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.buildingScreen}>
+          <View style={styles.buildingDone}>
+            <Ionicons name="checkmark" size={16} color={C.white} />
+            <Text style={styles.buildingDoneText}>Receipt read successfully</Text>
+          </View>
+          <ActivityIndicator size="large" color={C.primary} style={styles.buildingSpinner} />
+          <Text style={styles.buildingTitle}>Building bill details…</Text>
+          <Text style={styles.buildingSub}>Finding items, prices, taxes and the total. This takes a few seconds.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Title — always "Extract Bill" */}
@@ -411,15 +429,10 @@ export default function OcrScreen() {
           style={({ pressed }) => [
             styles.button,
             isLoading && styles.buttonLoading,
-            isExtracted && styles.buttonExtracted,
             pressed && !isLoading && styles.buttonPressed,
           ]}
         >
-          {isExtracted && !isSlow ? (
-            <View style={styles.buttonInner}>
-              <Text style={styles.buttonLoadingText}>✓  Extracted successfully</Text>
-            </View>
-          ) : isLoading && !isSlow ? (
+          {isLoading && !isSlow ? (
             <View style={styles.buttonInner}>
               <ActivityIndicator color={C.white} size="small" />
               <Text style={styles.buttonLoadingText}>Extracting Bill…</Text>
@@ -461,7 +474,7 @@ const styles = StyleSheet.create({
     minHeight: 200,
     borderRadius: 14,
     overflow: "hidden",
-    backgroundColor: C.border,
+    backgroundColor: "#000000",
     marginBottom: 20,
     position: "relative"
   },
@@ -476,7 +489,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { backgroundColor: C.text },
   buttonLoading: { backgroundColor: C.text },
-  buttonExtracted: { backgroundColor: C.primary },
   buttonPressed: { opacity: 0.75 },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
   buttonInner: {
@@ -485,6 +497,16 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 8,
   },
+  // "Building bill details" loading screen
+  buildingScreen: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+  buildingDone: {
+    flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.primary,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+  },
+  buildingDoneText: { color: C.white, fontSize: 13, fontWeight: "700" },
+  buildingSpinner: { marginTop: 36, marginBottom: 20, transform: [{ scale: 1.3 }] },
+  buildingTitle: { fontSize: 20, fontWeight: "700", color: C.ink, textAlign: "center" },
+  buildingSub: { fontSize: 13, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 19 },
   progressMessage: {
     marginTop: 12,
     textAlign: "center",

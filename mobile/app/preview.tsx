@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     height: IMAGE_MAX_H,
     borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: C.border,
+    backgroundColor: "#000000",
     marginBottom: 14,
   },
   image: { width: "100%", height: "100%" },

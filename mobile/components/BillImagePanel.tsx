@@ -99,7 +99,7 @@ export default function BillImagePanel({ uri, height, onTap }: BillImagePanelPro
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: C.primary,
+    backgroundColor: "#000000", // black around the receipt (not green)
     width: "100%",
     overflow: "hidden",
     position: "relative",
