@@ -79,6 +79,8 @@ export async function getGoogleIdToken(): Promise<string | null> {
     if (!token) throw new Error("Google didn't return a sign-in token. Please try again.");
     return token;
   } catch (e: any) {
+    // Raw error for debugging (shown in Metro / logcat as ReactNativeJS).
+    console.warn("[GoogleSignIn] failed:", e?.code, e?.message);
     if (isErrorWithCode(e)) {
       if (e.code === statusCodes.SIGN_IN_CANCELLED) return null;
       if (e.code === statusCodes.IN_PROGRESS) return null;
