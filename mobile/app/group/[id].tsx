@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Pla
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -19,7 +19,6 @@ import {
   openUpiPayment,
   whatsappChatLink,
 } from "../../services/upi";
-import { cloudSession } from "../../services/cloud/cloudSync";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
@@ -35,7 +34,7 @@ interface BreakdownLine {
 }
 
 export default function GroupDetailsScreen() {
-  const { id, invite } = useLocalSearchParams<{ id: string; invite?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
   const [activeTx, setActiveTx] = useState<{
@@ -287,17 +286,6 @@ export default function GroupDetailsScreen() {
     }
   };
 
-  // Just created (?invite=1): offer the share sheet once the bill is in the
-  // cloud (that's when it has an invite code), or at once if sync is off.
-  const offeredShare = useRef(false);
-  useEffect(() => {
-    if (invite !== "1" || offeredShare.current || !group) return;
-    if (cloudSession() && !group.inCloud) return; // wait for the upload
-    offeredShare.current = true;
-    const t = setTimeout(() => void handleShareBill(), 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invite, group?.inCloud, group?.id]);
 
   // ── Payee-side confirmation ────────────────────────────────────────────────
   // Only the receiver of a settlement may mark it as received.

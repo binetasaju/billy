@@ -178,8 +178,8 @@ export default function ItemwiseSplitSummaryScreen() {
     }
     setShowSaveModal(false);
     if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
-    // Open the new bill and offer to share its link straight away.
-    else router.replace(`/group/${savedId}?invite=1` as any);
+    // Open the new bill (its invite card offers WhatsApp / Share link).
+    else router.replace(`/group/${savedId}` as any);
   };
 
   return (
