@@ -11,9 +11,8 @@
 // ---------------------------------------------------------------------------
 import * as ImageManipulator from "expo-image-manipulator";
 import { devLog } from "../utils/devLog";
-import { callGemini, geminiConfigured } from "./gemini";
+import { callGeminiWithFallback, geminiConfigured } from "./gemini";
 
-const GEMINI_MODEL = "gemini-flash-lite-latest";
 const TIMEOUT_MS = 30_000;
 
 // Gemini's native box format: [ymin, xmin, ymax, xmax] on a 0–1000 scale.
@@ -114,10 +113,8 @@ export async function autoCropReceipt(uri: string): Promise<AutoCropResult> {
     );
     if (!small.base64) throw new Error("Could not prepare the image.");
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const response = await callGemini(
-      GEMINI_MODEL,
+    // Tries the backup models when the first is busy or out of quota.
+    const response = await callGeminiWithFallback(
       {
         contents: [{ parts: [
           { inline_data: { mime_type: "image/jpeg", data: small.base64 } },
@@ -125,8 +122,8 @@ export async function autoCropReceipt(uri: string): Promise<AutoCropResult> {
         ] }],
         generationConfig: { temperature: 0, response_mime_type: "application/json" },
       },
-      controller.signal
-    ).finally(() => clearTimeout(timer));
+      TIMEOUT_MS
+    );
 
     if (!response.ok) {
       const body = await response.text();

@@ -13,12 +13,11 @@
 import type { ParsedBill } from "../types/bill";
 import { toAmount } from "./receiptLayout";
 import { isTaxCharge, reconcileCharges } from "./reconcileBill";
-import { callGemini, geminiConfigured } from "./gemini";
+import { callGemini, geminiConfigured, GEMINI_MODELS } from "./gemini";
 import { devLog } from "../utils/devLog";
 
 export type { ParsedBill };
 
-const GEMINI_MODEL = "gemini-flash-lite-latest";
 /** Per-attempt limit for the Gemini call (normal replies take ~2–3 s). */
 const ATTEMPT_TIMEOUT_MS = 15_000;
 
@@ -280,29 +279,30 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
     if (!geminiConfigured()) throw new Error("Gemini API key not set.");
 
     let response: Response | null = null;
-    let attempt = 1;
-    // Speed over persistence: a normal reply takes ~2–3 s. If Google is
-    // overloaded, give each attempt 15 s, retry once, then fall back to the
-    // offline parser — worst case ≈ 30 s instead of a minute or more.
-    const maxRetries = 2;
-    const RETRY_DELAYS = [1500];
+    // Speed over persistence: a normal reply takes ~2–5 s. If a model is
+    // overloaded (503/500/timeout) or out of free quota (429), move straight
+    // to the next model — it has its own capacity and limits. After the last
+    // one, fall back to the offline parser.
+    const models = GEMINI_MODELS;
+    let quotaHits = 0;
 
-    while (attempt <= maxRetries) {
-      devLog(`[parseBill] Gemini call (Attempt ${attempt}/${maxRetries})`);
+    for (let attempt = 0; attempt < models.length; attempt++) {
+      const model = models[attempt];
+      const last = attempt === models.length - 1;
+      devLog(`[parseBill] Gemini call ${attempt + 1}/${models.length} (${model})`);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
       try {
         response = await callGemini(
-          GEMINI_MODEL,
+          model,
           buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64, mimeType: opts.mimeType } : undefined),
           controller.signal
         );
       } catch (err) {
-        // Timed out (or network error): retry once, then fall back offline.
-        if (attempt < maxRetries) {
-          console.warn(`[parseBill] Gemini attempt ${attempt} failed (${(err as Error)?.name}). Retrying…`);
+        // Timed out (or network error): try the next model.
+        if (!last) {
+          console.warn(`[parseBill] ${model} failed (${(err as Error)?.name}). Trying ${models[attempt + 1]}…`);
           retryCount++;
-          attempt++;
           continue;
         }
         throw err;
@@ -311,21 +311,17 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
       }
 
       if (!response.ok) {
-        // 429 = quota exhausted. A daily limit won't reset in a few seconds,
-        // so retrying only adds delay — go straight to the offline parser.
-        if (response.status === 429) {
-          throw new QuotaExceededError("Gemini quota exceeded (429)");
-        }
-        const isRetryable = [503, 500].includes(response.status);
-        if (isRetryable && attempt < maxRetries) {
-          const delayMs = RETRY_DELAYS[attempt - 1];
-          console.warn(`[parseBill] Gemini ${response.status}. Retrying in ${delayMs}ms... (${attempt}/${maxRetries})`);
-          await new Promise(res => setTimeout(res, delayMs));
+        if (response.status === 429) quotaHits++;
+        const switchModel = [429, 500, 503, 504].includes(response.status);
+        if (switchModel && !last) {
+          console.warn(`[parseBill] ${model} answered ${response.status}. Trying ${models[attempt + 1]}…`);
           retryCount++;
-          attempt++;
           continue;
         }
-        // All retries exhausted or non-retryable error
+        // Every model is out of quota → say so (offline parser takes over).
+        if (response.status === 429 && quotaHits === models.length) {
+          throw new QuotaExceededError("Gemini quota exceeded (429) on every model");
+        }
         const body = await response.text();
         throw new Error(`Parse API error (${response.status}): ${body}`);
       }

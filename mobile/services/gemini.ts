@@ -12,6 +12,13 @@
 // ---------------------------------------------------------------------------
 import { getAuthProvider } from "./auth";
 
+/**
+ * Models to try in order. When one is overloaded (503) or out of free quota
+ * (429), the next usually isn't — each has its own capacity and limits.
+ * All must be allowed by backend/lib/geminiProxy.ts (ALLOWED_MODELS).
+ */
+export const GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.5-flash-lite"] as const;
+
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const serverUrl = () => (process.env.EXPO_PUBLIC_BILLY_API_URL ?? "").replace(/\/+$/, "");
@@ -45,4 +52,27 @@ export async function callGemini(model: string, body: unknown, signal?: AbortSig
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * callGemini over GEMINI_MODELS: on a timeout, 429 or 5xx, try the next
+ * model. Returns the first OK response, or the last model's response.
+ */
+export async function callGeminiWithFallback(body: unknown, timeoutMs: number): Promise<Response> {
+  let lastError: unknown = null;
+  for (let i = 0; i < GEMINI_MODELS.length; i++) {
+    const last = i === GEMINI_MODELS.length - 1;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await callGemini(GEMINI_MODELS[i], body, controller.signal);
+      if (res.ok || last || ![429, 500, 503, 504].includes(res.status)) return res;
+    } catch (e) {
+      lastError = e;
+      if (last) throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError ?? new Error("Gemini unavailable");
 }
