@@ -66,7 +66,7 @@ export default function PayBillsScreen() {
                     <View style={s.cardTop}>
                       <Text style={s.cardTitle} numberOfLines={1}>{g.title}</Text>
                       <View style={s.amounts}>
-                        {give > 0 && <Text style={[s.amount, { color: C.danger }]}>{rupeesExact(give)}</Text>}
+                        {give > 0 && <Text style={[s.amount, { color: C.ink }]}>{rupeesExact(give)}</Text>}
                         {get > 0 && <Text style={[s.amount, { color: C.success }]}>{rupeesExact(get)}</Text>}
                       </View>
                     </View>
