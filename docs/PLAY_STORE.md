@@ -21,7 +21,7 @@ Copy these into Play Console. Check every answer against the app before submitti
 >
 > 🔗 **Share one link.** Send the bill to your WhatsApp group. Friends open it, pick their name and see exactly what they owe.
 >
-> 📄 **Upload a PDF bill.** Got the bill by email (Swiggy, Zomato, Amazon, a restaurant's invoice)? Upload the PDF and split it.
+> 📄 **Upload a bill file.** Got the bill by email (Swiggy, Zomato, Amazon, a restaurant's invoice)? Upload the PDF, image, saved email, Word or Excel file and split it.
 >
 > 👥 **Groups and history.** Save your regular crew, see who still owes you, and look back at what you spent each month.
 >
@@ -34,7 +34,7 @@ Copy these into Play Console. Check every answer against the app before submitti
 **Graphics you need:**
 - App icon 512 × 512 PNG
 - Feature graphic 1024 × 500
-- 2–8 phone screenshots (1080 × 1920 or similar): Home, scan → Review, item-wise split, bill page with Pay/QR, PDF upload
+- 2–8 phone screenshots (1080 × 1920 or similar): Home, scan → Review, item-wise split, bill page with Pay/QR, bill file upload
 
 ## Data safety form
 
@@ -54,9 +54,9 @@ Copy these into Play Console. Check every answer against the app before submitti
 | Financial info | Other financial info | UPI ID; bill amounts and payment status. (No card or bank numbers.) |
 | Photos and videos | Photos | Receipt photos — processed (sent to Gemini), not stored on the server. Optional. |
 | Contacts | Contacts | Only the people you pick are saved. Optional. |
-| Files and docs | Files and docs | PDF bills the user uploads — processed (sent to Gemini), not stored on the server. Optional. |
+| Files and docs | Files and docs | Bill files the user uploads (PDF, image, email, text, Office) — processed (sent to Gemini), not stored on the server. Optional. |
 
-**Shared with third parties:** Receipt photos / uploaded PDFs go to Google's Gemini API for processing. Under Play's definitions, sending data to a service provider that processes it for you is not "sharing", but say so in the privacy policy (done).
+**Shared with third parties:** Receipt photos / uploaded bill files (or their text) go to Google's Gemini API for processing. Under Play's definitions, sending data to a service provider that processes it for you is not "sharing", but say so in the privacy policy (done).
 
 ## Content rating & other forms
 

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
-// app/import-document.tsx — reading an uploaded PDF bill
+// app/import-document.tsx — reading an uploaded bill file
 //
-// Opened from Add Bill → Upload Bill (PDF) with the picked file. Shows a
+// Opened from Add Bill → Upload Bill File with the picked file. Shows a
 // loading state, then goes to Review; on failure, offers to pick another file.
 // ---------------------------------------------------------------------------
 import { useCallback, useEffect, useState } from "react";
@@ -11,25 +11,30 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "@/constants/colors";
 import { T } from "@/constants/typography";
-import { extractBillFromPdf, pickBillDocument } from "../services/documentImport";
+import { extractBillFromFile, pickBillDocument, type BillFile } from "../services/documentImport";
 import { ExtractionError } from "../services/billExtraction";
 
 export default function ImportDocumentScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ uri: string; name?: string; size?: string }>();
-  const [file, setFile] = useState({ uri: params.uri, name: params.name ?? "bill.pdf", size: params.size ? Number(params.size) : null });
+  const params = useLocalSearchParams<{ uri: string; name?: string; mimeType?: string; size?: string }>();
+  const [file, setFile] = useState<BillFile>({
+    uri: params.uri,
+    name: params.name ?? "bill",
+    mimeType: params.mimeType || null,
+    size: params.size ? Number(params.size) : null,
+  });
   const [error, setError] = useState<string | null>(null);
 
-  const read = useCallback(async (f: { uri: string; name: string; size: number | null }) => {
+  const read = useCallback(async (f: BillFile) => {
     setError(null);
     try {
-      await extractBillFromPdf(f.uri, f.size);
+      await extractBillFromFile(f);
       router.replace("/review-items");
     } catch (e) {
       setError(
         e instanceof ExtractionError && e.notABill
-          ? "This doesn't look like a bill. Choose another PDF."
-          : e instanceof Error ? e.message : "Couldn't read that PDF."
+          ? "This doesn't look like a bill. Choose another file."
+          : e instanceof Error ? e.message : "Couldn't read that file."
       );
     }
   }, [router]);
@@ -52,7 +57,7 @@ export default function ImportDocumentScreen() {
         router.replace({ pathname: "/preview", params: { uri: picked.uri } });
         return;
       }
-      setFile({ uri: picked.uri, name: picked.name, size: picked.size });
+      setFile({ uri: picked.uri, name: picked.name, mimeType: picked.mimeType, size: picked.size });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't open that file.");
     }

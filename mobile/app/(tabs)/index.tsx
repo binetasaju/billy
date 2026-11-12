@@ -53,7 +53,7 @@ export default function HomeScreen() {
   const addBillOptions = [
     { label: "Take Photo",          onPress: () => handleCameraPress() },
     { label: "Choose From Gallery", onPress: () => handleGalleryPress() },
-    { label: "Upload Bill (PDF)",   onPress: () => handleUploadPress() },
+    { label: "Upload Bill File",    onPress: () => handleUploadPress() },
     { label: "Enter Manually",      onPress: () => handleManualEntry() },
   ];
 
@@ -120,7 +120,7 @@ export default function HomeScreen() {
     }
   };
 
-  // ── Upload a PDF e-bill (or an image file) ─────────────────────────────────
+  // ── Upload a bill file (PDF, image, email, text, Word/Excel…) ─────────────────────────────────
   const handleUploadPress = async () => {
     try {
       const picked = await pickBillDocument();
@@ -130,7 +130,12 @@ export default function HomeScreen() {
       } else {
         router.push({
           pathname: "/import-document" as any,
-          params: { uri: picked.uri, name: picked.name, size: picked.size != null ? String(picked.size) : "" },
+          params: {
+            uri: picked.uri,
+            name: picked.name,
+            mimeType: picked.mimeType ?? "",
+            size: picked.size != null ? String(picked.size) : "",
+          },
         });
       }
     } catch (e) {

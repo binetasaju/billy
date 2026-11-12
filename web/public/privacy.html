@@ -44,7 +44,7 @@
       <tr><td>Saved groups (names and phone numbers you choose)</td><td>To reuse the same people on new bills.</td></tr>
       <tr><td>Receipt photos</td><td>To read the bill. Photos stay on your phone; a compressed copy is sent for reading (see below) and is not stored by Billy.</td></tr>
       <tr><td>Contacts (only if you allow it)</td><td>To pick people for a bill. Billy reads your contact list on the phone and saves only the people you choose.</td></tr>
-      <tr><td>Bill documents you upload (PDF or image)</td><td>To read the bill. The file is sent for reading (see below) and is not stored by Billy; only the bill you save is kept.</td></tr>
+      <tr><td>Bill files you upload (PDF, image, email, text, Word or Excel)</td><td>To read the bill. The file is sent for reading (see below) and is not stored by Billy; only the bill you save is kept.</td></tr>
     </tbody>
   </table>
   <p>Billy does not collect your location, show ads or sell data.</p>
@@ -53,7 +53,7 @@
   <ul>
     <li><strong>People on the same bill</strong> see the bill, your name, your share, payment status and your UPI ID.</li>
     <li><strong>Google Firebase</strong> (Authentication and Cloud Firestore, stored in Mumbai, India) keeps your account, profile, bills and saved groups so they sync between phones.</li>
-    <li><strong>Google Gemini API</strong> reads receipt photos, the text read from them on your phone, and bill documents (PDFs) you upload, and returns the items and totals. Billy uses Gemini’s free tier, under which Google may use what is sent to improve its products. Avoid scanning receipts that show sensitive personal details.</li>
+    <li><strong>Google Gemini API</strong> reads receipt photos, the text read from them on your phone, and bill files you upload (a PDF as it is; for other files, the text read from them on your phone), and returns the items and totals. Billy uses Gemini’s free tier, under which Google may use what is sent to improve its products. Avoid scanning receipts that show sensitive personal details.</li>
     <li><strong>Your UPI app</strong> (Google Pay, PhonePe, Paytm…) opens with the amount and the receiver’s UPI ID when you tap Pay. The payment happens entirely in that app.</li>
   </ul>
 
