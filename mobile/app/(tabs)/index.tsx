@@ -185,10 +185,11 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.greeting}>
-            <Text style={styles.hello}>{greeting()}</Text>
-            <Text style={styles.name} numberOfLines={1}>{firstName ?? "there"}</Text>
-          </View>
+          {/* One line: "Good evening, Bineta" */}
+          <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+            <Text style={styles.hello}>{greeting()}{firstName ? ", " : ""}</Text>
+            {firstName ? <Text style={styles.name}>{firstName}</Text> : null}
+          </Text>
           <Pressable
             onPress={() => router.push("/(tabs)/profile" as any)}
             style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
@@ -385,9 +386,9 @@ const styles = StyleSheet.create({
   sheetCancelText: { ...T.body, color: C.textMuted, fontWeight: "600" },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 26 },
-  greeting: { flex: 1 },
-  hello: { fontSize: 14, lineHeight: 18, fontWeight: "500", color: C.textMuted, letterSpacing: -0.1 },
-  name: { fontSize: 30, lineHeight: 36, fontWeight: "800", color: C.ink, letterSpacing: -0.8, marginTop: 2 },
+  greeting: { flex: 1, fontSize: 24, lineHeight: 30, letterSpacing: -0.6 },
+  hello: { fontWeight: "500", color: C.textMuted },
+  name: { fontWeight: "800", color: C.ink },
   // Photo inside a thin logo-green ring
   avatar: {
     width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center",
