@@ -61,6 +61,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1064599655749-lv9cb47971p04e5ubfdbrrs93a97rbi2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.billy.matters",
+            "certificate_hash": "0310b9e3c1044e714fd7017a95bdae88d7550f23"
+          }
+        },
+        {
           "client_id": "1064599655749-esg1torq9o93gg80rn8hu0t90aulj0ve.apps.googleusercontent.com",
           "client_type": 3
         }
