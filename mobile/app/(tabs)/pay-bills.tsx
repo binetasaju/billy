@@ -28,9 +28,6 @@ export default function PayBillsScreen() {
       const paid = g.settlements.filter((t) => t.status === "paid").length;
       return { g, give, get, paid, count: g.settlements.length };
     });
-  // These add up to Home's "You'll give | You'll get" card.
-  const totalGive = bills.reduce((sum, b) => sum + b.give, 0);
-  const totalGet = bills.reduce((sum, b) => sum + b.get, 0);
 
   return (
     <SafeAreaView style={s.safeArea} edges={["top", "left", "right"]}>
@@ -50,23 +47,6 @@ export default function PayBillsScreen() {
           </View>
         ) : (
           <>
-            {/* Totals */}
-            <View style={s.summary}>
-              <View style={s.summaryCell}>
-                <Text style={s.summaryLabel}>You&apos;ll give</Text>
-                <Text style={[s.summaryValue, totalGive > 0 && { color: C.danger }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {rupeesExact(totalGive)}
-                </Text>
-              </View>
-              <View style={s.summaryDivider} />
-              <View style={s.summaryCell}>
-                <Text style={s.summaryLabel}>You&apos;ll get</Text>
-                <Text style={[s.summaryValue, totalGet > 0 && { color: C.success }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {rupeesExact(totalGet)}
-                </Text>
-              </View>
-            </View>
-
             <Text style={s.sectionTitle}>
               {bills.length} open bill{bills.length === 1 ? "" : "s"}
             </Text>
@@ -133,16 +113,6 @@ const s = StyleSheet.create({
   },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: C.ink, marginBottom: 6 },
   emptySubtitle: { fontSize: 13, color: C.textMuted, textAlign: "center", lineHeight: 18, maxWidth: 260 },
-
-  summary: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder,
-    paddingVertical: 16, marginBottom: 24,
-  },
-  summaryCell: { flex: 1, alignItems: "center", paddingHorizontal: 12 },
-  summaryDivider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: C.borderStrong },
-  summaryLabel: { fontSize: 12, color: C.textMuted, fontWeight: "600", marginBottom: 4 },
-  summaryValue: { fontSize: 22, fontWeight: "800", color: C.ink, letterSpacing: -0.5, fontVariant: ["tabular-nums"] },
 
   sectionTitle: { fontSize: 13, fontWeight: "700", color: C.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 },
   list: { gap: 12 },
