@@ -402,13 +402,13 @@ const styles = StyleSheet.create({
   balanceDivider: { width: 1, height: 56, backgroundColor: C.onDarkLine, marginHorizontal: 12 },
   balanceColSub: { fontSize: 11, lineHeight: 14, color: C.onDarkMuted, marginTop: 6, textAlign: "center" },
   positive: { color: C.successDark },
-  negative: { color: C.danger },
+  negative: { color: C.ink },
   // Brighter variants that stay readable on the black card
   // Status colours — amber = still owed, green = settled
   statusActive: { color: C.statusActiveText, fontWeight: "600" },
   statusSettled: { color: C.statusSettledText, fontWeight: "600" },
   positiveOnDark: { color: "#10B981" },
-  negativeOnDark: { color: "#FB7185" },
+  negativeOnDark: { color: C.onDark },
 
   primaryBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 17, alignItems: "center" },
   primaryBtnText: { ...T.headline, color: C.white },

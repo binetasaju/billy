@@ -145,7 +145,7 @@ const s = StyleSheet.create({
   statDivider: { width: 1, alignSelf: "stretch", backgroundColor: C.onDarkLine, marginHorizontal: 18 },
   statLabel: { ...T.footnote, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.6 },
   statValue: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3, marginTop: 6 },
-  spent: { color: "#FB7185" },
+  spent: { color: C.onDark },
   received: { color: "#10B981" },
   statFoot: { ...T.footnote, color: C.onDarkMuted, marginTop: 16 },
 
