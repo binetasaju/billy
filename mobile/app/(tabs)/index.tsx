@@ -29,6 +29,12 @@ import { rupeesExact } from "../../utils/formatRupees";
 import { scanReceipt } from "../../services/documentScanner";
 import { pickBillDocument } from "../../services/documentImport";
 
+/** "Good morning" / "Good afternoon" / "Good evening" by the phone's clock. */
+function greeting(now = new Date()): string {
+  const h = now.getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -179,16 +185,16 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.hello}>Hello{firstName ? "," : ""}</Text>
-            <Text style={styles.name}>{firstName ?? "there"}</Text>
+          <View style={styles.greeting}>
+            <Text style={styles.hello}>{greeting()}</Text>
+            <Text style={styles.name} numberOfLines={1}>{firstName ?? "there"}</Text>
           </View>
           <Pressable
             onPress={() => router.push("/(tabs)/profile" as any)}
             style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
             accessibilityLabel="Profile"
           >
-            <UserAvatar photoUrl={user?.photoUrl} name={firstName ?? "B"} size={44} textStyle={styles.avatarText} />
+            <UserAvatar photoUrl={user?.photoUrl} name={firstName ?? "B"} size={42} textStyle={styles.avatarText} />
           </Pressable>
         </View>
 
@@ -378,14 +384,16 @@ const styles = StyleSheet.create({
   },
   sheetCancelText: { ...T.body, color: C.textMuted, fontWeight: "600" },
 
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 28 },
-  hello: { ...T.subhead, color: C.textMuted },
-  name: { ...T.title1, color: C.ink },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 26 },
+  greeting: { flex: 1 },
+  hello: { fontSize: 14, lineHeight: 18, fontWeight: "500", color: C.textMuted, letterSpacing: -0.1 },
+  name: { fontSize: 30, lineHeight: 36, fontWeight: "800", color: C.ink, letterSpacing: -0.8, marginTop: 2 },
+  // Photo inside a thin logo-green ring
   avatar: {
-    width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
-    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.glassBorder, overflow: "hidden",
+    width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center",
+    backgroundColor: C.primarySoft, borderWidth: 2, borderColor: C.brand, overflow: "hidden",
   },
-  avatarText: { ...T.headline, color: C.primary },
+  avatarText: { fontSize: 17, fontWeight: "700", color: C.brand },
 
   heroCard: {
     backgroundColor: C.primaryDark, borderRadius: 28,
