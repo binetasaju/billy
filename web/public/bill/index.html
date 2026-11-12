@@ -36,7 +36,7 @@
     var path = "bill/" + encodeURIComponent(id) + (code ? "?c=" + encodeURIComponent(code) : "");
     var appLink = "mobile://" + path;
     // Android Chrome: an intent:// link opens the installed app directly.
-    var intentLink = "intent://" + path + "#Intent;scheme=mobile;package=com.anonymous.mobile;end";
+    var intentLink = "intent://" + path + "#Intent;scheme=mobile;package=com.billy.matters;end";
     var isAndroid = /Android/i.test(navigator.userAgent);
     var link = isAndroid ? intentLink : appLink;
     document.getElementById("open").href = link;
