@@ -437,6 +437,13 @@ export default function GroupDetailsScreen() {
   // Who paid the restaurant (everyone's settlement points at them).
   const payerId = payerOf(group);
 
+  // People who haven't joined this bill in Billy yet (they get an invite line in their row).
+  const notJoinedIds = new Set(
+    group.inCloud && group.status !== "closed"
+      ? group.participants.filter((p) => !p.authUid && p.id !== currentUser?.uid).map((p) => p.id)
+      : []
+  );
+
   return (
     <SafeAreaView style={s.safeArea}>
       <View style={s.header}>
@@ -498,96 +505,16 @@ export default function GroupDetailsScreen() {
           })()}
         </View>
 
-        {/* ── Invite: people who haven't joined yet ── */}
-        {(() => {
-          const notJoined = group.inCloud && group.status !== "closed"
-            ? group.participants.filter((p) => !p.authUid && p.id !== currentUser?.uid)
-            : [];
-          if (notJoined.length === 0) {
-            return (
-              <Pressable
-                style={({ pressed }) => [s.shareBillBtn, pressed && s.pressedBtn]}
-                onPress={handleShareBill}
-                accessibilityRole="button"
-                accessibilityLabel="Share bill"
-              >
-                <Ionicons name="share-social-outline" size={17} color={C.primary} />
-                <Text style={s.shareBillText}>Share bill</Text>
-              </Pressable>
-            );
-          }
-          return (
-            <View style={s.inviteCard}>
-              <View style={s.inviteHead}>
-                <Ionicons name="link-outline" size={18} color={C.primary} />
-                <Text style={s.inviteTitle}>
-                  {notJoined.length === 1 ? "1 person hasn\u2019t joined yet" : `${notJoined.length} people haven\u2019t joined yet`}
-                </Text>
-              </View>
-              <Text style={s.inviteText}>
-                They join in Billy with the link (and sign up if they{"\u2019"}re new) to see their share and pay.
-              </Text>
-
-              {/* One row per person: Send (any app) + WhatsApp shortcut when we have their number */}
-              {notJoined.map((p) => {
-                const share = group.settlements.find((t) => t.fromUserId === p.id)?.amount;
-                const message = group.inviteCode
-                  ? buildPersonInviteMessage({
-                      name: p.name,
-                      billTitle: group.title,
-                      share,
-                      link: billLink(group.id, group.inviteCode),
-                    })
-                  : null;
-                const waLink = message ? whatsappChatLink(p.phone, message) : null;
-                return (
-                  <View key={p.id} style={s.inviteRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.inviteName}>{p.name}</Text>
-                      <Text style={s.inviteSub}>{share ? `₹${share.toFixed(2)}` : "Not paying"}</Text>
-                    </View>
-                    {waLink && (
-                      <Pressable
-                        style={({ pressed }) => [s.waIconBtn, pressed && s.pressedBtn]}
-                        onPress={() =>
-                          Linking.openURL(waLink).catch(() =>
-                            appAlert.alert("WhatsApp not available", "Use Send to share the invite with another app.")
-                          )
-                        }
-                        hitSlop={4}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Invite ${p.name} on WhatsApp`}
-                      >
-                        <Ionicons name="logo-whatsapp" size={17} color={C.white} />
-                      </Pressable>
-                    )}
-                    {message && (
-                      <Pressable
-                        style={({ pressed }) => [s.sendBtn, pressed && s.pressedBtn]}
-                        onPress={() => void Share.share({ message }).catch(() => {})}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Send ${p.name} their invite`}
-                      >
-                        <Ionicons name="paper-plane" size={14} color={C.white} />
-                        <Text style={s.sendBtnText}>Send</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                );
-              })}
-
-              <Pressable
-                style={({ pressed }) => [s.inviteBtn, pressed && s.pressedBtn]}
-                onPress={handleShareBill}
-                accessibilityRole="button"
-                accessibilityLabel="Share bill link to everyone"
-              >
-                <Ionicons name="share-social" size={16} color={C.white} />
-                <Text style={s.inviteBtnText}>Share link to everyone</Text>
-              </Pressable>
-            </View>
-          );
-        })()}
+        {/* ── Share: one button (invites per person are in their People row) ── */}
+        <Pressable
+          style={({ pressed }) => [s.shareBillBtn, pressed && s.pressedBtn]}
+          onPress={handleShareBill}
+          accessibilityRole="button"
+          accessibilityLabel={notJoinedIds.size ? "Share bill link to everyone" : "Share bill"}
+        >
+          <Ionicons name="share-social-outline" size={17} color={C.primary} />
+          <Text style={s.shareBillText}>{notJoinedIds.size ? "Share link to everyone" : "Share bill"}</Text>
+        </Pressable>
 
         {/* ── Closed bill ── */}
         {group.status === "closed" && (
@@ -609,7 +536,13 @@ export default function GroupDetailsScreen() {
         )}
 
         {/* ── People: who had what + their share + payments that involve you ── */}
-        <Text style={s.sectionTitle}>People ({group.participants.length})</Text>
+        <Text style={[s.sectionTitle, notJoinedIds.size > 0 && { marginBottom: 4 }]}>People ({group.participants.length})</Text>
+        {notJoinedIds.size > 0 && (
+          <Text style={s.sectionHint}>
+            {notJoinedIds.size === 1 ? "1 person hasn’t" : `${notJoinedIds.size} people haven’t`} joined yet. Send them
+            the link to see their share and pay.
+          </Text>
+        )}
         <View style={s.listCard}>
           {group.participants.map((p, idx) => {
             const me = currentUser?.uid;
@@ -726,6 +659,48 @@ export default function GroupDetailsScreen() {
                       </Text>
                     </View>
                   )}
+
+                  {/* Not in Billy yet: invite them (WhatsApp when we have their number, or any app) */}
+                  {notJoinedIds.has(p.id) && group.inviteCode && (() => {
+                    const message = buildPersonInviteMessage({
+                      name: p.name,
+                      billTitle: group.title,
+                      share: group.settlements.find((t) => t.fromUserId === p.id)?.amount,
+                      link: billLink(group.id, group.inviteCode),
+                    });
+                    const waLink = whatsappChatLink(p.phone, message);
+                    return (
+                      <View style={s.inviteLine}>
+                        <Text style={s.inviteLineText}>Not in Billy yet</Text>
+                        {waLink && (
+                          <Pressable
+                            style={({ pressed }) => [s.inviteChip, s.waChip, pressed && s.pressedBtn]}
+                            onPress={() =>
+                              Linking.openURL(waLink).catch(() =>
+                                appAlert.alert("WhatsApp not available", "Use Invite to send the link with another app.")
+                              )
+                            }
+                            hitSlop={4}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Invite ${p.name} on WhatsApp`}
+                          >
+                            <Ionicons name="logo-whatsapp" size={13} color={C.white} />
+                            <Text style={s.waChipText}>WhatsApp</Text>
+                          </Pressable>
+                        )}
+                        <Pressable
+                          style={({ pressed }) => [s.inviteChip, pressed && s.pressedBtn]}
+                          onPress={() => void Share.share({ message }).catch(() => {})}
+                          hitSlop={4}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Send ${p.name} their invite`}
+                        >
+                          <Ionicons name="paper-plane-outline" size={13} color={C.primary} />
+                          <Text style={s.inviteChipText}>Invite</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })()}
                 </View>
               </View>
             );
@@ -1078,33 +1053,20 @@ const s = StyleSheet.create({
     backgroundColor: C.primarySoft, borderWidth: 1, borderColor: C.primary,
   },
   shareBillText: { fontSize: 14, fontWeight: "700", color: C.primary },
-  inviteCard: {
-    backgroundColor: C.primarySoft, borderRadius: 16, padding: 16, marginTop: -16, marginBottom: 24,
-    borderWidth: 1, borderColor: C.primary, gap: 8,
+  sectionHint: { fontSize: 12, color: C.textMuted, lineHeight: 17, marginBottom: 12 },
+  // "Not in Billy yet · WhatsApp · Invite" line inside a person's row
+  inviteLine: {
+    flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border,
   },
-  inviteHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-  inviteTitle: { fontSize: 14, fontWeight: "700", color: C.ink },
-  inviteText: { fontSize: 12, color: C.text, lineHeight: 17 },
-  inviteBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-    backgroundColor: C.primary, borderRadius: 12, paddingVertical: 11, marginTop: 4,
+  inviteLineText: { flex: 1, fontSize: 11, color: C.textMuted, fontStyle: "italic" },
+  inviteChip: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: C.primarySoft,
   },
-  inviteBtnText: { color: C.white, fontSize: 14, fontWeight: "700" },
-  inviteRow: {
-    flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderStrong,
-  },
-  inviteName: { fontSize: 14, fontWeight: "600", color: C.ink },
-  inviteSub: { fontSize: 11, color: C.textMuted, marginTop: 2 },
-  waIconBtn: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: "#25D366",
-    alignItems: "center", justifyContent: "center",
-  },
-  sendBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: C.primary,
-    paddingHorizontal: 12, height: 32, borderRadius: 16,
-  },
-  sendBtnText: { color: C.white, fontSize: 12, fontWeight: "700" },
+  inviteChipText: { color: C.primary, fontSize: 11, fontWeight: "700" },
+  waChip: { backgroundColor: "#25D366" },
+  waChipText: { color: C.white, fontSize: 11, fontWeight: "700" },
   chipBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
