@@ -1,10 +1,10 @@
 # Billy — Next Steps
 
-_Last updated: 11 Nov 2026 (night). Checked against the code on `main`._
+_Last updated: 12 Nov 2026. Checked against the code on `main`._
 
-**Where we are:** the single-phone app is feature-complete and now has **real sign-in** (email + Google, Firebase free plan) and **shareable bill links**. The big missing piece is **cloud sync** — today every bill lives only on the phone that created it, so friends can't see it, payments don't update on other phones, and shared links only open on your own phone.
+**Where we are:** Billy is now a **shared, multi-user app** on Firebase's free plan — real sign-in (email + Google), **cloud sync with Firestore** (bills, payments and saved groups), adding friends **by their Billy account**, joining bills **by link**, and **live payment updates** between phones. Tested with two accounts on 12 Nov 2026.
 
-**Goal now:** build **cloud sync (Firestore)** — everything before it is saved, tested and on `main`.
+**Goal now:** automatic UPI confirmation and more reliable receipt reading; push notifications when billing is affordable.
 
 ---
 
@@ -22,16 +22,18 @@ _Last updated: 11 Nov 2026 (night). Checked against the code on `main`._
 | Review | 🟢 Done | Edit items, add/remove taxes (✕ per line), totals checked against the printed total |
 | Splits | 🟢 Done | Equal · Item-wise (**two steps**: assign items → Bill details → Create Bill) · Split an Amount (from a saved group, button under the group title) |
 | Bill page | 🟢 Done | One **People** list (share, status, 🧾 items, Received / Pay / Mark paid), **Share bill** (one message + link), Report Error → Edit (before payments) / **Close Bill** (after a payment) / Delete & rescan |
-| Shared bill links | 🟢 Done (own phone) | `https://billy-ed9eb.web.app/bill/<id>` — Android App Links **verified**; web fallback page with "Open in Billy". Only finds the bill on a phone that has it (needs cloud sync) |
-| Payments | 🟡 Manual | UPI deep link + "Mark paid" / "Received" (one confirmation). **No automatic confirmation yet** |
+| Shared bill links | 🟢 Done | `https://billy-ed9eb.web.app/bill/<id>?c=<invite>` — Android App Links **verified**; opens the bill, or a **Join** screen ("Which one are you?") for people not on it yet |
+| Cloud sync | 🟢 Done | Firestore (Mumbai, free plan): bills, payments, saved groups, profiles. Offline-first, live updates, existing bills uploaded once. **Security rules + 18 emulator tests** (`web/`). Profile → **Cloud sync** on/off switch. Plan: `docs/CLOUD_SYNC_PLAN.md` |
+| Adding people | 🟢 Done | **Accounts first:** "Add a Billy User" by email or from people on Billy (linked at once); contacts as fallback (join by link). Phone number optional |
+| Payments | 🟡 Live, self-reported | UPI deep link + "Mark paid" / "Received" — now **syncs live to the other person**. No automatic UPI confirmation yet |
 | Home | 🟢 Done | Card: **You'll get \| You'll give** (all unpaid, exact amounts, Indian grouping). Pending + Recent show only your bills |
 | Pay tab | 🟢 Done | Only bills where you still owe / are owed; your share is the big number |
 | Groups | 🟢 Done | Balances, "Your settle-up", only the admin (creator) removes members |
 | History | 🟢 Done | Monthly spent / received; settled and closed bills |
 | Look & feel | 🟢 Done | Billy pop-ups, plain background, docked tab bar, smaller text, consistent page titles. Tagline: **"Every bill matters."** |
 | iOS | 🟡 Prepared | Static frameworks + permission texts in `app.json`; `GoogleService-Info.plist` added (needs re-download for Google sign-in). Not built yet |
-| Cloud sync / multi-user | 🔴 Not started | **Next big step** |
-| Tests | 🟢 223 Jest tests | `cd mobile && npm test` |
+| Push notifications | 🔴 Not started | Need a server (Cloud Functions = paid plan) — in-app live updates work now |
+| Tests | 🟢 242 Jest tests + 18 rules tests | `cd mobile && npm test` · `cd web && npm run test:rules` (needs Java 21) |
 
 ---
 
@@ -64,16 +66,10 @@ For a receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill]
 ### Step 3 — Merge to `main` ✅ Done
 `feat/login-profile-ui` merged into `main`.
 
-### Step 4 — Cloud sync with Firestore (free at Billy's size) ⬅ **next**
-1. **Data model:** `users/{uid}` (name, phone, UPI, photo), `bills/{billId}` (participants by uid/phone, items snapshot, settlements), `groups/{groupId}`.
-2. **Offline-first:** keep AsyncStorage as the local copy; sync to Firestore when online (Firestore's offline cache does most of this).
-3. **Security rules:** a bill is readable/writable only by its participants; only the payer of a row can mark it received, only the debtor can mark it paid; only a group's admin removes members.
-4. **Finding friends:** match contacts to Billy users by phone number (that's why the phone is collected at sign-up).
-5. **Live updates:** when Ravi taps "Paid", your screen updates — no "Mark as received" needed for in-app payments. Push notifications via Firebase Cloud Messaging (free).
-6. **Shared links then work for everyone:** the link opens the same bill on a friend's phone.
-7. **Migration:** upload the bills already on this phone the first time sync is switched on (old test-account bills stay local).
+### Step 4 — Cloud sync with Firestore ✅ Done (12 Nov 2026)
+Built per `docs/CLOUD_SYNC_PLAN.md` (option C — accounts first): Firestore in Mumbai, security rules with emulator tests, bill + payment sync, existing bills uploaded (backup in `~/billy-backups/`), join by link, add Billy users by email, saved groups backed up, Cloud sync switch, phone optional. Tested with two accounts.
 
-### Step 5 — Automatic UPI payment confirmation (Android)
+### Step 5 — Automatic UPI payment confirmation (Android) ⬅ **next**
 - Billy can't move money itself (needs NPCI approval). It *can* launch the UPI app **for a result**: most UPI apps return `SUCCESS / FAILURE` + a transaction ID → auto-mark **"Paid via UPI"**.
 - Small native module or a maintained UPI-intent library → one rebuild → test with GPay / PhonePe / Paytm.
 - Also: show a **UPI QR** with the amount for the person paying you.
@@ -88,7 +84,7 @@ For a receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill]
 ### Step 7 — Security before any public release
 - Move the **Gemini key** to a server (`backend/` or a Firebase Cloud Function) — `EXPO_PUBLIC_*` keys can be pulled out of the APK.
 - Add the **release** signing key's SHA-1 / SHA-256 to Firebase (Google sign-in) and to `web/public/.well-known/assetlinks.json` (shared links), then redeploy: `cd web && npx firebase-tools deploy --only hosting`.
-- Firestore security rules reviewed and tested (Step 4).
+- ✅ Firestore security rules tested (18 emulator tests in `web/test/`). Re-run after any rules change: `cd web && npm run test:rules`, then `npx firebase-tools deploy --only firestore:rules`.
 - **Account deletion** in Profile (Play Store requires it for apps with accounts).
 
 ### Step 8 — Gmail: import e-bills
@@ -120,17 +116,21 @@ For a receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill]
 - **No "Owe someone" / debts without a bill** — every record in Billy comes from a bill.
 - **Bills can be edited only by their creator, and only until the first payment.** After a payment, the creator can **Close** the bill (unpaid amounts cancelled, payments kept) and start a new one — Billy does not list who to repay.
 - **You only see payments that involve you** — on a bill, in a group's settle-up, on the Pay tab and Home.
+- **Accounts first:** people are linked to a bill by their Billy account (added by email / from people on Billy, or joining with the invite link) — **never by matching a phone number** (numbers aren't verified).
+- **Only the payer or the person owed can mark a payment paid**; only the creator edits / closes / deletes a bill (enforced by Firestore rules).
 - **Home card = all unpaid bills** (You'll get / You'll give), not per month. Monthly figures live in History.
 - **Marking paid / received asks once** — no payment-method question.
 - **Only a group's admin (creator) can remove members.**
 - **Saved bills are "bills", saved people-lists are "groups"** — the save button says **Create Bill**.
-- **Sign-in is email or Google** (free); phone number is collected but not SMS-verified.
+- **Sign-in is email or Google** (free); the phone number is optional and not SMS-verified.
 - **Tax-inclusive receipts:** if items already add up to the printed total, GST lines are a breakdown, not added on top. Taxes printed at 0% are dropped.
 - **Tagline: "Every bill matters."** (no "Split bills, not friendships").
 
 ## 4. Known limitations
 
-- **Everything is on one phone** until cloud sync (Step 4): friends don't see bills, payments don't update elsewhere, shared links open only on your phone.
+- **No push notifications** yet — updates appear when Billy is open (needs the paid plan for a server).
+- Saved groups are private to each person (not shared between members yet).
+- People added from **contacts** see the bill only after joining with the share link.
 - Development builds show Expo's launcher first when a link opens Billy cold; release builds go straight to the bill.
 - Bills from an old account on the same phone are hidden from your totals but still stored (8 test bills from June/July).
 - When editing a saved bill, the Save pop-up suggests the restaurant name, not the name chosen before.
@@ -177,9 +177,16 @@ For a receipt that's read wrongly, paste the `[MLKIT] OCR Text` and `[parseBill]
 - **Links:** Firebase Hosting site `billy-ed9eb.web.app` (`web/`), Android App Links verified, bills load at app start
 - **iOS prep:** static frameworks, permission texts, `GoogleService-Info.plist`
 
+**12 Nov 2026 — branch `feat/cloud-sync`**
+- **Cloud sync:** Firestore bills / payments / saved groups / profiles, offline-first, live updates, upload of existing bills, Cloud sync switch
+- **Security:** Firestore rules (members only, creator edits, payer/payee mark paid, join only yourself with the invite code) + 18 emulator tests
+- **People:** Add a Billy User (email / on Billy), join by link (Which one are you?), phone optional
+- **Polish:** Google account picker always shown, Home empty states, Preview crop buttons side by side, "Building bill details" loading screen, black receipt frames, Review totals scroll with items
+
 ## 7. Housekeeping
 
 - 63 `console.log` calls to clean up before release
 - 12 lint warnings left (mostly "missing `router` dependency" — left on purpose)
 - Delete `mobile/google-services.json.json` (duplicate download)
-- Old test-account bills on the phone can be removed once sync is in place
+- Old test-account bills (9) stay on the phone only — safe to delete if not needed
+- Phone backup before the first upload: `~/billy-backups/billy-phone-data-20261112-1144.db`

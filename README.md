@@ -139,9 +139,17 @@ AI-extracted information is editable so users can correct recognition errors bef
 - **Profile:** edit name, phone and UPI ID, change password, quick stats, and **Report a problem** (opens a pre-filled email).
 - Phone (SMS) OTP is implemented but parked — real SMS needs Firebase's paid plan.
 
+### ☁️ Cloud Sync
+
+- Bills, payments, saved groups and profiles sync through **Cloud Firestore** (free plan, Mumbai region), and keep working offline.
+- **Accounts first:** add people by their Billy email or from people you've split with — they see the bill on their phone at once. Friends from contacts join with the share link.
+- **Live payments:** when someone marks a payment paid, the other person's screen updates by itself.
+- Security rules allow only a bill's members to see it; only the creator edits it; only the payer or the person owed can mark a payment (tested on the Firestore emulator).
+- Profile → **Cloud sync** switch to keep Billy on the phone only.
+
 ### 🔗 Shareable Bill Links
 
-- Shared bills include `https://billy-ed9eb.web.app/bill/<id>`, tappable in WhatsApp.
+- Shared bills include `https://billy-ed9eb.web.app/bill/<id>?c=<invite>`, tappable in WhatsApp; people not on the bill yet get a **Join** screen.
 - Android **App Links** (verified through `assetlinks.json`) open the link straight in Billy; otherwise a small web page offers **Open in Billy**.
 - The web page is hosted for free on **Firebase Hosting** (`web/`).
 
@@ -156,7 +164,7 @@ AI-extracted information is editable so users can correct recognition errors bef
 | OCR | ML Kit Text Recognition, optional Google Cloud Vision |
 | Authentication | Firebase Authentication (email + password, Google sign-in), local fallback provider |
 | Links | Firebase Hosting, Android App Links, Expo Router deep links |
-| Local persistence | AsyncStorage, custom stores |
+| Data | Cloud Firestore (sync + security rules), AsyncStorage cache, custom stores |
 | Payments | UPI URI deep linking, Expo Linking |
 | Device features | Camera, image picker, contacts, share sheet |
 | Testing | Jest (200+ tests: settlement, balances, parsing, auth, formatting) |
@@ -385,7 +393,7 @@ Billy is an evolving project. The following boundaries are important to understa
 
 ### Local-first data storage
 
-Bills, contact groups, settlements, and related records are currently stored locally using AsyncStorage. Cloud synchronization across users and devices is not yet deployed, so friends don't see a bill on their own phones yet and shared bill links only open on a phone that has the bill.
+Bills are cached on the phone (AsyncStorage + Firestore's offline cache) and synced through Cloud Firestore. There are no push notifications yet — updates appear while Billy is open. Saved groups are private to each person.
 
 ### Payment verification
 
@@ -421,7 +429,7 @@ The following are planned improvements, not claims of currently deployed functio
 - [x] Firebase sign-in (email + password, Google).
 - [x] Automated tests for settlement calculations, group balances, bill parsing and sign-in.
 - [x] Shareable bill links that open the app.
-- [ ] Cloud Firestore synchronization across participants and devices, with live payment updates.
+- [x] Cloud Firestore synchronization across participants and devices, with live payment updates.
 - [ ] Push notifications for bill and payment updates.
 - [ ] Automatic UPI payment confirmation (Android).
 - [ ] More reliable receipt extraction (document scanner, image → Gemini, structured output).
