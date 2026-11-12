@@ -73,6 +73,7 @@ export function toFirebaseAuthSdk(mod: FirebaseAuthModule): FirebaseAuthSdk {
         await mod.reauthenticateWithCredential(user, mod.GoogleAuthProvider.credential(idToken));
       },
       deleteUser: (user: any) => mod.deleteUser(user),
+      idToken: (user: any) => mod.getIdToken(user),
     };
   };
 }

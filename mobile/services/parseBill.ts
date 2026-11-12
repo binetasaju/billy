@@ -13,6 +13,7 @@
 import type { ParsedBill } from "../types/bill";
 import { toAmount } from "./receiptLayout";
 import { isTaxCharge, reconcileCharges } from "./reconcileBill";
+import { callGemini, geminiConfigured } from "./gemini";
 import { devLog } from "../utils/devLog";
 
 export type { ParsedBill };
@@ -20,8 +21,6 @@ export type { ParsedBill };
 const GEMINI_MODEL = "gemini-flash-lite-latest";
 /** Per-attempt limit for the Gemini call (normal replies take ~2–3 s). */
 const ATTEMPT_TIMEOUT_MS = 15_000;
-const GEMINI_BASE_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models";
 
 // ---------------------------------------------------------------------------
 // Prompt
@@ -265,12 +264,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
   let fallbackUsed = false;
 
   try {
-    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey || apiKey === "your_gemini_api_key_here") {
-      throw new Error("Gemini API key not set.");
-    }
-
-    const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    if (!geminiConfigured()) throw new Error("Gemini API key not set.");
 
     let response: Response | null = null;
     let attempt = 1;
@@ -285,14 +279,11 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
       try {
-        response = await fetch(url, {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64 } : undefined)
-        ),
-        });
+        response = await callGemini(
+          GEMINI_MODEL,
+          buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64 } : undefined),
+          controller.signal
+        );
       } catch (err) {
         // Timed out (or network error): retry once, then fall back offline.
         if (attempt < maxRetries) {

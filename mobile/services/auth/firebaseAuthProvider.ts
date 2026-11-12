@@ -78,6 +78,7 @@ export interface FirebaseAuthInstance {
   reauthenticateWithPassword(user: FirebaseAuthUser, password: string): Promise<void>;
   reauthenticateWithGoogleIdToken(user: FirebaseAuthUser, idToken: string): Promise<void>;
   deleteUser(user: FirebaseAuthUser): Promise<void>;
+  idToken(user: FirebaseAuthUser): Promise<string>;
 }
 
 function emailIdentity(user: FirebaseAuthUser): AuthIdentity {
@@ -223,6 +224,11 @@ export function createFirebaseAuthProvider(sdk: FirebaseAuthSdk): AuthProvider {
       if (!user) throw new Error("Please sign in again first.");
       if ("password" in proof) await auth.reauthenticateWithPassword(user, proof.password);
       else await auth.reauthenticateWithGoogleIdToken(user, proof.googleIdToken);
+    },
+
+    async getIdToken() {
+      const user = sdk().currentUser;
+      return user ? sdk().idToken(user) : null;
     },
 
     signInMethods() {

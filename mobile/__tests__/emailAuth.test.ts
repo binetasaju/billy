@@ -66,6 +66,7 @@ function fakeFirebase() {
         throw Object.assign(new Error("mismatch"), { code: "auth/user-mismatch" });
       }
     },
+    idToken: async (user) => `token:${user.uid}`,
     deleteUser: async (user) => {
       accounts.delete(user.email ?? "");
       if (current === user) current = null;

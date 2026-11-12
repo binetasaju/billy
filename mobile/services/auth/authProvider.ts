@@ -135,6 +135,9 @@ export interface AuthProvider {
   /** Delete the signed-in provider account for good. */
   deleteAccount?(): Promise<void>;
 
+  /** Short-lived sign-in token for Billy's own server (null when signed out). */
+  getIdToken?(): Promise<string | null>;
+
   /** How the signed-in account can prove itself: password and/or Google. */
   signInMethods?(): ("password" | "google")[];
 }
