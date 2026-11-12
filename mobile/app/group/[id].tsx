@@ -649,6 +649,18 @@ export default function GroupDetailsScreen() {
                           <Text style={s.actionPillText}>Received</Text>
                         </Pressable>
                       )}
+                      {/* Paid another way (cash, bank transfer…) — next to UPI Pay */}
+                      {tx && isPending && isMe && receiverHasUpi && (
+                        <Pressable
+                          style={({ pressed }) => [s.actionPillOutline, pressed && s.pressedBtn]}
+                          onPress={() => handleMarkPaidOtherClick(tx, counterpart)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Mark ₹${tx.amount.toFixed(2)} as paid another way`}
+                        >
+                          <Ionicons name="checkmark-done" size={14} color={C.primary} />
+                          <Text style={s.actionPillOutlineText}>Mark paid</Text>
+                        </Pressable>
+                      )}
                       {tx && isPending && isMe && (
                         <Pressable
                           style={({ pressed }) => [s.actionPill, pressed && s.pressedBtn]}
@@ -878,7 +890,7 @@ export default function GroupDetailsScreen() {
             <Text style={s.modalTitle}>Mark as paid?</Text>
             {payOtherTx && (
               <Text style={s.modalSubtitle}>
-                Confirm you paid ₹{payOtherTx.amount.toFixed(2)} to {payOtherTx.receiverName}. This can&apos;t be undone.
+                Confirm you paid ₹{payOtherTx.amount.toFixed(2)} to {payOtherTx.receiverName} (cash, bank transfer or any other way). This can&apos;t be undone.
               </Text>
             )}
             <View style={{ gap: 12, marginTop: 24 }}>
@@ -1048,6 +1060,12 @@ const s = StyleSheet.create({
     backgroundColor: C.primary, paddingHorizontal: 12, height: 30, borderRadius: 15,
   },
   actionPillText: { color: C.white, fontSize: 12, fontWeight: "700" },
+  actionPillOutline: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 11, height: 30, borderRadius: 15,
+    borderWidth: 1, borderColor: C.primary, backgroundColor: C.primarySoft,
+  },
+  actionPillOutlineText: { color: C.primary, fontSize: 12, fontWeight: "700" },
   qrWrap: { alignItems: "center", marginTop: 16, gap: 10 },
   qrUpiId: { fontSize: 13, fontWeight: "600", color: C.textMuted },
 
