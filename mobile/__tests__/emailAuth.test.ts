@@ -56,6 +56,20 @@ function fakeFirebase() {
       current = user;
       return { user };
     },
+    reauthenticateWithPassword: async (user, password) => {
+      if (accounts.get(user.email ?? "")?.password !== password) {
+        throw Object.assign(new Error("bad"), { code: "auth/invalid-credential" });
+      }
+    },
+    reauthenticateWithGoogleIdToken: async (user, idToken) => {
+      if (idToken.replace(/^google:/, "") !== user.email) {
+        throw Object.assign(new Error("mismatch"), { code: "auth/user-mismatch" });
+      }
+    },
+    deleteUser: async (user) => {
+      accounts.delete(user.email ?? "");
+      if (current === user) current = null;
+    },
   };
 
   return {

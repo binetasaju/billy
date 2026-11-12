@@ -36,6 +36,9 @@ export interface FirebaseAuthModule {
   signInWithCredential: (auth: any, credential: any) => Promise<any>;
   getIdToken: (user: any, forceRefresh?: boolean) => Promise<string>;
   GoogleAuthProvider: { credential: (idToken: string | null, accessToken?: string) => any };
+  EmailAuthProvider: { credential: (email: string, password: string) => any };
+  reauthenticateWithCredential: (user: any, credential: any) => Promise<any>;
+  deleteUser: (user: any) => Promise<void>;
 }
 
 /** Wrap the modular functions into the instance-shaped SDK the provider takes. */
@@ -63,6 +66,13 @@ export function toFirebaseAuthSdk(mod: FirebaseAuthModule): FirebaseAuthSdk {
       refreshToken: async (user: any) => {
         await mod.getIdToken(user, true);
       },
+      reauthenticateWithPassword: async (user: any, password: string) => {
+        await mod.reauthenticateWithCredential(user, mod.EmailAuthProvider.credential(user.email, password));
+      },
+      reauthenticateWithGoogleIdToken: async (user: any, idToken: string) => {
+        await mod.reauthenticateWithCredential(user, mod.GoogleAuthProvider.credential(idToken));
+      },
+      deleteUser: (user: any) => mod.deleteUser(user),
     };
   };
 }

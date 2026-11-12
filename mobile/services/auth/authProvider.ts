@@ -124,4 +124,17 @@ export interface AuthProvider {
 
   /** Provider-side sign-out. Clearing Billy's own session is authStore's job. */
   signOut(): Promise<void>;
+
+  /**
+   * Prove it's really you right before deleting the account (providers
+   * refuse a delete when the sign-in is old). Pass the password for email
+   * accounts, or a fresh Google ID token for Google accounts.
+   */
+  reauthenticate?(proof: { password: string } | { googleIdToken: string }): Promise<void>;
+
+  /** Delete the signed-in provider account for good. */
+  deleteAccount?(): Promise<void>;
+
+  /** How the signed-in account can prove itself: password and/or Google. */
+  signInMethods?(): ("password" | "google")[];
 }

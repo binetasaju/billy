@@ -404,6 +404,21 @@ export const authStore = {
    * IDENTITY_KEY is deliberately left in place — see the identity notes at the
    * top of this file. Signing back in must land on the same canonical uid.
    */
+  /**
+   * After the account was deleted: drop the session AND the remembered
+   * identity, so a new sign-up with the same email starts fresh.
+   */
+  async forgetDeletedAccount(): Promise<void> {
+    await googleSignOut();
+    _state = { user: null, isLoading: false };
+    _notify();
+    try {
+      await AsyncStorage.multiRemove([STORAGE_KEY, IDENTITY_KEY, PENDING_PROFILE_KEY]);
+    } catch (e) {
+      console.warn("[authStore] Failed to clear deleted account:", e);
+    }
+  },
+
   async logout(): Promise<void> {
     if (_state.user) {
       // Last chance to capture the canonical uid before the session goes.

@@ -148,6 +148,21 @@ export function initCloudSync(getDb: () => CloudDb | null = getCloudDb): () => v
   };
 }
 
+/**
+ * Account deletion: stop syncing and keep it stopped (without saving the
+ * choice), so nothing is uploaded again while the account's data is deleted.
+ * resumeCloudSync() turns it back on for whoever signs in next.
+ */
+export function pauseCloudSync(): void {
+  enabled = false;
+  stop(false);
+}
+
+export function resumeCloudSync(): void {
+  enabled = true;
+  rerun?.();
+}
+
 /** The live cloud connection, for screens that need it (add by email, join). */
 export function cloudSession(): { db: CloudDb; me: Me } | null {
   return session ? { db: session.db, me: session.me } : null;
