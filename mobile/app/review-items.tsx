@@ -500,119 +500,122 @@ export default function ReviewItemsScreen() {
               onDelete={() => handleDelete(item.id)}
             />
           )}
+          // Totals scroll with the items, so opening Taxes & Charges never
+          // squeezes the item list off the screen.
           ListFooterComponent={
-            <Pressable onPress={handleAddItem} style={styles.addBtn}>
-              <Text style={styles.addBtnText}>+ Add Item Manually</Text>
-            </Pressable>
+            <>
+              <Pressable onPress={handleAddItem} style={styles.addBtn}>
+                <Text style={styles.addBtnText}>+ Add Item Manually</Text>
+              </Pressable>
+              {/* ── Totals (collapsible charges) ── */}
+              <View style={styles.totalsBox}>
+
+                {/* Items subtotal */}
+                {itemsTotal > 0 && (
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>Items Total</Text>
+                    <Text style={styles.totalValue}>₹{itemsTotal.toFixed(2)}</Text>
+                  </View>
+                )}
+
+                {/* Taxes & Charges — collapsible */}
+                {charges.length > 0 && (
+                  <>
+                    <Pressable
+                      onPress={() => setChargesExpanded((v) => !v)}
+                      style={styles.chargesToggleRow}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={chargesExpanded ? "Hide taxes and charges" : "Show taxes and charges"}
+                    >
+                      <Text style={styles.chargesToggleLabel}>
+                        Taxes & Charges ({charges.length})
+                      </Text>
+                      <Ionicons
+                        name={chargesExpanded ? "chevron-up" : "chevron-down"}
+                        size={22}
+                        color={C.text}
+                      />
+                    </Pressable>
+
+                    {chargesExpanded && (
+                      <View style={styles.chargesDetail}>
+                        {charges.map((charge, i) => (
+                          <Pressable
+                            key={i}
+                            style={styles.totalRow}
+                            onLongPress={() => confirmRemoveCharge(i, charge.name)}
+                            accessibilityHint="Long-press to remove"
+                          >
+                            <Text style={[styles.totalLabel, styles.chargeLabel]} numberOfLines={1}>
+                              {charge.name}
+                            </Text>
+                            <View style={styles.chargeRight}>
+                              <Text
+                                style={[
+                                  styles.totalValue,
+                                  charge.amount < 0 && styles.totalValueDiscount,
+                                ]}
+                              >
+                                {charge.amount < 0
+                                  ? `-₹${Math.abs(charge.amount).toFixed(2)}`
+                                  : `₹${charge.amount.toFixed(2)}`}
+                              </Text>
+                              <Pressable
+                                onPress={() => confirmRemoveCharge(i, charge.name)}
+                                style={[styles.chargeRemoveBtn, styles.deleteActionBtn]}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove ${charge.name}`}
+                              >
+                                <Text style={styles.chargeRemoveText}>✕</Text>
+                              </Pressable>
+                            </View>
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
+
+                <Pressable
+                  onPress={() => setChargeModalVisible(true)}
+                  hitSlop={6}
+                  style={styles.addChargeBtn}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="add-circle-outline" size={18} color={C.primary} />
+                  <Text style={styles.addChargeText}>Add tax / charge / discount</Text>
+                </Pressable>
+
+                {/* Grand total */}
+                <View style={[styles.totalRow, styles.grandRow]}>
+                  <Text style={styles.grandLabel}>Total</Text>
+                  <Text style={styles.grandValue}>₹{grandTotal.toFixed(2)}</Text>
+                </View>
+
+                {bill?.taxInclusive && (
+                  <Text style={styles.taxInclusiveText}>
+                    Prices on this bill already include GST, so no tax is added on top.
+                  </Text>
+                )}
+
+                {totalMismatch && (
+                  <View style={styles.mismatchBox}>
+                    <Text style={styles.mismatchText}>
+                      This adds up to ₹{grandTotal.toFixed(2)}, but the bill says ₹{printedTotal!.toFixed(2)}.
+                      Check for missing items, wrong prices or extra charges.
+                    </Text>
+                  </View>
+                )}
+
+              </View>
+            </>
           }
           ListEmptyComponent={
             <Text style={styles.emptyText}>No items. Add them manually or rescan.</Text>
           }
         />
-
-        {/* ── Totals (collapsible charges) ── */}
-        <View style={styles.totalsBox}>
-
-          {/* Items subtotal */}
-          {itemsTotal > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Items Total</Text>
-              <Text style={styles.totalValue}>₹{itemsTotal.toFixed(2)}</Text>
-            </View>
-          )}
-
-          {/* Taxes & Charges — collapsible */}
-          {charges.length > 0 && (
-            <>
-              <Pressable
-                onPress={() => setChargesExpanded((v) => !v)}
-                style={styles.chargesToggleRow}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={chargesExpanded ? "Hide taxes and charges" : "Show taxes and charges"}
-              >
-                <Text style={styles.chargesToggleLabel}>
-                  Taxes & Charges ({charges.length})
-                </Text>
-                <Ionicons
-                  name={chargesExpanded ? "chevron-up" : "chevron-down"}
-                  size={22}
-                  color={C.text}
-                />
-              </Pressable>
-
-              {chargesExpanded && (
-                <View style={styles.chargesDetail}>
-                  {charges.map((charge, i) => (
-                    <Pressable
-                      key={i}
-                      style={styles.totalRow}
-                      onLongPress={() => confirmRemoveCharge(i, charge.name)}
-                      accessibilityHint="Long-press to remove"
-                    >
-                      <Text style={[styles.totalLabel, styles.chargeLabel]} numberOfLines={1}>
-                        {charge.name}
-                      </Text>
-                      <View style={styles.chargeRight}>
-                        <Text
-                          style={[
-                            styles.totalValue,
-                            charge.amount < 0 && styles.totalValueDiscount,
-                          ]}
-                        >
-                          {charge.amount < 0
-                            ? `-₹${Math.abs(charge.amount).toFixed(2)}`
-                            : `₹${charge.amount.toFixed(2)}`}
-                        </Text>
-                        <Pressable
-                          onPress={() => confirmRemoveCharge(i, charge.name)}
-                          style={[styles.chargeRemoveBtn, styles.deleteActionBtn]}
-                          hitSlop={8}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Remove ${charge.name}`}
-                        >
-                          <Text style={styles.chargeRemoveText}>✕</Text>
-                        </Pressable>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-            </>
-          )}
-
-          <Pressable
-            onPress={() => setChargeModalVisible(true)}
-            hitSlop={6}
-            style={styles.addChargeBtn}
-            accessibilityRole="button"
-          >
-            <Ionicons name="add-circle-outline" size={18} color={C.primary} />
-            <Text style={styles.addChargeText}>Add tax / charge / discount</Text>
-          </Pressable>
-
-          {/* Grand total */}
-          <View style={[styles.totalRow, styles.grandRow]}>
-            <Text style={styles.grandLabel}>Total</Text>
-            <Text style={styles.grandValue}>₹{grandTotal.toFixed(2)}</Text>
-          </View>
-
-          {bill?.taxInclusive && (
-            <Text style={styles.taxInclusiveText}>
-              Prices on this bill already include GST, so no tax is added on top.
-            </Text>
-          )}
-
-          {totalMismatch && (
-            <View style={styles.mismatchBox}>
-              <Text style={styles.mismatchText}>
-                This adds up to ₹{grandTotal.toFixed(2)}, but the bill says ₹{printedTotal!.toFixed(2)}.
-                Check for missing items, wrong prices or extra charges.
-              </Text>
-            </View>
-          )}
-
-        </View>
 
         {/* ── Continue ── */}
         <Pressable
@@ -766,7 +769,7 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: "center", color: C.textSubtle, marginTop: 32, fontSize: 12 },
 
   totalsBox: {
-    backgroundColor: C.glass, marginHorizontal: 16, borderRadius: 12,
+    backgroundColor: C.glass, marginHorizontal: 4, borderRadius: 12,
     borderWidth: 1, borderColor: C.glassBorder, padding: 14, marginBottom: 12, gap: 6,
   },
   totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
