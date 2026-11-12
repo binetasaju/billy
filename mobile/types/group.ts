@@ -13,6 +13,8 @@ export interface GroupSettlement extends SettlementTransaction {
   status: "pending" | "paid" | "cancelled";
   paidAt?: string;
   paymentMethod?: "upi" | "cash" | "other";
+  /** UPI transaction reference, when the UPI app reported the payment. */
+  upiRef?: string;
 }
 
 // ── Reusable contact group ───────────────────────────────────────────────────

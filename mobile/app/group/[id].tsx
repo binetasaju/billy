@@ -14,11 +14,14 @@ import { authStore } from "../../services/authStore";
 import {
   billLink,
   buildBillShareMessage,
+  buildUpiUri,
   buildPersonInviteMessage,
   isValidUpiId,
   openUpiPayment,
   whatsappChatLink,
 } from "../../services/upi";
+import { upiIntent } from "../../modules/upi-intent";
+import { parseUpiResponse } from "../../services/upiResult";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
@@ -203,13 +206,44 @@ export default function GroupDetailsScreen() {
     // The Pay action is only rendered when the receiver has a UPI ID; this is
     // just a safety net, and it stays silent rather than dead-ending.
     if (!receiver?.upiId) return;
-    setActiveTx({
+    const pending = {
       from: tx.fromUserId,
       to: tx.toUserId,
       amount: tx.amount,
       receiverName: receiver.name,
       receiverUpiId: receiver.upiId,
-    });
+    };
+
+    // Android with the UpiIntent module: open the UPI app for a result and
+    // mark the payment ourselves when it reports SUCCESS.
+    if (upiIntent && group) {
+      const url = buildUpiUri({ upiId: receiver.upiId, receiverName: receiver.name, amount: tx.amount, note: `Billy split for ${group.title}` });
+      try {
+        const reply = await upiIntent.pay(url, "Pay with");
+        if (!reply.launched) {
+          await Clipboard.setStringAsync(receiver.upiId);
+          appAlert.alert("No UPI app found", `Install GPay, PhonePe or Paytm. ${receiver.name}'s UPI ID has been copied.`);
+          return;
+        }
+        const result = parseUpiResponse(reply.response);
+        if (result.outcome === "success") {
+          await groupStore.markSettlementPaid(group.id, tx.fromUserId, tx.toUserId, "upi", result.reference);
+          if (Platform.OS === "android") ToastAndroid.show("✓ Paid via UPI", ToastAndroid.SHORT);
+          return;
+        }
+        if (result.outcome === "failure") {
+          appAlert.alert("Payment didn\u2019t go through", "The UPI app reported a failure. Nothing was marked as paid — you can try again.");
+          return;
+        }
+      } catch (e) {
+        console.warn("[UPI] intent failed:", e);
+      }
+      // No clear answer from the UPI app → ask (the existing pop-up).
+      setActiveTx(pending);
+      return;
+    }
+
+    setActiveTx(pending);
     await openUpiPayment({
       upiId: receiver.upiId,
       receiverName: receiver.name,
