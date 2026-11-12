@@ -35,6 +35,7 @@ import { friendlyAuthError } from "../services/auth/authErrors";
 import { isValidPhoneNumber } from "../utils/normalizePhoneNumber";
 import { C } from "@/constants/colors";
 import { StatusBar } from "expo-status-bar";
+import { BillyLogo } from "@/components/BillyLogo";
 
 type Mode = "signin" | "signup" | "verify";
 type Errors = { name?: string; phone?: string; email?: string; password?: string; form?: string };
@@ -248,9 +249,7 @@ export default function LoginScreen() {
           <StatusBar style="light" />
           {!keyboardOpen && (
             <View style={s.brand}>
-              <View style={s.logoWrap}>
-                <Ionicons name="receipt-outline" size={32} color="#fff" />
-              </View>
+              <BillyLogo size={72} style={s.logoWrap} />
               <Text style={s.appName}>Billy</Text>
               <Text style={s.tagline}>Every bill matters.</Text>
             </View>
@@ -424,10 +423,8 @@ const s = StyleSheet.create({
 
   brand: { alignItems: "center", paddingBottom: 28 },
   logoWrap: {
-    width: 64, height: 64, borderRadius: 18,
-    backgroundColor: C.primary, alignItems: "center", justifyContent: "center",
     marginBottom: 12,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 8 },
+    shadowColor: C.brand, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5, shadowRadius: 16, elevation: 6,
   },
   appName: { fontSize: 27, fontWeight: "800", color: "#fff", letterSpacing: -1 },
