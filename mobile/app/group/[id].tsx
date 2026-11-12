@@ -27,6 +27,7 @@ import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { T } from "@/constants/typography";
+import { QrCode } from "@/components/ui/QrCode";
 
 /** One row of a person's share breakdown. */
 interface BreakdownLine {
@@ -56,6 +57,16 @@ export default function GroupDetailsScreen() {
     receiverName: string;
   } | null>(null);
 
+  // Payee-side "Show QR" — the person who owes scans it with any UPI app
+  const [qrTx, setQrTx] = useState<{
+    from: string;
+    to: string;
+    amount: number;
+    payerName: string;
+    uri: string;
+    upiId: string;
+  } | null>(null);
+
   // Payee-side "Mark as Received" state
   const [receiveTx, setReceiveTx] = useState<{
     from: string;
@@ -82,6 +93,8 @@ export default function GroupDetailsScreen() {
   const { groups, isLoading: groupsLoading } = useGroups();
   const group = useMemo(() => groups.find((g) => g.id === id), [groups, id]);
   const currentUser = authStore.get().user;
+  // Shows the "scan to pay" QR when you are owed money and have a valid UPI ID.
+  const myUpiOk = !!currentUser?.upiId && isValidUpiId(currentUser.upiId);
   const isCreator = currentUser?.uid === group?.createdBy;
   // Creator can edit until the first payment is marked.
   const canEdit = canEditBill(group, currentUser?.uid);
@@ -331,6 +344,28 @@ export default function GroupDetailsScreen() {
       amount: tx.amount,
       payerName: sender?.name ?? "This person",
     });
+  };
+
+  // Payee shows a UPI QR with the exact amount (in person, any UPI app).
+  const handleShowQrClick = (tx: any, sender: Person | undefined) => {
+    if (tx.toUserId !== currentUser?.uid || !group) return;
+    const upiId = currentUser?.upiId?.trim();
+    if (!upiId || !isValidUpiId(upiId)) return;
+    const uri = buildUpiUri({
+      upiId,
+      receiverName: currentUser?.name || "Billy user",
+      amount: tx.amount,
+      note: `Billy split for ${group.title}`,
+    });
+    setQrTx({ from: tx.fromUserId, to: tx.toUserId, amount: tx.amount, payerName: sender?.name ?? "They", uri, upiId });
+  };
+
+  // From the QR pop-up: once the money has arrived, mark it received.
+  const handleQrReceived = () => {
+    if (!qrTx) return;
+    const { from, to, amount, payerName } = qrTx;
+    setQrTx(null);
+    setReceiveTx({ from, to, amount, payerName });
   };
 
   // Payee confirms once — no payment-method question.
@@ -646,6 +681,17 @@ export default function GroupDetailsScreen() {
                         <Ionicons name="receipt-outline" size={16} color={C.primary} />
                       </Pressable>
 
+                      {tx && isPending && !isMe && myUpiOk && (
+                        <Pressable
+                          style={({ pressed }) => [s.itemsIconBtn, pressed && s.pressedBtn]}
+                          onPress={() => handleShowQrClick(tx, p)}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Show a UPI QR code for ${p.name} to pay ₹${tx.amount.toFixed(2)}`}
+                        >
+                          <Ionicons name="qr-code-outline" size={16} color={C.primary} />
+                        </Pressable>
+                      )}
                       {tx && isPending && !isMe && (
                         <Pressable
                           style={({ pressed }) => [s.actionPill, pressed && s.pressedBtn]}
@@ -859,6 +905,34 @@ export default function GroupDetailsScreen() {
         </View>
       </Modal>
 
+      {/* ── UPI QR Modal (payee side) ── */}
+      <Modal visible={!!qrTx} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setQrTx(null)}>
+        <View style={s.modalBackdrop}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Scan to pay ₹{qrTx?.amount.toFixed(2)}</Text>
+            {qrTx && (
+              <Text style={s.modalSubtitle}>
+                Ask {qrTx.payerName} to scan this with GPay, PhonePe, Paytm or any UPI app.
+              </Text>
+            )}
+            {qrTx && (
+              <View style={s.qrWrap}>
+                <QrCode value={qrTx.uri} size={220} />
+                <Text style={s.qrUpiId}>{qrTx.upiId}</Text>
+              </View>
+            )}
+            <View style={{ gap: 12, marginTop: 20 }}>
+              <Pressable style={s.modalBtnConfirm} onPress={handleQrReceived}>
+                <Text style={s.modalBtnSuccessText}>I&apos;ve received it</Text>
+              </Pressable>
+              <Pressable style={s.modalBtnCancel} onPress={() => setQrTx(null)}>
+                <Text style={s.modalBtnCancelText}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Mark as Received Modal (payee side) ── */}
       <Modal visible={!!receiveTx} transparent animationType="fade" statusBarTranslucent>
         <View style={s.modalBackdrop}>
@@ -992,6 +1066,8 @@ const s = StyleSheet.create({
     backgroundColor: C.primary, paddingHorizontal: 12, height: 30, borderRadius: 15,
   },
   actionPillText: { color: C.white, fontSize: 12, fontWeight: "700" },
+  qrWrap: { alignItems: "center", marginTop: 16, gap: 10 },
+  qrUpiId: { fontSize: 13, fontWeight: "600", color: C.textMuted },
 
   // Actions row below transaction info
   txActions: { marginTop: 12, gap: 10 },

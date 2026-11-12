@@ -26,6 +26,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "@types/jest": "29.5.14",
+    "@types/qrcode": "^1.5.5",
     "expo": "~54.0.34",
     "expo-build-properties": "~1.0.10",
     "expo-camera": "~17.0.10",
@@ -50,6 +51,7 @@
     "jest-expo": "~54.0.18",
     "lodash": "^4.18.1",
     "nativewind": "^4.2.5",
+    "qrcode": "^1.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -73,7 +75,8 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/android/",
-      "/ios/"
+      "/ios/",
+      "/__tests__/helpers/"
     ]
   }
 }
