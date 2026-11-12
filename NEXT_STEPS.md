@@ -17,14 +17,15 @@ _Last updated: 12 Nov 2026. Checked against the code on `main`._
 | Phone OTP (SMS) | ⏸ Parked | Code kept (bubbles UI too). Real SMS needs the paid **Blaze** plan (`auth/billing-not-enabled`); test numbers work for free |
 | Onboarding | 🟢 Done | Asks for the phone number when Google didn't give one; UPI ID optional |
 | Profile | 🟢 Done | Photo, stats, edit name / phone / UPI, verified email, change password, **Report a problem** (emails binetasaju@gmail.com), version, privacy note |
-| Bill capture | 🟢 Done | Add Bill sheet: Take Photo → Gallery → Enter Manually → Cancel. Preview → crop or AI auto-crop |
+| Bill capture | 🟢 Done | Add Bill sheet: Take Photo → Gallery → Enter Manually → Cancel. Preview: Adjust Crop / AI Crop side by side → **Continue** reads the bill ("Extracting bill…" → "Building bill details…" screen) → Review |
 | OCR + parsing | 🟡 Works, needs real-receipt testing | ML Kit → rows from positions → Gemini (1 call per scan). Offline parser fallback. Taxes printed at 0% are dropped |
 | Review | 🟢 Done | Edit items, add/remove taxes (✕ per line), totals checked against the printed total |
 | Splits | 🟢 Done | Equal · Item-wise (**two steps**: assign items → Bill details → Create Bill) · Split an Amount (from a saved group, button under the group title) |
 | Bill page | 🟢 Done | One **People** list (share, status, 🧾 items, Received / Pay / Mark paid), **Share bill** (one message + link), Report Error → Edit (before payments) / **Close Bill** (after a payment) / Delete & rescan |
 | Shared bill links | 🟢 Done | `https://billy-ed9eb.web.app/bill/<id>?c=<invite>` — Android App Links **verified**; opens the bill, or a **Join** screen ("Which one are you?") for people not on it yet |
 | Cloud sync | 🟢 Done | Firestore (Mumbai, free plan): bills, payments, saved groups, profiles. Offline-first, live updates, existing bills uploaded once. **Security rules + 18 emulator tests** (`web/`). Profile → **Cloud sync** on/off switch. Plan: `docs/CLOUD_SYNC_PLAN.md` |
-| Adding people | 🟢 Done | **Accounts first:** "Add a Billy User" by email or from people on Billy (linked at once); contacts as fallback (join by link). Phone number optional |
+| Adding people | 🟢 Done | **Link-first:** add by name or from contacts → bill page invite card with a **WhatsApp** button per person (opens their chat with the join link) and **Share link to everyone**. New friends sign up via the link (remembered through sign-up) and pick their name. "Add a Billy User" (email) still available |
+| UPI | 🟢 Done | **UPI ID required** for every account (onboarding, can't be cleared). Joined people's UPI IDs come from their profile, so **⚡ Pay** opens GPay / PhonePe with the amount — tested 12 Nov 2026 |
 | Payments | 🟡 Live, self-reported | UPI deep link + "Mark paid" / "Received" — now **syncs live to the other person**. No automatic UPI confirmation yet |
 | Home | 🟢 Done | Card: **You'll get \| You'll give** (all unpaid, exact amounts, Indian grouping). Pending + Recent show only your bills |
 | Pay tab | 🟢 Done | Only bills where you still owe / are owed; your share is the big number |
@@ -33,7 +34,7 @@ _Last updated: 12 Nov 2026. Checked against the code on `main`._
 | Look & feel | 🟢 Done | Billy pop-ups, plain background, docked tab bar, smaller text, consistent page titles. Tagline: **"Every bill matters."** |
 | iOS | 🟡 Prepared | Static frameworks + permission texts in `app.json`; `GoogleService-Info.plist` added (needs re-download for Google sign-in). Not built yet |
 | Push notifications | 🔴 Not started | Need a server (Cloud Functions = paid plan) — in-app live updates work now |
-| Tests | 🟢 242 Jest tests + 18 rules tests | `cd mobile && npm test` · `cd web && npm run test:rules` (needs Java 21) |
+| Tests | 🟢 247 Jest tests + 18 rules tests | `cd mobile && npm test` · `cd web && npm run test:rules` (needs Java 21) |
 
 ---
 
@@ -116,7 +117,8 @@ Built per `docs/CLOUD_SYNC_PLAN.md` (option C — accounts first): Firestore in 
 - **No "Owe someone" / debts without a bill** — every record in Billy comes from a bill.
 - **Bills can be edited only by their creator, and only until the first payment.** After a payment, the creator can **Close** the bill (unpaid amounts cancelled, payments kept) and start a new one — Billy does not list who to repay.
 - **You only see payments that involve you** — on a bill, in a group's settle-up, on the Pay tab and Home.
-- **Accounts first:** people are linked to a bill by their Billy account (added by email / from people on Billy, or joining with the invite link) — **never by matching a phone number** (numbers aren't verified).
+- **Link-first, accounts for access:** people are added by name / contacts and join with the invite link (or are linked at once when added by email) — **never by matching a phone number** (numbers aren't verified). A phone number is only used to open their WhatsApp chat with the invite.
+- **Every account has a UPI ID** (required) so anyone can be paid with Pay.
 - **Only the payer or the person owed can mark a payment paid**; only the creator edits / closes / deletes a bill (enforced by Firestore rules).
 - **Home card = all unpaid bills** (You'll get / You'll give), not per month. Monthly figures live in History.
 - **Marking paid / received asks once** — no payment-method question.
@@ -182,6 +184,12 @@ Built per `docs/CLOUD_SYNC_PLAN.md` (option C — accounts first): Firestore in 
 - **Security:** Firestore rules (members only, creator edits, payer/payee mark paid, join only yourself with the invite code) + 18 emulator tests
 - **People:** Add a Billy User (email / on Billy), join by link (Which one are you?), phone optional
 - **Polish:** Google account picker always shown, Home empty states, Preview crop buttons side by side, "Building bill details" loading screen, black receipt frames, Review totals scroll with items
+
+**12 Nov 2026 — branch `feat/link-invites`**
+- Link-first invites: invite card on the bill, WhatsApp per person, links remembered through sign-up, Join waits for sync
+- Add by name; contacts first; email as a plain option
+- Continue on Preview extracts directly (Extract Bill page removed; `services/billExtraction.ts`)
+- UPI ID required; linked people's UPI from their profile so Pay works (tested with GPay)
 
 ## 7. Housekeeping
 
