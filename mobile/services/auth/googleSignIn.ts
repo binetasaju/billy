@@ -63,6 +63,13 @@ export async function getGoogleIdToken(): Promise<string | null> {
 
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    // Forget the last chosen account so the picker always appears (with
+    // "Add another account") instead of signing straight into the old one.
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      // Nothing remembered — fine.
+    }
     const response = await GoogleSignin.signIn();
     if (!isSuccessResponse(response)) return null; // picker closed
     const token = response.data?.idToken;
