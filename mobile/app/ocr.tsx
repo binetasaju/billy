@@ -10,7 +10,6 @@ import {
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import { compressImage } from "../services/ocr";
 import { extractTextWithMLKit } from "../services/mlkitOcr";
@@ -300,14 +299,11 @@ export default function OcrScreen() {
   if (isExtracted && !isSlow) {
     return (
       <SafeAreaView style={styles.container}>
+        {/* Everything centred on the screen, one column */}
         <View style={styles.buildingScreen}>
-          <View style={styles.buildingDone}>
-            <Ionicons name="checkmark" size={16} color={C.white} />
-            <Text style={styles.buildingDoneText}>Receipt read successfully</Text>
-          </View>
-          <ActivityIndicator size="large" color={C.primary} style={styles.buildingSpinner} />
+          <ActivityIndicator size="large" color={C.primary} />
           <Text style={styles.buildingTitle}>Building bill details…</Text>
-          <Text style={styles.buildingSub}>Finding items, prices, taxes and the total. This takes a few seconds.</Text>
+          <Text style={styles.buildingSub}>Finding items, prices, taxes and the total.{"\n"}This takes a few seconds.</Text>
         </View>
       </SafeAreaView>
     );
@@ -498,15 +494,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   // "Building bill details" loading screen
-  buildingScreen: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
-  buildingDone: {
-    flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.primary,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+  buildingScreen: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    paddingBottom: 40, // optical centre: a touch above the middle
   },
-  buildingDoneText: { color: C.white, fontSize: 13, fontWeight: "700" },
-  buildingSpinner: { marginTop: 36, marginBottom: 20, transform: [{ scale: 1.3 }] },
-  buildingTitle: { fontSize: 20, fontWeight: "700", color: C.ink, textAlign: "center" },
-  buildingSub: { fontSize: 13, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 19 },
+  buildingTitle: { fontSize: 18, fontWeight: "700", color: C.ink, textAlign: "center", marginTop: 20 },
+  buildingSub: { fontSize: 13, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 19, maxWidth: 280 },
   progressMessage: {
     marginTop: 12,
     textAlign: "center",
