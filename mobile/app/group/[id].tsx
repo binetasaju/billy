@@ -493,42 +493,48 @@ export default function GroupDetailsScreen() {
                 They join in Billy with the link (and sign up if they{"\u2019"}re new) to see their share and pay.
               </Text>
 
-              {/* One row per person — WhatsApp straight to their number when we have it */}
+              {/* One row per person: Send (any app) + WhatsApp shortcut when we have their number */}
               {notJoined.map((p) => {
                 const share = group.settlements.find((t) => t.fromUserId === p.id)?.amount;
-                const waLink = group.inviteCode
-                  ? whatsappChatLink(
-                      p.phone,
-                      buildPersonInviteMessage({
-                        name: p.name,
-                        billTitle: group.title,
-                        share,
-                        link: billLink(group.id, group.inviteCode),
-                      })
-                    )
+                const message = group.inviteCode
+                  ? buildPersonInviteMessage({
+                      name: p.name,
+                      billTitle: group.title,
+                      share,
+                      link: billLink(group.id, group.inviteCode),
+                    })
                   : null;
+                const waLink = message ? whatsappChatLink(p.phone, message) : null;
                 return (
                   <View key={p.id} style={s.inviteRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={s.inviteName}>{p.name}</Text>
-                      <Text style={s.inviteSub}>
-                        {share ? `₹${share.toFixed(2)}` : "Not paying"}
-                        {waLink ? "" : "  ·  no number — use Share link"}
-                      </Text>
+                      <Text style={s.inviteSub}>{share ? `₹${share.toFixed(2)}` : "Not paying"}</Text>
                     </View>
                     {waLink && (
                       <Pressable
-                        style={({ pressed }) => [s.waBtn, pressed && s.pressedBtn]}
+                        style={({ pressed }) => [s.waIconBtn, pressed && s.pressedBtn]}
                         onPress={() =>
                           Linking.openURL(waLink).catch(() =>
-                            appAlert.alert("WhatsApp not available", "Use Share link to send the invite another way.")
+                            appAlert.alert("WhatsApp not available", "Use Send to share the invite with another app.")
                           )
                         }
+                        hitSlop={4}
                         accessibilityRole="button"
                         accessibilityLabel={`Invite ${p.name} on WhatsApp`}
                       >
-                        <Ionicons name="logo-whatsapp" size={16} color={C.white} />
-                        <Text style={s.waBtnText}>WhatsApp</Text>
+                        <Ionicons name="logo-whatsapp" size={17} color={C.white} />
+                      </Pressable>
+                    )}
+                    {message && (
+                      <Pressable
+                        style={({ pressed }) => [s.sendBtn, pressed && s.pressedBtn]}
+                        onPress={() => void Share.share({ message }).catch(() => {})}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Send ${p.name} their invite`}
+                      >
+                        <Ionicons name="paper-plane" size={14} color={C.white} />
+                        <Text style={s.sendBtnText}>Send</Text>
                       </Pressable>
                     )}
                   </View>
@@ -1014,11 +1020,15 @@ const s = StyleSheet.create({
   },
   inviteName: { fontSize: 14, fontWeight: "600", color: C.ink },
   inviteSub: { fontSize: 11, color: C.textMuted, marginTop: 2 },
-  waBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#25D366",
+  waIconBtn: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: "#25D366",
+    alignItems: "center", justifyContent: "center",
+  },
+  sendBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: C.primary,
     paddingHorizontal: 12, height: 32, borderRadius: 16,
   },
-  waBtnText: { color: C.white, fontSize: 12, fontWeight: "700" },
+  sendBtnText: { color: C.white, fontSize: 12, fontWeight: "700" },
   chipBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
