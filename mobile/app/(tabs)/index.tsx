@@ -29,12 +29,6 @@ import { rupeesExact } from "../../utils/formatRupees";
 import { scanReceipt } from "../../services/documentScanner";
 import { pickBillDocument } from "../../services/documentImport";
 
-/** "Good morning" / "Good afternoon" / "Good evening" by the phone's clock. */
-function greeting(now = new Date()): string {
-  const h = now.getHours();
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-}
-
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -185,9 +179,9 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          {/* One line: "Good evening, Bineta" */}
+          {/* One line: "Hello, Bineta" */}
           <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-            <Text style={styles.hello}>{greeting()}{firstName ? ", " : ""}</Text>
+            <Text style={styles.hello}>Hello{firstName ? ", " : ""}</Text>
             {firstName ? <Text style={styles.name}>{firstName}</Text> : null}
           </Text>
           <Pressable
