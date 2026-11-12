@@ -6,7 +6,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Modal, TextInput } from 
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { openNewBill } from "@/utils/openNewBill";
 import { Ionicons } from "@expo/vector-icons";
 import { billStore } from "../services/billStore";
@@ -21,6 +21,7 @@ import { T } from "@/constants/typography";
 
 export default function EqualSplitSummaryScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [rows, setRows] = useState<ParticipantTotal[]>([]);
   const [settlementLines, setSettlementLines] = useState<Record<string, string>>({});
   const [transactions, setTransactions] = useState<SettlementTransaction[]>([]);
@@ -103,7 +104,7 @@ export default function EqualSplitSummaryScreen() {
     setShowSaveModal(false);
     if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
     // Open the new bill on top of Home, so Back goes Home.
-    else openNewBill(router, savedId);
+    else openNewBill(navigation as any, router, savedId);
   };
 
   return (

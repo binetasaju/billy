@@ -1,25 +1,33 @@
 import { openNewBill } from "../utils/openNewBill";
 
-const fakeRouter = (canDismiss: boolean) => {
-  const calls: string[] = [];
-  return {
-    calls,
-    canDismiss: () => canDismiss,
-    dismissAll: () => calls.push("dismissAll"),
-    push: (href: any) => calls.push(`push ${href}`),
+const fakes = (resetThrows = false) => {
+  const calls: any[] = [];
+  const navigation = {
+    reset: (state: any) => {
+      if (resetThrows) throw new Error("no such route");
+      calls.push(["reset", state]);
+    },
   };
+  const router = {
+    canDismiss: () => true,
+    dismissAll: () => calls.push(["dismissAll"]),
+    push: (href: any) => calls.push(["push", href]),
+  };
+  return { calls, navigation, router };
 };
 
 describe("openNewBill", () => {
-  it("clears the add-bill screens, then opens the bill above Home", () => {
-    const r = fakeRouter(true);
-    openNewBill(r as any, "abc");
-    expect(r.calls).toEqual(["dismissAll", "push /group/abc"]);
+  it("resets the history to exactly [Home, the bill] in one step", () => {
+    const f = fakes();
+    openNewBill(f.navigation, f.router as any, "abc");
+    expect(f.calls).toEqual([
+      ["reset", { index: 1, routes: [{ name: "(tabs)" }, { name: "group/[id]", params: { id: "abc" } }] }],
+    ]);
   });
 
-  it("just opens the bill when there's nothing to clear", () => {
-    const r = fakeRouter(false);
-    openNewBill(r as any, "abc");
-    expect(r.calls).toEqual(["push /group/abc"]);
+  it("falls back to clear + open if reset isn't possible", () => {
+    const f = fakes(true);
+    openNewBill(f.navigation, f.router as any, "abc");
+    expect(f.calls).toEqual([["dismissAll"], ["push", "/group/abc"]]);
   });
 });

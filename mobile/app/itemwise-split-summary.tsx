@@ -24,7 +24,7 @@ import {
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { openNewBill } from "@/utils/openNewBill";
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
@@ -42,6 +42,7 @@ import { T } from "@/constants/typography";
 // ---------------------------------------------------------------------------
 export default function ItemwiseSplitSummaryScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [rows, setRows] = useState<ParticipantTotal[]>([]);
   const [settlementLines, setSettlementLines] = useState<Record<string, string>>({});
   const [, setItemNamesMap] = useState<Record<string, string[]>>({});
@@ -180,7 +181,7 @@ export default function ItemwiseSplitSummaryScreen() {
     setShowSaveModal(false);
     if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
     // Open the new bill on top of Home, so Back goes Home.
-    else openNewBill(router, savedId);
+    else openNewBill(navigation as any, router, savedId);
   };
 
   return (
