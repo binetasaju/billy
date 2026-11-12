@@ -43,6 +43,9 @@ import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 
+/** Public privacy policy (web/public/privacy.html on Firebase Hosting). */
+const PRIVACY_URL = "https://billy-ed9eb.web.app/privacy";
+
 /** Where "Report a problem" emails go. */
 const SUPPORT_EMAIL = "binetasaju@gmail.com";
 
@@ -356,7 +359,9 @@ export default function ProfileScreen() {
         <View style={s.card}>
           <Row icon="information-circle-outline" label="Version" value={`Billy ${appVersion}`} />
           <View style={s.divider} />
-          <Row icon="shield-checkmark-outline" label="Privacy" value="Bills are shared only with the people on them. Billy never moves money." multiline />
+          <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} accessibilityRole="link">
+            <Row icon="shield-checkmark-outline" label="Privacy" value="Bills are shared only with the people on them. Billy never moves money. Read the privacy policy" multiline actionIcon="open-outline" />
+          </Pressable>
         </View>
 
         <Text style={s.tagline}>Every bill matters.</Text>

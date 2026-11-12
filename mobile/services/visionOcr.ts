@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import type { OcrBlock, BoundingBox } from "../types/bill";
+import { devLog, devTime, devTimeEnd } from "../utils/devLog";
 
 const VISION_API_URL =
   "https://vision.googleapis.com/v1/images:annotate";
@@ -34,17 +35,17 @@ interface TextAnnotation {
 }
 
 interface VisionResponse {
-  responses: Array<{
+  responses: {
     textAnnotations?: TextAnnotation[];
     fullTextAnnotation?: {
-      pages?: Array<{
+      pages?: {
         width: number;
         height: number;
         blocks?: any[];
-      }>;
+      }[];
     };
     error?: { message: string; code: number };
-  }>;
+  }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -93,11 +94,11 @@ export async function extractBlocksWithVision(
 ): Promise<{ blocks: OcrBlock[]; imageWidth: number; imageHeight: number } | null> {
   const apiKey = process.env.EXPO_PUBLIC_VISION_API_KEY;
   if (!apiKey) {
-    console.log("[Vision] No EXPO_PUBLIC_VISION_API_KEY — skipping Vision API.");
+    devLog("[Vision] No EXPO_PUBLIC_VISION_API_KEY — skipping Vision API.");
     return null;
   }
 
-  console.time("[Vision] API call");
+  devTime("[Vision] API call");
 
   const body = {
     requests: [
@@ -122,7 +123,7 @@ export async function extractBlocksWithVision(
       signal,
     });
 
-    console.timeEnd("[Vision] API call");
+    devTimeEnd("[Vision] API call");
 
     if (!response.ok) {
       const err = await response.text();
@@ -151,8 +152,8 @@ export async function extractBlocksWithVision(
     const imageWidth = page?.width ?? 1000;
     const imageHeight = page?.height ?? 1000;
 
-    console.log("[Vision] Image dimensions:", imageWidth, "×", imageHeight);
-    console.log("[Vision] Text blocks found:", annotations.length - 1);
+    devLog("[Vision] Image dimensions:", imageWidth, "×", imageHeight);
+    devLog("[Vision] Text blocks found:", annotations.length - 1);
 
     const blocks: OcrBlock[] = annotations.slice(1).map((ann, idx) => {
       const box = verticesToBoundingBox(

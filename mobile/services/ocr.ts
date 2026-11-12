@@ -27,6 +27,7 @@
 // ---------------------------------------------------------------------------
 
 import * as ImageManipulator from "expo-image-manipulator";
+import { devLog, devTime, devTimeEnd } from "../utils/devLog";
 
 const GEMINI_MODEL = "gemini-flash-lite-latest"; // -latest alias: gemini-2.0-flash was retired
 const GEMINI_BASE_URL =
@@ -99,7 +100,7 @@ export async function compressImage(uri: string): Promise<{
   width: number;
   height: number;
 }> {
-  console.time("[OCR] compress");
+  devTime("[OCR] compress");
 
   const result = await ImageManipulator.manipulateAsync(
     uri,
@@ -110,8 +111,8 @@ export async function compressImage(uri: string): Promise<{
     }
   );
 
-  console.timeEnd("[OCR] compress");
-  console.log("[OCR] Compressed:", `${result.width}×${result.height}`);
+  devTimeEnd("[OCR] compress");
+  devLog("[OCR] Compressed:", `${result.width}×${result.height}`);
 
   return { uri: result.uri, width: result.width, height: result.height };
 }
@@ -150,16 +151,16 @@ export async function extractTextFromImage(
   const mimeType = getMimeType(uri);
 
   // ── Pre-call diagnostics ──────────────────────────────────────────────────
-  console.log("[OCR] Model:", GEMINI_MODEL);
-  console.log("[OCR] MIME type:", mimeType);
-  console.log("[OCR] base64 length:", base64.length);
-  console.log(
+  devLog("[OCR] Model:", GEMINI_MODEL);
+  devLog("[OCR] MIME type:", mimeType);
+  devLog("[OCR] base64 length:", base64.length);
+  devLog(
     "[OCR] Approx image size:",
     ((base64.length * 0.75) / 1024).toFixed(1),
     "KB"
   );
-  console.log("[OCR] Prompt being sent:\n", OCR_PROMPT);
-  console.log("[OCR] generationConfig: { temperature: 0 } — NO response_mime_type, NO maxOutputTokens");
+  devLog("[OCR] Prompt being sent:\n", OCR_PROMPT);
+  devLog("[OCR] generationConfig: { temperature: 0 } — NO response_mime_type, NO maxOutputTokens");
 
   // ── Request body ──────────────────────────────────────────────────────────
   const requestBody = {
@@ -184,7 +185,7 @@ export async function extractTextFromImage(
     },
   };
 
-  console.log(
+  devLog(
     "[OCR] Full request body (without base64):",
     JSON.stringify(
       {
@@ -216,8 +217,8 @@ export async function extractTextFromImage(
       onStatus?.(`Gemini is busy.\nRetrying (${attempt}/${MAX_ATTEMPTS})...`);
     }
 
-    console.log("[OCR] Attempt:", attempt);
-    console.time(`[OCR] Gemini API call (attempt ${attempt})`);
+    devLog("[OCR] Attempt:", attempt);
+    devTime(`[OCR] Gemini API call (attempt ${attempt})`);
 
     // ── Single attempt ──────────────────────────────────────────────────────
     let response: Response | null = null;
@@ -231,11 +232,11 @@ export async function extractTextFromImage(
         signal,
       });
 
-      console.timeEnd(`[OCR] Gemini API call (attempt ${attempt})`);
+      devTimeEnd(`[OCR] Gemini API call (attempt ${attempt})`);
       rawBody = await response.text();
 
-      console.log("[OCR] Status:", response.status);
-      console.log(
+      devLog("[OCR] Status:", response.status);
+      devLog(
         "[OCR] Full Gemini response:",
         JSON.stringify(JSON.parse(rawBody), null, 2)
       );
@@ -244,14 +245,14 @@ export async function extractTextFromImage(
         throw new Error("OCR cancelled.");
       }
       // fetch() itself threw — no HTTP response received (timeout, DNS, etc.)
-      console.timeEnd(`[OCR] Gemini API call (attempt ${attempt})`);
-      console.log("[OCR] Status: network error (no response)");
+      devTimeEnd(`[OCR] Gemini API call (attempt ${attempt})`);
+      devLog("[OCR] Status: network error (no response)");
       console.warn(`[OCR] Network failure on attempt ${attempt}:`, networkErr?.message ?? networkErr);
       lastError = new Error(`Network failure: ${networkErr?.message ?? "unknown"}`);
 
       if (attempt < MAX_ATTEMPTS) {
         const delay = BACKOFF_DELAYS_MS[attempt - 1];
-        console.log(`[OCR] Waiting ${delay}ms before retry…`);
+        devLog(`[OCR] Waiting ${delay}ms before retry…`);
         await sleep(delay);
         continue; // → next attempt
       }
@@ -288,10 +289,10 @@ export async function extractTextFromImage(
     // Check for truncation
     const finishReason = envelope?.candidates?.[0]?.finishReason;
     const usageMetadata = envelope?.usageMetadata;
-    console.log("[OCR] finishReason:", finishReason);
+    devLog("[OCR] finishReason:", finishReason);
     // "STOP" = completed normally
     // "MAX_TOKENS" = truncated (no cap set, should not happen)
-    console.log("[OCR] usageMetadata:", JSON.stringify(usageMetadata));
+    devLog("[OCR] usageMetadata:", JSON.stringify(usageMetadata));
 
     const text: string | undefined =
       envelope?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -302,8 +303,8 @@ export async function extractTextFromImage(
       );
     }
 
-    console.log("[OCR] Response length (chars):", text.length);
-    console.log("[OCR] Full extracted text:\n", text);
+    devLog("[OCR] Response length (chars):", text.length);
+    devLog("[OCR] Full extracted text:\n", text);
 
     return text.trim(); // ✅ success
   }

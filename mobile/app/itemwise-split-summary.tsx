@@ -43,7 +43,7 @@ export default function ItemwiseSplitSummaryScreen() {
   const router = useRouter();
   const [rows, setRows] = useState<ParticipantTotal[]>([]);
   const [settlementLines, setSettlementLines] = useState<Record<string, string>>({});
-  const [itemNamesMap, setItemNamesMap] = useState<Record<string, string[]>>({});
+  const [, setItemNamesMap] = useState<Record<string, string[]>>({});
   const [itemObjectsMap, setItemObjectsMap] = useState<Record<string, BillItem[]>>({});
   const [billTotal, setBillTotal] = useState(0);
   const [restaurantName, setRestaurantName] = useState("");

@@ -79,7 +79,7 @@ function estimatedBox(yPct: number): BoundingBox {
  * @param totalLines  Total number of OCR lines (for fallback position calc)
  */
 export function matchItemsToBlocks(
-  items: Array<Omit<BillItem, "id" | "isLowConfidence" | "boundingBox">>,
+  items: Omit<BillItem, "id" | "isLowConfidence" | "boundingBox">[],
   blocks: OcrBlock[],
   totalLines: number
 ): BillItem[] {

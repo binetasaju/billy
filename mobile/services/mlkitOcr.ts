@@ -1,53 +1,21 @@
-import { NativeModules } from "react-native";
 import TextRecognition from "@react-native-ml-kit/text-recognition";
 import { rebuildReceiptRows } from "./receiptLayout";
-
-console.log("[MLKIT] Module loaded");
-console.log("[MLKIT] Package version: 2.0.0");
-
-// Accurate native-module detection — TextRecognition (the JS export) is always
-// a plain object, so checking it directly is a false positive.
-// NativeModules.TextRecognition is only non-null when the native side is linked.
-console.log(
-  "[MLKIT] NativeModules.TextRecognition:",
-  NativeModules.TextRecognition
-);
-
-if (NativeModules.TextRecognition != null) {
-  console.log("[MLKIT] Native module FOUND");
-} else {
-  console.log("[MLKIT] Native module MISSING");
-}
+import { devLog } from "../utils/devLog";
 
 export async function extractTextWithMLKit(
   imageUri: string
 ): Promise<string> {
-  console.log("[MLKIT] Starting OCR");
-  console.log("[MLKIT] URI:", imageUri);
-
-  // Pre-call diagnostic — confirms native module presence immediately before
-  // the call that would throw if it is missing.
-  console.log(
-    "[MLKIT] Native module value:",
-    NativeModules.TextRecognition
-  );
-
   try {
     const result = await TextRecognition.recognize(imageUri);
     // Re-pair item names with their qty/price columns using line positions;
     // fall back to ML Kit's block-ordered text if positions are missing.
     const rows = rebuildReceiptRows(result.blocks);
     const text = rows ?? result.text;
-    console.log("[MLKIT] Row rebuild:", rows ? "used" : "unavailable (plain text)");
-    console.log("[MLKIT] OCR success");
-    console.log("[MLKIT] Final text length:", text.length);
-    console.log("[MLKIT] OCR Text:");
-    console.log(text);
+    devLog("[MLKIT] Row rebuild:", rows ? "used" : "unavailable (plain text)");
+    devLog("[MLKIT] OCR Text:\n" + text);
     return text;
   } catch (error: any) {
-    console.error("[MLKIT] Full error:", error);
-    console.error("[MLKIT] Message:", error?.message);
-    console.error("[MLKIT] Stack:", error?.stack);
+    console.error("[MLKIT] OCR failed:", error?.message ?? error);
 
     const errMessage = error?.message || String(error);
     if (

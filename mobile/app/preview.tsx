@@ -23,6 +23,7 @@ import { autoCropReceipt } from "../services/optimizer";
 import { extractBill, ExtractionError, type ExtractionStage } from "../services/billExtraction";
 import { C } from "@/constants/colors";
 import { T } from "@/constants/typography";
+import { devLog } from "../utils/devLog";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 const IMAGE_MAX_H = Math.round(SCREEN_H * 0.55);
@@ -60,7 +61,7 @@ export default function PreviewScreen() {
   };
 
   useEffect(() => {
-    if (uri) console.log("[Preview] URI:", uri);
+    if (uri) devLog("[Preview] URI:", uri);
   }, [uri]);
 
   const handleRetake = () => {

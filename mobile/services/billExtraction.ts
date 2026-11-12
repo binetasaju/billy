@@ -17,6 +17,7 @@ import { extractBlocksWithVision } from "./visionOcr";
 import { matchItemsToBlocks, buildBlocksFromRawText } from "./matchItems";
 import { billStore } from "./billStore";
 import { authStore } from "./authStore";
+import { devLog, devTime, devTimeEnd } from "../utils/devLog";
 
 export type ExtractionStage = "reading" | "building";
 
@@ -41,7 +42,7 @@ export async function extractBill(
 ): Promise<void> {
   const { signal, onStage } = opts;
   try {
-    console.time("[PIPELINE] Total");
+    devTime("[PIPELINE] Total");
     onStage?.("reading");
 
     // 1. File
@@ -63,13 +64,13 @@ export async function extractBill(
       extractTextWithMLKit(compressed.uri),
       visionConfigured ? extractBlocksWithVision(base64, signal) : Promise.resolve(null),
     ]);
-    console.log(`[PIPELINE] OCR ${Date.now() - ocrStart}ms, ${rawText.length} chars`);
+    devLog(`[PIPELINE] OCR ${Date.now() - ocrStart}ms, ${rawText.length} chars`);
     if (signal?.aborted) throw abortError();
 
     // 4. Build the bill
     onStage?.("building");
     const parsed = await parseBill(rawText, { imageBase64: base64 });
-    console.log("[PIPELINE] Parsed:", parsed.items.length, "items");
+    devLog("[PIPELINE] Parsed:", parsed.items.length, "items");
     if (parsed.isBill === false) throw new ExtractionError(NOT_A_BILL, true);
     if (signal?.aborted) throw abortError();
 
@@ -78,7 +79,7 @@ export async function extractBill(
     const items = matchItemsToBlocks(parsed.items as any[], blocks, rawText.split("\n").length);
     const bill = { ...parsed, items, imageWidth: visionResult?.imageWidth, imageHeight: visionResult?.imageHeight };
 
-    console.timeEnd("[PIPELINE] Total");
+    devTimeEnd("[PIPELINE] Total");
     billStore.set(bill, uri, visionResult?.blocks ?? null, authStore.get().user);
   } catch (err: any) {
     if (err?.name === "AbortError" || err?.message === "OCR cancelled.") throw abortError();

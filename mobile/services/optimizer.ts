@@ -10,6 +10,7 @@
 // was often overloaded (503 after ~30 s). Requests time out after 30 s.
 // ---------------------------------------------------------------------------
 import * as ImageManipulator from "expo-image-manipulator";
+import { devLog } from "../utils/devLog";
 
 const GEMINI_MODEL = "gemini-flash-lite-latest";
 const TIMEOUT_MS = 30_000;
@@ -143,7 +144,7 @@ export async function autoCropReceipt(uri: string): Promise<AutoCropResult> {
 
     const json = await response.json();
     const text: string | undefined = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-    console.log("[AutoCrop] Response:", text?.slice(0, 200));
+    devLog("[AutoCrop] Response:", text?.slice(0, 200));
     const box = parseCropBox(text);
     if (!box) {
       return { status: "no-change", uri, message: "Couldn't find the receipt. Use Adjust Crop to crop by hand." };

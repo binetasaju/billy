@@ -13,6 +13,7 @@
 import type { ParsedBill } from "../types/bill";
 import { toAmount } from "./receiptLayout";
 import { isTaxCharge, reconcileCharges } from "./reconcileBill";
+import { devLog } from "../utils/devLog";
 
 export type { ParsedBill };
 
@@ -280,7 +281,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
     const RETRY_DELAYS = [1500];
 
     while (attempt <= maxRetries) {
-      console.log(`[parseBill] Gemini call (Attempt ${attempt}/${maxRetries})`);
+      devLog(`[parseBill] Gemini call (Attempt ${attempt}/${maxRetries})`);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
       try {
@@ -332,7 +333,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
     }
     const json = await response.json();
   const finishReason = json?.candidates?.[0]?.finishReason;
-  console.log("[parseBill] finishReason:", finishReason);
+  devLog("[parseBill] finishReason:", finishReason);
   if (finishReason === "MAX_TOKENS") {
     console.warn("[parseBill] ⚠ Output was TRUNCATED (MAX_TOKENS). Some items may be missing.");
   }
@@ -343,7 +344,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
     throw new Error("Parser returned empty response. Please retry.");
   }
 
-  console.log("[parseBill] Response (first 600):", text.substring(0, 600));
+  devLog("[parseBill] Response (first 600):", text.substring(0, 600));
 
   // Strip accidental markdown fences
   let clean = text.trim();
@@ -355,7 +356,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
   let parsed: ParsedBill;
   try {
     parsed = JSON.parse(clean) as ParsedBill;
-  } catch (e) {
+  } catch {
     console.error("[parseBill] JSON.parse failed:", clean.substring(0, 300));
     throw new Error("Could not parse bill structure. Try a clearer photo.");
   }
@@ -412,7 +413,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
   if (legalName && legalName !== parsed.restaurant) {
     parsed.legalName = legalName;
   }
-  console.log("[parseBill] restaurant:", parsed.restaurant, "| legalName:", parsed.legalName ?? "(none)");
+  devLog("[parseBill] restaurant:", parsed.restaurant, "| legalName:", parsed.legalName ?? "(none)");
 
 
 
@@ -456,7 +457,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
   parsed.printedTotal = parsed.total;
   parsed.taxInclusive = reconciled.taxInclusive;
   if (reconciled.taxInclusive) {
-    console.log("[parseBill] Tax lines are included in item prices — not adding them on top");
+    devLog("[parseBill] Tax lines are included in item prices — not adding them on top");
   }
 
   // Back-fill legacy scalar fields from charges[] so split.tsx / any
@@ -481,7 +482,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
     .reduce((s, c) => s + c.amount, 0) || null;
 
   parsed.charges.forEach((c) =>
-    console.log(`[Charge] ${c.name}: ${c.amount}`)
+    devLog(`[Charge] ${c.name}: ${c.amount}`)
   );
 
     // Sanity check: items + charges should add up to the printed total.
@@ -492,20 +493,20 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
       console.warn(`[parseBill] ⚠ Items + charges = ₹${computed.toFixed(2)} but printed total = ₹${parsed.total}`);
     }
 
-    console.log(`[parseBill] ✓ ${parsed.items.length} items, total ₹${parsed.total}`);
-    console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
+    devLog(`[parseBill] ✓ ${parsed.items.length} items, total ₹${parsed.total}`);
+    devLog(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
     return parsed;
 
   } catch (err) {
     console.error("[parseBill] Gemini Parsing Failed:", err);
-    console.log("[parseBill] Falling back to local regex parser...");
+    devLog("[parseBill] Falling back to local regex parser...");
     
     fallbackUsed = true;
     const parsed = localFallbackParser(ocrText);
     parsed.extractionNote = fallbackNote(err);
     
-    console.log(`[parseBill] ✓ Fallback parsed ${parsed.items.length} items, total ₹${parsed.total}`);
-    console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
+    devLog(`[parseBill] ✓ Fallback parsed ${parsed.items.length} items, total ₹${parsed.total}`);
+    devLog(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
     
     return parsed;
   }
@@ -626,7 +627,7 @@ function localFallbackParser(ocrText: string): ParsedBill {
   const sumOf = (re: RegExp) =>
     charges.filter((c) => re.test(c.name)).reduce((s, c) => s + c.amount, 0) || null;
 
-  console.log(`[localFallback] Matched ${deduped.length} items, ${charges.length} charges from ${lines.length} lines`);
+  devLog(`[localFallback] Matched ${deduped.length} items, ${charges.length} charges from ${lines.length} lines`);
 
   return {
     isBill:     true, // local fallback cannot classify; let the user review

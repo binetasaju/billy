@@ -26,7 +26,6 @@ export function webClientIdFrom(config: any): string | null {
 
 function loadWebClientId(): string | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return webClientIdFrom(require("../../google-services.json"));
   } catch {
     return null;
