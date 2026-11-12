@@ -29,6 +29,48 @@
       "api_key": [
         {
           "current_key": "AIzaSyAQQcO-4wO0qfMMdCCWIFpqJoX-efmxVrU"
+        },
+        {
+          "current_key": "AIzaSyBkt1sI5sXdbfLhI0hFhOcROLa5EU2OC-4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1064599655749-esg1torq9o93gg80rn8hu0t90aulj0ve.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1064599655749-fk5t9t4hs1n2u3roldtc52brv1j25nnf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.anonymous.mobile"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1064599655749:android:a846cf16fe628180161a2c",
+        "android_client_info": {
+          "package_name": "com.billy.matters"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1064599655749-esg1torq9o93gg80rn8hu0t90aulj0ve.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQQcO-4wO0qfMMdCCWIFpqJoX-efmxVrU"
+        },
+        {
+          "current_key": "AIzaSyBkt1sI5sXdbfLhI0hFhOcROLa5EU2OC-4"
         }
       ],
       "services": {
