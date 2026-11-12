@@ -33,9 +33,18 @@ may have misread numbers or mixed up columns; use it only for "lineIndex"
 (the OCR line number where each item appears).
 `;
 
-export const PARSE_PROMPT = (ocrText: string, withPhoto = false) => `
+const DOCUMENT_NOTE = `
+The bill is attached as a DOCUMENT (PDF e-bill / invoice). Read every item,
+quantity, price, tax and the total from the document. There is no OCR text, so
+set "lineIndex" to the item's position in the list (0, 1, 2…).
+If the document has several pages or a copy of the bill, count each item once.
+`;
+
+export type AttachmentKind = "photo" | "document";
+
+export const PARSE_PROMPT = (ocrText: string, attached: AttachmentKind | false = false) => `
 You are a restaurant bill parser for an Indian bill-splitter app.
-${withPhoto ? PHOTO_NOTE : "\nAnalyze the OCR text below."}
+${attached === "photo" ? PHOTO_NOTE : attached === "document" ? DOCUMENT_NOTE : "\nAnalyze the OCR text below."}
 Return ONLY valid JSON. No markdown, no explanations.
 
 JSON schema:
@@ -216,11 +225,13 @@ export const RESPONSE_SCHEMA = {
 
 /** Request body for one parse call (shared with scripts/evalReceipts). */
 export function buildParseRequest(ocrText: string, image?: { base64: string; mimeType?: string }) {
+  const mimeType = image?.mimeType ?? "image/jpeg";
   const parts: Record<string, unknown>[] = [];
   if (image?.base64) {
-    parts.push({ inline_data: { mime_type: image.mimeType ?? "image/jpeg", data: image.base64 } });
+    parts.push({ inline_data: { mime_type: mimeType, data: image.base64 } });
   }
-  parts.push({ text: PARSE_PROMPT(ocrText, !!image?.base64) });
+  const attached = !image?.base64 ? false : mimeType === "application/pdf" ? "document" : "photo";
+  parts.push({ text: PARSE_PROMPT(ocrText, attached) });
   return {
     contents: [{ parts }],
     generationConfig: {
@@ -254,8 +265,10 @@ function fallbackNote(err: unknown): string {
 }
 
 export interface ParseOptions {
-  /** JPEG of the receipt (base64). Sent with the OCR text for better accuracy. */
+  /** JPEG of the receipt, or a PDF bill (base64). Sent with the OCR text, if any. */
   imageBase64?: string;
+  /** Defaults to "image/jpeg"; "application/pdf" for an uploaded e-bill. */
+  mimeType?: string;
 }
 
 export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promise<ParsedBill> {
@@ -281,7 +294,7 @@ export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promi
       try {
         response = await callGemini(
           GEMINI_MODEL,
-          buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64 } : undefined),
+          buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64, mimeType: opts.mimeType } : undefined),
           controller.signal
         );
       } catch (err) {

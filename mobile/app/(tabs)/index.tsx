@@ -27,6 +27,7 @@ import { T } from "@/constants/typography";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { rupeesExact } from "../../utils/formatRupees";
 import { scanReceipt } from "../../services/documentScanner";
+import { pickBillDocument } from "../../services/documentImport";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function HomeScreen() {
   const addBillOptions = [
     { label: "Take Photo",          onPress: () => handleCameraPress() },
     { label: "Choose From Gallery", onPress: () => handleGalleryPress() },
-    { label: "Import from Gmail",   onPress: () => router.push("/gmail-import" as any) },
+    { label: "Upload Bill (PDF)",   onPress: () => handleUploadPress() },
     { label: "Enter Manually",      onPress: () => handleManualEntry() },
   ];
 
@@ -116,6 +117,24 @@ export default function HomeScreen() {
 
     if (!result.canceled) {
       router.push({ pathname: "/preview", params: { uri: result.assets[0].uri } });
+    }
+  };
+
+  // ── Upload a PDF e-bill (or an image file) ─────────────────────────────────
+  const handleUploadPress = async () => {
+    try {
+      const picked = await pickBillDocument();
+      if (!picked) return;
+      if (picked.kind === "image") {
+        router.push({ pathname: "/preview", params: { uri: picked.uri } });
+      } else {
+        router.push({
+          pathname: "/import-document" as any,
+          params: { uri: picked.uri, name: picked.name, size: picked.size != null ? String(picked.size) : "" },
+        });
+      }
+    } catch (e) {
+      appAlert.alert("Couldn't open that file", e instanceof Error ? e.message : "Please try another file.");
     }
   };
 

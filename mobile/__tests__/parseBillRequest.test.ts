@@ -18,6 +18,14 @@ describe("Gemini parse request", () => {
     expect(text.text).toContain("0: Tea  30.00");
   });
 
+  it("with a PDF bill: sent as application/pdf with the document prompt", () => {
+    const body = buildParseRequest("", { base64: "JVBERi0", mimeType: "application/pdf" });
+    const [doc, text] = body.contents[0].parts as any[];
+    expect(doc.inline_data).toEqual({ mime_type: "application/pdf", data: "JVBERi0" });
+    expect(text.text).toContain("attached as a DOCUMENT");
+    expect(text.text).not.toContain("PHOTO of the receipt");
+  });
+
   describe("parseBill sends the photo", () => {
     const originalFetch = global.fetch;
     const originalKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;

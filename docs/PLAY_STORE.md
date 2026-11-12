@@ -21,7 +21,7 @@ Copy these into Play Console. Check every answer against the app before submitti
 >
 > 🔗 **Share one link.** Send the bill to your WhatsApp group. Friends open it, pick their name and see exactly what they owe.
 >
-> 📧 **Import from Gmail.** Split Swiggy, Zomato, Amazon or BigBasket orders straight from the order email.
+> 📄 **Upload a PDF bill.** Got the bill by email (Swiggy, Zomato, Amazon, a restaurant's invoice)? Upload the PDF and split it.
 >
 > 👥 **Groups and history.** Save your regular crew, see who still owes you, and look back at what you spent each month.
 >
@@ -34,7 +34,7 @@ Copy these into Play Console. Check every answer against the app before submitti
 **Graphics you need:**
 - App icon 512 × 512 PNG
 - Feature graphic 1024 × 500
-- 2–8 phone screenshots (1080 × 1920 or similar): Home, scan → Review, item-wise split, bill page with Pay/QR, Gmail import
+- 2–8 phone screenshots (1080 × 1920 or similar): Home, scan → Review, item-wise split, bill page with Pay/QR, PDF upload
 
 ## Data safety form
 
@@ -54,16 +54,15 @@ Copy these into Play Console. Check every answer against the app before submitti
 | Financial info | Other financial info | UPI ID; bill amounts and payment status. (No card or bank numbers.) |
 | Photos and videos | Photos | Receipt photos — processed (sent to Gemini), not stored on the server. Optional. |
 | Contacts | Contacts | Only the people you pick are saved. Optional. |
-| Messages | Emails | Only with "Import from Gmail"; the chosen email is processed, not stored. Optional. |
+| Files and docs | Files and docs | PDF bills the user uploads — processed (sent to Gemini), not stored on the server. Optional. |
 
-**Shared with third parties:** Receipt photos / email text go to Google's Gemini API for processing. Under Play's definitions, sending data to a service provider that processes it for you is not "sharing", but say so in the privacy policy (done).
+**Shared with third parties:** Receipt photos / uploaded PDFs go to Google's Gemini API for processing. Under Play's definitions, sending data to a service provider that processes it for you is not "sharing", but say so in the privacy policy (done).
 
 ## Content rating & other forms
 
 - **Target audience:** 18+ (Finance apps with payments are simplest at 18+).
 - **Ads:** No ads.
 - **Financial features declaration:** Billy does not provide payments, loans or banking. It opens the user's own UPI app with a prefilled amount. Choose "My app doesn't provide any financial features" only if Play agrees; otherwise pick the closest option, "Other", and describe it the same way.
-- **Gmail (restricted scope):** before public release, Google OAuth verification + a security assessment for `gmail.readonly`. Until then, keep the Gmail feature limited to test users or hide it in the release build.
 
 ## Before you submit
 

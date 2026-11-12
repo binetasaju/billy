@@ -44,7 +44,7 @@
       <tr><td>Saved groups (names and phone numbers you choose)</td><td>To reuse the same people on new bills.</td></tr>
       <tr><td>Receipt photos</td><td>To read the bill. Photos stay on your phone; a compressed copy is sent for reading (see below) and is not stored by Billy.</td></tr>
       <tr><td>Contacts (only if you allow it)</td><td>To pick people for a bill. Billy reads your contact list on the phone and saves only the people you choose.</td></tr>
-      <tr><td>Order emails (only if you use “Import from Gmail”)</td><td>See “Gmail” below.</td></tr>
+      <tr><td>Bill documents you upload (PDF or image)</td><td>To read the bill. The file is sent for reading (see below) and is not stored by Billy; only the bill you save is kept.</td></tr>
     </tbody>
   </table>
   <p>Billy does not collect your location, show ads or sell data.</p>
@@ -53,13 +53,9 @@
   <ul>
     <li><strong>People on the same bill</strong> see the bill, your name, your share, payment status and your UPI ID.</li>
     <li><strong>Google Firebase</strong> (Authentication and Cloud Firestore, stored in Mumbai, India) keeps your account, profile, bills and saved groups so they sync between phones.</li>
-    <li><strong>Google Gemini API</strong> reads receipt photos, the text read from them on your phone, and imported order emails, and returns the items and totals. Billy uses Gemini’s free tier, under which Google may use what is sent to improve its products. Avoid scanning receipts that show sensitive personal details.</li>
+    <li><strong>Google Gemini API</strong> reads receipt photos, the text read from them on your phone, and bill documents (PDFs) you upload, and returns the items and totals. Billy uses Gemini’s free tier, under which Google may use what is sent to improve its products. Avoid scanning receipts that show sensitive personal details.</li>
     <li><strong>Your UPI app</strong> (Google Pay, PhonePe, Paytm…) opens with the amount and the receiver’s UPI ID when you tap Pay. The payment happens entirely in that app.</li>
   </ul>
-
-  <h2>Gmail</h2>
-  <p>“Import from Gmail” is optional. When you use it, you choose a Google account and allow Billy to read email (read-only). Billy then lists order and invoice emails from the last 90 days from food and shopping services (such as Swiggy, Zomato and Amazon), and reads the full text of the one email you pick to create a bill. Billy does not read other emails, does not store email content (only the bill you save), and does not send email.</p>
-  <p>Billy’s use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Email data is used only to create the bill you asked for, is not used for advertising, and is not transferred to anyone except Google Gemini as described above. You can remove Billy’s access at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
 
   <h2>Deleting your data</h2>
   <p>In the app, go to <strong>Profile → Account → Delete account</strong>. This permanently deletes your account, profile, UPI ID, saved groups, and the bills you created (for everyone on them), and clears Billy’s data from your phone. Bills that friends created stay with them, with your name as it appears on their bill.</p>
