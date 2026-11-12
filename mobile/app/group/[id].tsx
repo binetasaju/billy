@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Share, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Share, ActivityIndicator, Linking } from "react-native";
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
@@ -11,7 +11,14 @@ import { billStore } from "../../services/billStore";
 import { canEditBill, payerOf } from "../../services/billEditing";
 import { useGroups } from "../../hooks/useGroups";
 import { authStore } from "../../services/authStore";
-import { billLink, buildBillShareMessage, isValidUpiId, openUpiPayment } from "../../services/upi";
+import {
+  billLink,
+  buildBillShareMessage,
+  buildPersonInviteMessage,
+  isValidUpiId,
+  openUpiPayment,
+  whatsappChatLink,
+} from "../../services/upi";
 import { cloudSession } from "../../services/cloud/cloudSync";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
@@ -452,7 +459,6 @@ export default function GroupDetailsScreen() {
               </Pressable>
             );
           }
-          const names = notJoined.map((p) => p.name.split(" ")[0]);
           return (
             <View style={s.inviteCard}>
               <View style={s.inviteHead}>
@@ -462,16 +468,59 @@ export default function GroupDetailsScreen() {
                 </Text>
               </View>
               <Text style={s.inviteText}>
-                Send {names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and others`} the link {"\u2014"} they join in Billy (and sign up if they{"\u2019"}re new) to see their share and pay.
+                They join in Billy with the link (and sign up if they{"\u2019"}re new) to see their share and pay.
               </Text>
+
+              {/* One row per person — WhatsApp straight to their number when we have it */}
+              {notJoined.map((p) => {
+                const share = group.settlements.find((t) => t.fromUserId === p.id)?.amount;
+                const waLink = group.inviteCode
+                  ? whatsappChatLink(
+                      p.phone,
+                      buildPersonInviteMessage({
+                        name: p.name,
+                        billTitle: group.title,
+                        share,
+                        link: billLink(group.id, group.inviteCode),
+                      })
+                    )
+                  : null;
+                return (
+                  <View key={p.id} style={s.inviteRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.inviteName}>{p.name}</Text>
+                      <Text style={s.inviteSub}>
+                        {share ? `₹${share.toFixed(2)}` : "Not paying"}
+                        {waLink ? "" : "  ·  no number — use Share link"}
+                      </Text>
+                    </View>
+                    {waLink && (
+                      <Pressable
+                        style={({ pressed }) => [s.waBtn, pressed && s.pressedBtn]}
+                        onPress={() =>
+                          Linking.openURL(waLink).catch(() =>
+                            appAlert.alert("WhatsApp not available", "Use Share link to send the invite another way.")
+                          )
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel={`Invite ${p.name} on WhatsApp`}
+                      >
+                        <Ionicons name="logo-whatsapp" size={16} color={C.white} />
+                        <Text style={s.waBtnText}>WhatsApp</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                );
+              })}
+
               <Pressable
                 style={({ pressed }) => [s.inviteBtn, pressed && s.pressedBtn]}
                 onPress={handleShareBill}
                 accessibilityRole="button"
-                accessibilityLabel="Share bill link"
+                accessibilityLabel="Share bill link to everyone"
               >
                 <Ionicons name="share-social" size={16} color={C.white} />
-                <Text style={s.inviteBtnText}>Share link</Text>
+                <Text style={s.inviteBtnText}>Share link to everyone</Text>
               </Pressable>
             </View>
           );
@@ -937,6 +986,17 @@ const s = StyleSheet.create({
     backgroundColor: C.primary, borderRadius: 12, paddingVertical: 11, marginTop: 4,
   },
   inviteBtnText: { color: C.white, fontSize: 14, fontWeight: "700" },
+  inviteRow: {
+    flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderStrong,
+  },
+  inviteName: { fontSize: 14, fontWeight: "600", color: C.ink },
+  inviteSub: { fontSize: 11, color: C.textMuted, marginTop: 2 },
+  waBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#25D366",
+    paddingHorizontal: 12, height: 32, borderRadius: 16,
+  },
+  waBtnText: { color: C.white, fontSize: 12, fontWeight: "700" },
   chipBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,

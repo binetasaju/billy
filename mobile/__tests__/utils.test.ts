@@ -158,3 +158,23 @@ describe("bill link", () => {
     expect(msg).toContain("Open in Billy: https://billy-ed9eb.web.app/bill/g1");
   });
 });
+
+describe("WhatsApp invites", () => {
+  const { buildPersonInviteMessage, whatsappChatLink } = require("../services/upi");
+
+  it("writes a personal message with the share and link", () => {
+    expect(buildPersonInviteMessage({ name: "Ravi Kumar", billTitle: "Dinner", share: 435, link: "https://x/bill/1?c=a" }))
+      .toBe('Hi Ravi! Here\'s our bill "Dinner" on Billy. Your share is ₹435. Tap to join and pay: https://x/bill/1?c=a');
+    expect(buildPersonInviteMessage({ name: "Anu", billTitle: "Cab", share: 250.5, link: "L" })).toContain("₹250.50");
+    expect(buildPersonInviteMessage({ name: "Joe", billTitle: "Cab", link: "L" })).not.toContain("share");
+  });
+
+  it("opens WhatsApp to the right number", () => {
+    expect(whatsappChatLink("+91 98765 43210", "hi")).toBe("https://wa.me/919876543210?text=hi");
+    expect(whatsappChatLink("9876543210", "hi")).toBe("https://wa.me/919876543210?text=hi");
+    expect(whatsappChatLink("+1 (415) 555-0100", "a b")).toBe("https://wa.me/14155550100?text=a%20b");
+    expect(whatsappChatLink("09876543210", "hi")).toBe("https://wa.me/919876543210?text=hi");
+    expect(whatsappChatLink("12345", "hi")).toBeNull();
+    expect(whatsappChatLink(undefined, "hi")).toBeNull();
+  });
+});

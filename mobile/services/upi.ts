@@ -93,6 +93,37 @@ export function buildBillShareMessage(opts: {
   return lines.join("\n");
 }
 
+/** A personal WhatsApp invite for one person on a bill. */
+export function buildPersonInviteMessage(opts: {
+  name: string;
+  billTitle: string;
+  share?: number | null;
+  link: string;
+}): string {
+  const first = opts.name.trim().split(/\s+/)[0] || "there";
+  const share =
+    opts.share && opts.share > 0
+      ? ` Your share is ₹${Number.isInteger(opts.share) ? opts.share : opts.share.toFixed(2)}.`
+      : "";
+  return `Hi ${first}! Here's our bill "${opts.billTitle}" on Billy.${share} Tap to join and pay: ${opts.link}`;
+}
+
+/**
+ * wa.me link that opens WhatsApp straight to this number's chat with the text
+ * typed in. Needs the number with country code; returns null if it has none.
+ */
+export function whatsappChatLink(phone: string | undefined | null, text: string): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  // Indian mobile written without the country code (98765…, 098765…) → add 91.
+  const withCountry =
+    digits.length === 10 ? `91${digits}`
+    : digits.length === 11 && digits.startsWith("0") ? `91${digits.slice(1)}`
+    : digits.replace(/^0+/, "");
+  if (withCountry.length < 11 || withCountry.length > 15) return null;
+  return `https://wa.me/${withCountry}?text=${encodeURIComponent(text)}`;
+}
+
 /** Web host for shared bill links (Firebase Hosting, see /web). */
 export const BILL_LINK_HOST = "billy-ed9eb.web.app";
 
