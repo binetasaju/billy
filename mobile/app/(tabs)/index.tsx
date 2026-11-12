@@ -179,10 +179,11 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          {/* One line: "Hello, Bineta" */}
+          {/* One line: "Hello, Bineta 👋" */}
           <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
             <Text style={styles.hello}>Hello{firstName ? ", " : ""}</Text>
             {firstName ? <Text style={styles.name}>{firstName}</Text> : null}
+            <Text> 👋</Text>
           </Text>
           <Pressable
             onPress={() => router.push("/(tabs)/profile" as any)}
