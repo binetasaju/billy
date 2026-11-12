@@ -1,8 +1,10 @@
 // ---------------------------------------------------------------------------
 // services/parseBill.ts
 //
-// Calls Gemini Flash Lite (text-only — fast, cheap) with the raw OCR text
-// and returns a ParsedBill with lineIndex hints per item.
+// Calls Gemini Flash Lite with the raw OCR text — and, when given, the photo
+// itself in the same call (one request per scan) — and returns a ParsedBill
+// with lineIndex hints per item. Structured output (responseSchema) keeps the
+// reply valid JSON.
 //
 // lineIndex lets matchItems.ts estimate vertical position when Vision API
 // bounding boxes are not available.
@@ -24,10 +26,17 @@ const GEMINI_BASE_URL =
 // Prompt
 // ---------------------------------------------------------------------------
 
-const PARSE_PROMPT = (ocrText: string) => `
-You are a restaurant bill parser for an Indian bill-splitter app.
+const PHOTO_NOTE = `
+A PHOTO of the receipt is attached. Read every item, quantity and price from the
+PHOTO — it is the source of truth. The OCR text below was read on the phone and
+may have misread numbers or mixed up columns; use it only for "lineIndex"
+(the OCR line number where each item appears).
+`;
 
-Analyze the OCR text below and return ONLY valid JSON. No markdown, no explanations.
+export const PARSE_PROMPT = (ocrText: string, withPhoto = false) => `
+You are a restaurant bill parser for an Indian bill-splitter app.
+${withPhoto ? PHOTO_NOTE : "\nAnalyze the OCR text below."}
+Return ONLY valid JSON. No markdown, no explanations.
 
 JSON schema:
 {
@@ -153,6 +162,78 @@ ${ocrText
 `.trim();
 
 // ---------------------------------------------------------------------------
+// Structured output — Gemini's reply must match this (OpenAPI subset)
+// ---------------------------------------------------------------------------
+
+const MONEY = { type: "NUMBER" } as const;
+
+export const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    isBill: { type: "BOOLEAN" },
+    restaurant: { type: "STRING" },
+    legalName: { type: "STRING" },
+    billNumber: { type: "STRING" },
+    date: { type: "STRING" },
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          quantity: MONEY,
+          unitPrice: MONEY,
+          amount: MONEY,
+          children: { type: "ARRAY", items: { type: "STRING" } },
+          modifiers: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: { name: { type: "STRING" }, amount: MONEY },
+              required: ["name", "amount"],
+            },
+          },
+          lineIndex: { type: "INTEGER" },
+        },
+        required: ["name", "quantity", "unitPrice", "amount"],
+        propertyOrdering: ["name", "quantity", "unitPrice", "amount", "children", "modifiers", "lineIndex"],
+      },
+    },
+    subtotal: { ...MONEY, nullable: true },
+    charges: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { name: { type: "STRING" }, amount: MONEY },
+        required: ["name", "amount"],
+      },
+    },
+    total: MONEY,
+  },
+  required: ["isBill", "restaurant", "items", "charges", "total"],
+  propertyOrdering: ["isBill", "restaurant", "legalName", "billNumber", "date", "items", "subtotal", "charges", "total"],
+} as const;
+
+/** Request body for one parse call (shared with scripts/evalReceipts). */
+export function buildParseRequest(ocrText: string, image?: { base64: string; mimeType?: string }) {
+  const parts: Record<string, unknown>[] = [];
+  if (image?.base64) {
+    parts.push({ inline_data: { mime_type: image.mimeType ?? "image/jpeg", data: image.base64 } });
+  }
+  parts.push({ text: PARSE_PROMPT(ocrText, !!image?.base64) });
+  return {
+    contents: [{ parts }],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+      // Raise token ceiling so long receipts don't truncate silently
+      maxOutputTokens: 8192,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
 
@@ -172,7 +253,12 @@ function fallbackNote(err: unknown): string {
   return "Couldn't reach the AI service, so items were read offline. Please check them carefully.";
 }
 
-export async function parseBill(ocrText: string): Promise<ParsedBill> {
+export interface ParseOptions {
+  /** JPEG of the receipt (base64). Sent with the OCR text for better accuracy. */
+  imageBase64?: string;
+}
+
+export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promise<ParsedBill> {
   const parseStart = Date.now();
   let retryCount = 0;
   let fallbackUsed = false;
@@ -202,15 +288,9 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: PARSE_PROMPT(ocrText) }] }],
-          generationConfig: {
-            temperature: 0,
-            response_mime_type: "application/json",
-            // Raise token ceiling so long receipts don't truncate silently
-            maxOutputTokens: 8192,
-          },
-        }),
+        body: JSON.stringify(
+          buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64 } : undefined)
+        ),
         });
       } catch (err) {
         // Timed out (or network error): retry once, then fall back offline.

@@ -26,6 +26,7 @@ import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { rupeesExact } from "../../utils/formatRupees";
+import { scanReceipt } from "../../services/documentScanner";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -72,7 +73,16 @@ export default function HomeScreen() {
   };
 
   // ── Camera ─────────────────────────────────────────────────────────────────
+  // Android: ML Kit Document Scanner (finds the edges, straightens and cleans
+  // the receipt). Falls back to the plain camera when it isn't available.
   const handleCameraPress = async () => {
+    const scan = await scanReceipt();
+    if (scan.status === "success") {
+      router.push({ pathname: "/preview", params: { uri: scan.uri } });
+      return;
+    }
+    if (scan.status === "cancel") return;
+
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       appAlert.alert("Permission Required", "Please allow camera access.");

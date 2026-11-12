@@ -1,0 +1,5 @@
+CAFE SAMPLE
+Item   Qty   Rate   Amount
+Masala Tea   1   30.00   30.00
+Samosa   2   20.00   40.00
+Grand Total   70.00
