@@ -14,6 +14,7 @@ import { appAlert } from "@/components/ui/AppAlert";
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../hooks/useAuth";
 import { useGroups } from "../../hooks/useGroups";
 import { computeHomeSummary } from "../../services/homeSummary";
@@ -36,7 +37,6 @@ export default function HomeScreen() {
   // what you'll give, side by side.
   const toGet = summary.owedToYou;
   const toGive = summary.youOwe;
-  const isNewUser = groups.length === 0;
 
   // "Add Bill" sheet. A custom sheet (not Alert.alert) so the options always
   // appear in this order — Android re-orders Alert buttons — and so there is
@@ -209,15 +209,22 @@ export default function HomeScreen() {
         </Pressable>
         </View>
 
-        {/* Pending */}
-        {pending.length > 0 && (
+        {/* Pending — title always shown; an empty card when there's nothing */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Pending</Text>
+          {pending.length > 0 && (
+            <Pressable onPress={() => router.push("/(tabs)/pay-bills" as any)} hitSlop={8}>
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
+          )}
+        </View>
+        {pending.length === 0 ? (
+          <View style={[styles.list, styles.emptyCard]}>
+            <Ionicons name="checkmark-done-circle-outline" size={22} color={C.textSubtle} />
+            <Text style={styles.emptyCardText}>Nothing pending — you&apos;re all settled up.</Text>
+          </View>
+        ) : (
           <>
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>Pending</Text>
-              <Pressable onPress={() => router.push("/(tabs)/pay-bills" as any)} hitSlop={8}>
-                <Text style={styles.seeAll}>See all</Text>
-              </Pressable>
-            </View>
             <View style={styles.list}>
               {pending.map((r, i) => (
                 <Pressable
@@ -240,10 +247,10 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* Recent */}
+        {/* Recent — title always shown; an empty card when there are no bills */}
+        <Text style={[styles.sectionTitle, styles.sectionTitleAlone]}>Recent</Text>
         {recent.length > 0 ? (
           <>
-            <Text style={[styles.sectionTitle, styles.sectionTitleAlone]}>Recent</Text>
             <View style={styles.list}>
               {recent.map((g, i) => {
                 const open = g.settlements.filter((t) => t.status === "pending").length;
@@ -269,11 +276,12 @@ export default function HomeScreen() {
             </View>
           </>
         ) : (
-          isNewUser && (
-            <Text style={styles.emptyText}>
-              Scan a receipt or enter it manually — your bills will show up here.
+          <View style={[styles.list, styles.emptyCard]}>
+            <Ionicons name="receipt-outline" size={22} color={C.textSubtle} />
+            <Text style={styles.emptyCardText}>
+              No bills yet. Tap “Split a bill” to scan a receipt or enter one manually.
             </Text>
-          )
+          </View>
         )}
       </ScrollView>
 
@@ -385,5 +393,6 @@ const styles = StyleSheet.create({
   rowSub: { ...T.footnote, color: C.textMuted, marginTop: 2 },
   rowAmount: { ...T.callout, fontWeight: "600", color: C.ink },
 
-  emptyText: { ...T.subhead, color: C.textMuted, textAlign: "center", marginTop: 24, paddingHorizontal: 24 },
+  emptyCard: { alignItems: "center", gap: 8, paddingVertical: 22 },
+  emptyCardText: { ...T.subhead, color: C.textMuted, textAlign: "center", lineHeight: 19 },
 });
