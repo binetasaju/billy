@@ -462,6 +462,18 @@ export default function GroupDetailsScreen() {
   const createdOn = new Date(group.createdAt).toLocaleDateString(undefined, {
     day: "numeric", month: "short", year: "numeric",
   });
+  // The amount actually split = everyone's shares (what the People list shows).
+  // If a receipt was read wrongly, that can differ from the saved total — then
+  // show what's being split, and say the receipt total doesn't match.
+  const sharesTotal = Math.round(
+    group.participants.reduce(
+      (sum, p) => sum + (group.customAmounts?.[p.id] ?? getPersonBreakdown(p.id).total),
+      0
+    ) * 100
+  ) / 100;
+  const totalMismatch = sharesTotal > 0.01 && Math.abs(sharesTotal - group.totalAmount) > 1;
+  const shownTotal = totalMismatch ? sharesTotal : group.totalAmount;
+
   // Only the person who is owed sees everyone's progress; others see just their own part.
   const mine = statusForMe(group, currentUser?.uid);
   const paidCount = group.settlements.filter((t) => t.status === "paid").length;
@@ -521,10 +533,19 @@ export default function GroupDetailsScreen() {
           </View>
 
           <Text style={s.heroCaption}>Total</Text>
-          <Text style={s.heroAmount}>{rupeesExact(group.totalAmount)}</Text>
+          <Text style={s.heroAmount}>{rupeesExact(shownTotal)}</Text>
           <Text style={s.heroSub}>
             Split between {group.participants.length} {group.participants.length === 1 ? "person" : "people"}
           </Text>
+          {totalMismatch && (
+            <View style={s.mismatchNote}>
+              <Ionicons name="alert-circle-outline" size={13} color="#FCD34D" />
+              <Text style={s.mismatchText}>
+                Receipt total {rupeesExact(group.totalAmount)} doesn&apos;t match the items
+                {canEdit ? " — tap ✎ to fix" : ""}
+              </Text>
+            </View>
+          )}
 
           {mine.seesEveryone && group.settlements.length > 0 && (
             <View style={s.progressWrap}>
@@ -1119,6 +1140,11 @@ const s = StyleSheet.create({
     marginTop: 4, fontVariant: ["tabular-nums"],
   },
   heroSub: { ...T.footnote, color: C.onDarkMuted, marginTop: 4 },
+  mismatchNote: {
+    flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginTop: 10,
+    backgroundColor: "rgba(252,211,77,0.12)", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  mismatchText: { ...T.caption, color: "#FCD34D", fontWeight: "600", flexShrink: 1 },
   progressWrap: { marginTop: 20, gap: 8 },
   progressTrack: { height: 6, borderRadius: 3, backgroundColor: C.onDarkLine, overflow: "hidden" },
   progressFill: { height: 6, borderRadius: 3, backgroundColor: "#34D399" },
