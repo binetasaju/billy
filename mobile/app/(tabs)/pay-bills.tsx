@@ -21,6 +21,8 @@ export default function PayBillsScreen() {
     g.settlements.filter((t) => t.status === "pending" && (t.fromUserId === me || t.toUserId === me));
   const bills = groups
     .filter((g) => g.status === "active" && myOpen(g).length > 0)
+    // Newest bill on top, oldest at the bottom
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((g) => {
       const open = myOpen(g);
       const give = open.filter((t) => t.fromUserId === me).reduce((sum, t) => sum + t.amount, 0);
