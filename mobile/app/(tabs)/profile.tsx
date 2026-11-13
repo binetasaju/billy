@@ -28,6 +28,7 @@ import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useGroups } from "../../hooks/useGroups";
 import { myIdOn } from "../../services/homeSummary";
+import { statusForMe } from "../../services/viewerStatus";
 import { useContactGroups } from "../../hooks/useContactGroups";
 import { friendlyAuthError } from "../../services/auth/authErrors";
 import { isValidUpiId } from "../../services/upi";
@@ -234,7 +235,8 @@ export default function ProfileScreen() {
     ? new Date(user.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })
     : null;
   const myBills = bills.filter((b) => myIdOn(b, user?.uid) !== null);
-  const settledCount = myBills.filter((b) => b.status === "settled").length;
+  // Done from my point of view (I don't see whether others on the bill paid)
+  const settledCount = myBills.filter((b) => statusForMe(b, user?.uid).status === "settled").length;
   const config = editing ? EDIT_CONFIG[editing] : null;
   const appVersion = Constants.expoConfig?.version ?? "—";
 

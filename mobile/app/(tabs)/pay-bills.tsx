@@ -82,12 +82,15 @@ export default function PayBillsScreen() {
                       </Text>
                     </View>
 
-                    <View style={s.progressRow}>
-                      <View style={s.track}>
-                        <View style={[s.fill, { width: `${pct}%` }]} />
+                    {/* Only the person who is owed sees how everyone is doing */}
+                    {get > 0 && (
+                      <View style={s.progressRow}>
+                        <View style={s.track}>
+                          <View style={[s.fill, { width: `${pct}%` }]} />
+                        </View>
+                        <Text style={s.progressText}>{paid} of {count} paid</Text>
                       </View>
-                      <Text style={s.progressText}>{paid} of {count} paid</Text>
-                    </View>
+                    )}
                   </Pressable>
                 );
               })}

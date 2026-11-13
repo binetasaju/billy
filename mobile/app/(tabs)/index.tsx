@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../hooks/useAuth";
 import { useGroups } from "../../hooks/useGroups";
 import { computeHomeSummary } from "../../services/homeSummary";
+import { statusForMe } from "../../services/viewerStatus";
 import { billStore } from "../../services/billStore";
 import { authStore } from "../../services/authStore";
 import type { ParsedBill } from "../../types/bill";
@@ -289,7 +290,7 @@ export default function HomeScreen() {
           <>
             <View style={styles.list}>
               {recent.map((g, i) => {
-                const open = g.settlements.filter((t) => t.status === "pending").length;
+                const st = statusForMe(g, user?.uid);
                 return (
                   <Pressable
                     key={g.id}
@@ -300,8 +301,8 @@ export default function HomeScreen() {
                       <Text style={styles.rowTitle} numberOfLines={1}>{g.title}</Text>
                       <Text style={styles.rowSub}>
                         {formatDate(g.createdAt)} ·{" "}
-                        <Text style={g.status === "active" ? styles.statusActive : styles.statusSettled}>
-                          {g.status === "settled" ? "Settled" : g.status === "closed" ? "Closed" : `${open} pending`}
+                        <Text style={st.status === "active" ? styles.statusActive : styles.statusSettled}>
+                          {st.label}
                         </Text>
                       </Text>
                     </View>

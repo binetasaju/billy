@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
 import { browsableMonths, historyAt, monthKey, monthLabel, summarizeMonth } from "../../services/monthlyStats";
+import { isOwedOn } from "../../services/viewerStatus";
 import { C } from "@/constants/colors";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
@@ -111,9 +112,9 @@ export default function HistoryScreen() {
                       <Text style={s.rowSub}>
                         {g.status === "closed"
                           ? "Closed"
-                          : g.status === "settled"
+                          : isOwedOn(g, user?.uid)
                           ? "Settled"
-                          : "Your part paid"}{" "}
+                          : "You paid"}{" "}
                         {formatDay(historyAt(g, user?.uid) ?? g.updatedAt ?? g.createdAt)} · {g.participants.length} people
                       </Text>
                     </View>

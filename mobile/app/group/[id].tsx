@@ -30,6 +30,7 @@ import { MemberAvatar } from "@/components/ui/MemberAvatar";
 import { T } from "@/constants/typography";
 import { QrCode } from "@/components/ui/QrCode";
 import { rupeesExact } from "../../utils/formatRupees";
+import { statusForMe } from "../../services/viewerStatus";
 
 /** One row of a person's share breakdown. */
 interface BreakdownLine {
@@ -461,6 +462,8 @@ export default function GroupDetailsScreen() {
   const createdOn = new Date(group.createdAt).toLocaleDateString(undefined, {
     day: "numeric", month: "short", year: "numeric",
   });
+  // Only the person who is owed sees everyone's progress; others see just their own part.
+  const mine = statusForMe(group, currentUser?.uid);
   const paidCount = group.settlements.filter((t) => t.status === "paid").length;
   const paidPct = group.settlements.length ? Math.round((paidCount / group.settlements.length) * 100) : 0;
   const outstanding = group.settlements
@@ -514,7 +517,7 @@ export default function GroupDetailsScreen() {
                 {creatorName} · {createdOn}
               </Text>
             </View>
-            <StatusBadge status={group.status} size="sm" />
+            <StatusBadge status={mine.status} label={mine.label} size="sm" />
           </View>
 
           <Text style={s.heroCaption}>Total</Text>
@@ -523,7 +526,7 @@ export default function GroupDetailsScreen() {
             Split between {group.participants.length} {group.participants.length === 1 ? "person" : "people"}
           </Text>
 
-          {group.settlements.length > 0 && (
+          {mine.seesEveryone && group.settlements.length > 0 && (
             <View style={s.progressWrap}>
               <View style={s.progressTrack}>
                 <View style={[s.progressFill, { width: `${paidPct}%` as any }]} />

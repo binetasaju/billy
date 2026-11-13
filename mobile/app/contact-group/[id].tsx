@@ -36,6 +36,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { T } from "@/constants/typography";
 import { MemberAvatar } from "@/components/ui/MemberAvatar";
 import { accountsFromBills } from "../../services/profilePhotos";
+import { statusForMe } from "../../services/viewerStatus";
 
 export default function ContactGroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -347,18 +348,10 @@ export default function ContactGroupDetailScreen() {
                 </View>
                 <View style={s.billRight}>
                   <Text style={s.billAmount}>₹{bg.totalAmount.toFixed(2)}</Text>
-                  {bg.status === "settled" ? (
-                    <StatusBadge status="settled" size="sm" />
-                  ) : (
-                    <StatusBadge
-                      status="active"
-                      size="sm"
-                      label={(() => {
-                        const paid = bg.settlements.filter((t) => t.status === "paid").length;
-                        return paid > 0 ? `${paid} of ${bg.settlements.length} paid` : "Active";
-                      })()}
-                    />
-                  )}
+                  {(() => {
+                    const st = statusForMe(bg, user?.uid);
+                    return <StatusBadge status={st.status} label={st.label} size="sm" />;
+                  })()}
                 </View>
               </Pressable>
             ))}
