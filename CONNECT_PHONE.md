@@ -141,7 +141,7 @@ The APK is signed with the debug key, so it's fine for your own phone or friends
 | `adb devices` shows nothing | Try another cable/USB port; set USB mode to **File transfer**; run `adb kill-server && adb start-server`. |
 | Device shows `unauthorized` | Unlock the phone and accept the debugging prompt. If no prompt: Developer options → **Revoke USB debugging authorizations**, then replug. |
 | `no permissions (user in plugdev group...)` on Linux | `sudo usermod -aG plugdev $USER`, install udev rules (`sudo apt install android-sdk-platform-tools-common`), then log out and back in. |
-| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | An older Billy signed differently is installed: `adb uninstall com.anonymous.mobile`, then build again. |
+| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | An older Billy signed differently is installed: `adb uninstall com.billy.matters`, then build again. |
 | `INSTALL_FAILED_USER_RESTRICTED` (Xiaomi) | Turn on **Install via USB** in Developer options and accept the install prompt on the phone. |
 | App opens but shows "Unable to load script" / can't connect to Metro | Make sure `npx expo start --dev-client` is running; on USB run `adb reverse tcp:8081 tcp:8081`; on Wi-Fi check both are on the same network and no firewall blocks port 8081 (`sudo ufw allow 8081`). |
 | Build fails with Java/Gradle errors | Confirm `java -version` is 17. Then `cd android && ./gradlew clean && cd ..` and rebuild. |
