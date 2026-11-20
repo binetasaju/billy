@@ -82,5 +82,10 @@
       "/ios/",
       "/__tests__/helpers/"
     ]
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.2": true,
+    "protobufjs@7.6.6": true,
+    "unrs-resolver@1.12.2": true
   }
 }
