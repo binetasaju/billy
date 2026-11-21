@@ -27,7 +27,9 @@ By combining AI-assisted receipt processing, flexible item-wise allocation, auto
 
 ## 🎬 Demo
 
-**[▶ Watch the Billy demo video](billy3.mp4)** (MP4, about 21 MB). GitHub opens it in a video player.
+**[▶ Watch the Billy demo video](https://drive.google.com/file/d/1MclNf752VtuSVBNFuuoakmtrRAYKszv6/view?usp=sharing)** (Google Drive)
+
+Or play the copy in this repo: [billy3.mp4](billy3.mp4) (MP4, about 21 MB).
 
 ---
 
