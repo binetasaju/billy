@@ -14,7 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGroups } from "../../hooks/useGroups";
 import { useAuth } from "../../hooks/useAuth";
-import { browsableMonths, monthKey, monthLabel, settledAt, summarizeMonth } from "../../services/monthlyStats";
+import { browsableMonths, historyAt, monthKey, monthLabel, summarizeMonth } from "../../services/monthlyStats";
+import { isOwedOn } from "../../services/viewerStatus";
 import { C } from "@/constants/colors";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
@@ -92,10 +93,10 @@ export default function HistoryScreen() {
               </Text>
             </View>
 
-            {/* Bills settled this month */}
-            <Text style={s.sectionTitle}>Settled {inLabel}</Text>
+            {/* Bills done for you this month: settled, closed, or your part paid */}
+            <Text style={s.sectionTitle}>Done {inLabel}</Text>
             {summary.settledBills.length === 0 ? (
-              <Text style={s.emptyText}>No bills were settled {inLabel}.</Text>
+              <Text style={s.emptyText}>No bills were done {inLabel}.</Text>
             ) : (
               <View style={s.list}>
                 {summary.settledBills.map((g, i) => (
@@ -109,7 +110,12 @@ export default function HistoryScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={s.rowTitle} numberOfLines={1}>{g.title}</Text>
                       <Text style={s.rowSub}>
-                        {g.status === "closed" ? "Closed" : "Settled"} {formatDay(settledAt(g))} · {g.participants.length} people
+                        {g.status === "closed"
+                          ? "Closed"
+                          : isOwedOn(g, user?.uid)
+                          ? "Settled"
+                          : "You paid"}{" "}
+                        {formatDay(historyAt(g, user?.uid) ?? g.updatedAt ?? g.createdAt)} · {g.participants.length} people
                       </Text>
                     </View>
                     <Text style={s.rowAmount}>{money(g.totalAmount)}</Text>
@@ -145,7 +151,7 @@ const s = StyleSheet.create({
   statDivider: { width: 1, alignSelf: "stretch", backgroundColor: C.onDarkLine, marginHorizontal: 18 },
   statLabel: { ...T.footnote, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.6 },
   statValue: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3, marginTop: 6 },
-  spent: { color: "#FB7185" },
+  spent: { color: C.onDark },
   received: { color: "#10B981" },
   statFoot: { ...T.footnote, color: C.onDarkMuted, marginTop: 16 },
 

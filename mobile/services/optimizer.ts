@@ -10,10 +10,10 @@
 // was often overloaded (503 after ~30 s). Requests time out after 30 s.
 // ---------------------------------------------------------------------------
 import * as ImageManipulator from "expo-image-manipulator";
+import { devLog } from "../utils/devLog";
+import { callGeminiWithFallback, geminiConfigured } from "./gemini";
 
-const GEMINI_MODEL = "gemini-flash-lite-latest";
 const TIMEOUT_MS = 30_000;
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 // Gemini's native box format: [ymin, xmin, ymax, xmax] on a 0–1000 scale.
 const OPTIMIZE_PROMPT = `
@@ -98,8 +98,7 @@ export function boxToPixelCrop(box: CropBox, width: number, height: number, pad 
 }
 
 export async function autoCropReceipt(uri: string): Promise<AutoCropResult> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your_gemini_api_key_here") {
+  if (!geminiConfigured()) {
     return { status: "error", uri, message: "AI isn't set up (no Gemini API key)." };
   }
 
@@ -114,20 +113,17 @@ export async function autoCropReceipt(uri: string): Promise<AutoCropResult> {
     );
     if (!small.base64) throw new Error("Could not prepare the image.");
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const response = await fetch(`${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // Tries the backup models when the first is busy or out of quota.
+    const response = await callGeminiWithFallback(
+      {
         contents: [{ parts: [
           { inline_data: { mime_type: "image/jpeg", data: small.base64 } },
           { text: OPTIMIZE_PROMPT },
         ] }],
         generationConfig: { temperature: 0, response_mime_type: "application/json" },
-      }),
-    }).finally(() => clearTimeout(timer));
+      },
+      TIMEOUT_MS
+    );
 
     if (!response.ok) {
       const body = await response.text();
@@ -143,7 +139,7 @@ export async function autoCropReceipt(uri: string): Promise<AutoCropResult> {
 
     const json = await response.json();
     const text: string | undefined = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-    console.log("[AutoCrop] Response:", text?.slice(0, 200));
+    devLog("[AutoCrop] Response:", text?.slice(0, 200));
     const box = parseCropBox(text);
     if (!box) {
       return { status: "no-change", uri, message: "Couldn't find the receipt. Use Adjust Crop to crop by hand." };

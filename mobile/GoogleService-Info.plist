@@ -2,14 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>1064599655749-jroqcsa7jo94v2b7cubpeiqiaq1gih3m.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.1064599655749-jroqcsa7jo94v2b7cubpeiqiaq1gih3m</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>1064599655749-nbruluvoq1i6am4ieglrt4jv2s0f62lu.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyAbNa8LLzQSXW6EdAhgmjeWQyh-wLsPTYM</string>
+	<string>AIzaSyCvoiLXzLiTjodXxw0_qLF4lXYRyhRtbTA</string>
 	<key>GCM_SENDER_ID</key>
 	<string>1064599655749</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.anonymous.mobile</string>
+	<string>com.billy.matters</string>
 	<key>PROJECT_ID</key>
 	<string>billy-ed9eb</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1064599655749:ios:013ef7882a6ff4b4161a2c</string>
+	<string>1:1064599655749:ios:6dea4aaefc5dfc4f161a2c</string>
 </dict>
 </plist>

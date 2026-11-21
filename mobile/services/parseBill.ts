@@ -1,8 +1,10 @@
 // ---------------------------------------------------------------------------
 // services/parseBill.ts
 //
-// Calls Gemini Flash Lite (text-only — fast, cheap) with the raw OCR text
-// and returns a ParsedBill with lineIndex hints per item.
+// Calls Gemini Flash Lite with the raw OCR text — and, when given, the photo
+// itself in the same call (one request per scan) — and returns a ParsedBill
+// with lineIndex hints per item. Structured output (responseSchema) keeps the
+// reply valid JSON.
 //
 // lineIndex lets matchItems.ts estimate vertical position when Vision API
 // bounding boxes are not available.
@@ -11,23 +13,38 @@
 import type { ParsedBill } from "../types/bill";
 import { toAmount } from "./receiptLayout";
 import { isTaxCharge, reconcileCharges } from "./reconcileBill";
+import { callGeminiFast, geminiConfigured } from "./gemini";
+import { devLog } from "../utils/devLog";
 
 export type { ParsedBill };
 
-const GEMINI_MODEL = "gemini-flash-lite-latest";
-/** Per-attempt limit for the Gemini call (normal replies take ~2–3 s). */
-const ATTEMPT_TIMEOUT_MS = 15_000;
-const GEMINI_BASE_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models";
+/** Per-model limit for the Gemini call (replies take ~3–5 s; a backup model starts after 6 s). */
+const ATTEMPT_TIMEOUT_MS = 20_000;
 
 // ---------------------------------------------------------------------------
 // Prompt
 // ---------------------------------------------------------------------------
 
-const PARSE_PROMPT = (ocrText: string) => `
-You are a restaurant bill parser for an Indian bill-splitter app.
+const PHOTO_NOTE = `
+A PHOTO of the receipt is attached. Read every item, quantity and price from the
+PHOTO — it is the source of truth. The OCR text below was read on the phone and
+may have misread numbers or mixed up columns; use it only for "lineIndex"
+(the OCR line number where each item appears).
+`;
 
-Analyze the OCR text below and return ONLY valid JSON. No markdown, no explanations.
+const DOCUMENT_NOTE = `
+The bill is attached as a DOCUMENT (PDF e-bill / invoice). Read every item,
+quantity, price, tax and the total from the document. There is no OCR text, so
+set "lineIndex" to the item's position in the list (0, 1, 2…).
+If the document has several pages or a copy of the bill, count each item once.
+`;
+
+export type AttachmentKind = "photo" | "document";
+
+export const PARSE_PROMPT = (ocrText: string, attached: AttachmentKind | false = false) => `
+You are a restaurant bill parser for an Indian bill-splitter app.
+${attached === "photo" ? PHOTO_NOTE : attached === "document" ? DOCUMENT_NOTE : "\nAnalyze the OCR text below."}
+Return ONLY valid JSON. No markdown, no explanations.
 
 JSON schema:
 {
@@ -153,6 +170,80 @@ ${ocrText
 `.trim();
 
 // ---------------------------------------------------------------------------
+// Structured output — Gemini's reply must match this (OpenAPI subset)
+// ---------------------------------------------------------------------------
+
+const MONEY = { type: "NUMBER" } as const;
+
+export const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    isBill: { type: "BOOLEAN" },
+    restaurant: { type: "STRING" },
+    legalName: { type: "STRING" },
+    billNumber: { type: "STRING" },
+    date: { type: "STRING" },
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          quantity: MONEY,
+          unitPrice: MONEY,
+          amount: MONEY,
+          children: { type: "ARRAY", items: { type: "STRING" } },
+          modifiers: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: { name: { type: "STRING" }, amount: MONEY },
+              required: ["name", "amount"],
+            },
+          },
+          lineIndex: { type: "INTEGER" },
+        },
+        required: ["name", "quantity", "unitPrice", "amount"],
+        propertyOrdering: ["name", "quantity", "unitPrice", "amount", "children", "modifiers", "lineIndex"],
+      },
+    },
+    subtotal: { ...MONEY, nullable: true },
+    charges: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { name: { type: "STRING" }, amount: MONEY },
+        required: ["name", "amount"],
+      },
+    },
+    total: MONEY,
+  },
+  required: ["isBill", "restaurant", "items", "charges", "total"],
+  propertyOrdering: ["isBill", "restaurant", "legalName", "billNumber", "date", "items", "subtotal", "charges", "total"],
+} as const;
+
+/** Request body for one parse call (shared with scripts/evalReceipts). */
+export function buildParseRequest(ocrText: string, image?: { base64: string; mimeType?: string }) {
+  const mimeType = image?.mimeType ?? "image/jpeg";
+  const parts: Record<string, unknown>[] = [];
+  if (image?.base64) {
+    parts.push({ inline_data: { mime_type: mimeType, data: image.base64 } });
+  }
+  const attached = !image?.base64 ? false : mimeType === "application/pdf" ? "document" : "photo";
+  parts.push({ text: PARSE_PROMPT(ocrText, attached) });
+  return {
+    contents: [{ parts }],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+      // Raise token ceiling so long receipts don't truncate silently
+      maxOutputTokens: 8192,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
 
@@ -172,87 +263,41 @@ function fallbackNote(err: unknown): string {
   return "Couldn't reach the AI service, so items were read offline. Please check them carefully.";
 }
 
-export async function parseBill(ocrText: string): Promise<ParsedBill> {
+export interface ParseOptions {
+  /** JPEG of the receipt, or a PDF bill (base64). Sent with the OCR text, if any. */
+  imageBase64?: string;
+  /** Defaults to "image/jpeg"; "application/pdf" for an uploaded e-bill. */
+  mimeType?: string;
+}
+
+export async function parseBill(ocrText: string, opts: ParseOptions = {}): Promise<ParsedBill> {
   const parseStart = Date.now();
   let retryCount = 0;
   let fallbackUsed = false;
 
   try {
-    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey || apiKey === "your_gemini_api_key_here") {
-      throw new Error("Gemini API key not set.");
-    }
+    if (!geminiConfigured()) throw new Error("Gemini API key not set.");
 
-    const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-
-    let response: Response | null = null;
-    let attempt = 1;
-    // Speed over persistence: a normal reply takes ~2–3 s. If Google is
-    // overloaded, give each attempt 15 s, retry once, then fall back to the
-    // offline parser — worst case ≈ 30 s instead of a minute or more.
-    const maxRetries = 2;
-    const RETRY_DELAYS = [1500];
-
-    while (attempt <= maxRetries) {
-      console.log(`[parseBill] Gemini call (Attempt ${attempt}/${maxRetries})`);
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
-      try {
-        response = await fetch(url, {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: PARSE_PROMPT(ocrText) }] }],
-          generationConfig: {
-            temperature: 0,
-            response_mime_type: "application/json",
-            // Raise token ceiling so long receipts don't truncate silently
-            maxOutputTokens: 8192,
-          },
-        }),
-        });
-      } catch (err) {
-        // Timed out (or network error): retry once, then fall back offline.
-        if (attempt < maxRetries) {
-          console.warn(`[parseBill] Gemini attempt ${attempt} failed (${(err as Error)?.name}). Retrying…`);
-          retryCount++;
-          attempt++;
-          continue;
-        }
-        throw err;
-      } finally {
-        clearTimeout(timer);
+    // Speed over persistence: a normal reply takes ~3–5 s. A model that is
+    // busy, out of quota or slow is raced by the next one (callGeminiFast);
+    // after the last one, the offline parser takes over.
+    const { response, model, tries, quotaHits } = await callGeminiFast(
+      buildParseRequest(ocrText, opts.imageBase64 ? { base64: opts.imageBase64, mimeType: opts.mimeType } : undefined),
+      { timeoutMs: ATTEMPT_TIMEOUT_MS }
+    );
+    retryCount = tries - 1;
+    devLog(`[parseBill] answered by ${model} (${tries} model${tries === 1 ? "" : "s"} asked)`);
+    if (!response.ok) {
+      // Every model is out of quota → say so (offline parser takes over).
+      if (response.status === 429 && quotaHits === tries) {
+        throw new QuotaExceededError("Gemini quota exceeded (429) on every model");
       }
-
-      if (!response.ok) {
-        // 429 = quota exhausted. A daily limit won't reset in a few seconds,
-        // so retrying only adds delay — go straight to the offline parser.
-        if (response.status === 429) {
-          throw new QuotaExceededError("Gemini quota exceeded (429)");
-        }
-        const isRetryable = [503, 500].includes(response.status);
-        if (isRetryable && attempt < maxRetries) {
-          const delayMs = RETRY_DELAYS[attempt - 1];
-          console.warn(`[parseBill] Gemini ${response.status}. Retrying in ${delayMs}ms... (${attempt}/${maxRetries})`);
-          await new Promise(res => setTimeout(res, delayMs));
-          retryCount++;
-          attempt++;
-          continue;
-        }
-        // All retries exhausted or non-retryable error
-        const body = await response.text();
-        throw new Error(`Parse API error (${response.status}): ${body}`);
-      }
-      break; // Success
-    }
-
-    if (!response) {
-      throw new Error("Failed to get response from Gemini.");
+      const body = await response.text();
+      throw new Error(`Parse API error (${response.status}): ${body}`);
     }
     const json = await response.json();
   const finishReason = json?.candidates?.[0]?.finishReason;
-  console.log("[parseBill] finishReason:", finishReason);
+  devLog("[parseBill] finishReason:", finishReason);
   if (finishReason === "MAX_TOKENS") {
     console.warn("[parseBill] ⚠ Output was TRUNCATED (MAX_TOKENS). Some items may be missing.");
   }
@@ -263,7 +308,7 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
     throw new Error("Parser returned empty response. Please retry.");
   }
 
-  console.log("[parseBill] Response (first 600):", text.substring(0, 600));
+  devLog("[parseBill] Response (first 600):", text.substring(0, 600));
 
   // Strip accidental markdown fences
   let clean = text.trim();
@@ -275,7 +320,7 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
   let parsed: ParsedBill;
   try {
     parsed = JSON.parse(clean) as ParsedBill;
-  } catch (e) {
+  } catch {
     console.error("[parseBill] JSON.parse failed:", clean.substring(0, 300));
     throw new Error("Could not parse bill structure. Try a clearer photo.");
   }
@@ -332,7 +377,7 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
   if (legalName && legalName !== parsed.restaurant) {
     parsed.legalName = legalName;
   }
-  console.log("[parseBill] restaurant:", parsed.restaurant, "| legalName:", parsed.legalName ?? "(none)");
+  devLog("[parseBill] restaurant:", parsed.restaurant, "| legalName:", parsed.legalName ?? "(none)");
 
 
 
@@ -376,7 +421,7 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
   parsed.printedTotal = parsed.total;
   parsed.taxInclusive = reconciled.taxInclusive;
   if (reconciled.taxInclusive) {
-    console.log("[parseBill] Tax lines are included in item prices — not adding them on top");
+    devLog("[parseBill] Tax lines are included in item prices — not adding them on top");
   }
 
   // Back-fill legacy scalar fields from charges[] so split.tsx / any
@@ -401,7 +446,7 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
     .reduce((s, c) => s + c.amount, 0) || null;
 
   parsed.charges.forEach((c) =>
-    console.log(`[Charge] ${c.name}: ${c.amount}`)
+    devLog(`[Charge] ${c.name}: ${c.amount}`)
   );
 
     // Sanity check: items + charges should add up to the printed total.
@@ -412,20 +457,20 @@ export async function parseBill(ocrText: string): Promise<ParsedBill> {
       console.warn(`[parseBill] ⚠ Items + charges = ₹${computed.toFixed(2)} but printed total = ₹${parsed.total}`);
     }
 
-    console.log(`[parseBill] ✓ ${parsed.items.length} items, total ₹${parsed.total}`);
-    console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
+    devLog(`[parseBill] ✓ ${parsed.items.length} items, total ₹${parsed.total}`);
+    devLog(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
     return parsed;
 
   } catch (err) {
     console.error("[parseBill] Gemini Parsing Failed:", err);
-    console.log("[parseBill] Falling back to local regex parser...");
+    devLog("[parseBill] Falling back to local regex parser...");
     
     fallbackUsed = true;
     const parsed = localFallbackParser(ocrText);
     parsed.extractionNote = fallbackNote(err);
     
-    console.log(`[parseBill] ✓ Fallback parsed ${parsed.items.length} items, total ₹${parsed.total}`);
-    console.log(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
+    devLog(`[parseBill] ✓ Fallback parsed ${parsed.items.length} items, total ₹${parsed.total}`);
+    devLog(`[parseBill] Parse duration: ${Date.now() - parseStart}ms, Retries: ${retryCount}, Fallback: ${fallbackUsed}`);
     
     return parsed;
   }
@@ -546,7 +591,7 @@ function localFallbackParser(ocrText: string): ParsedBill {
   const sumOf = (re: RegExp) =>
     charges.filter((c) => re.test(c.name)).reduce((s, c) => s + c.amount, 0) || null;
 
-  console.log(`[localFallback] Matched ${deduped.length} items, ${charges.length} charges from ${lines.length} lines`);
+  devLog(`[localFallback] Matched ${deduped.length} items, ${charges.length} charges from ${lines.length} lines`);
 
   return {
     isBill:     true, // local fallback cannot classify; let the user review

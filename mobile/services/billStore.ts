@@ -13,6 +13,7 @@ import type { BillGroup, ContactGroup } from "../types/group";
 import { membersToParticipants } from "./contactGroupStore";
 import { payerOf } from "./billEditing";
 import { recalculateBillTotals } from "./recalculateBillTotals";
+import { devLog } from "../utils/devLog";
 
 interface StoreState {
   bill: ParsedBill;
@@ -60,7 +61,7 @@ export const billStore = {
     ocrBlocks: OcrBlock[] | null = null,
     currentUser?: User | null,
   ) {
-    console.log("[Store] Saving image URI:", imageUri);
+    devLog("[Store] Saving image URI:", imageUri);
     const meParticipant: Person = {
       id: currentUser?.uid ?? "me",
       name: currentUser?.name ?? "Me",

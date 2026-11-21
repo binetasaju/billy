@@ -1,4 +1,5 @@
 import { isTaxCharge, reconcileCharges } from "../services/reconcileBill";
+import { GEMINI_MODELS } from "../services/gemini";
 import { parseBill } from "../services/parseBill";
 
 describe("isTaxCharge", () => {
@@ -123,11 +124,12 @@ describe("parseBill — quota exhausted", () => {
     jest.restoreAllMocks();
   });
 
-  it("does not retry on 429 and falls back offline with an explanation", async () => {
+  it("429 on every model → offline with an explanation", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 429, text: async () => "RESOURCE_EXHAUSTED" });
     global.fetch = fetchMock as any;
     const bill = await parseBill("Tea  30.00\nSamosa  40.00");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Each backup model has its own quota, so each is tried once — no waiting.
+    expect(fetchMock).toHaveBeenCalledTimes(GEMINI_MODELS.length);
     expect(bill.items.map((i) => i.name)).toEqual(["Tea", "Samosa"]);
     expect(bill.extractionNote).toMatch(/AI limit/);
   });
@@ -148,12 +150,12 @@ describe("parseBill — Gemini too slow", () => {
     jest.restoreAllMocks();
   });
 
-  it("tries twice, then reads the bill offline with an explanation", async () => {
+  it("tries each model once, then reads the bill offline with an explanation", async () => {
     const timeout = Object.assign(new Error("Aborted"), { name: "AbortError" });
     const fetchMock = jest.fn().mockRejectedValue(timeout);
     global.fetch = fetchMock as any;
     const bill = await parseBill("Tea  30.00\nSamosa  40.00\nGrand Total  70.00");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(GEMINI_MODELS.length);
     expect(bill.items.map((i) => i.name)).toEqual(["Tea", "Samosa"]);
     expect(bill.total).toBe(70);
     expect(bill.extractionNote).toMatch(/too slow/);

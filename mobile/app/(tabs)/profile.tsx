@@ -28,10 +28,13 @@ import { authStore } from "../../services/authStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useGroups } from "../../hooks/useGroups";
 import { myIdOn } from "../../services/homeSummary";
+import { statusForMe } from "../../services/viewerStatus";
 import { useContactGroups } from "../../hooks/useContactGroups";
 import { friendlyAuthError } from "../../services/auth/authErrors";
 import { isValidUpiId } from "../../services/upi";
 import { isCloudSyncEnabled, setCloudSyncEnabled, subscribeCloudSyncSwitch } from "../../services/cloud/cloudSync";
+import { deleteMyAccount, deletionMethod, type DeletionProof } from "../../services/accountDeletion";
+import { getGoogleIdToken } from "../../services/auth/googleSignIn";
 import { isValidPhoneNumber, normalizePhoneNumber } from "../../utils/normalizePhoneNumber";
 import Constants from "expo-constants";
 import * as Clipboard from "expo-clipboard";
@@ -40,6 +43,9 @@ import { C } from "@/constants/colors";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+
+/** Public privacy policy (web/public/privacy.html on Firebase Hosting). */
+const PRIVACY_URL = "https://billy-ed9eb.web.app/privacy";
 
 /** Where "Report a problem" emails go. */
 const SUPPORT_EMAIL = "binetasaju@gmail.com";
@@ -146,6 +152,67 @@ export default function ProfileScreen() {
     }
   };
 
+  // ── Delete account (Play Store requirement) ──────────────────────────────
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const runDelete = async (proof: DeletionProof) => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const summary = await deleteMyAccount(proof);
+      setDeleteOpen(false);
+      appAlert.alert(
+        "Account deleted",
+        summary && summary.billsKept > 0
+          ? `Your account and the bills you created are gone. ${summary.billsKept} bill${summary.billsKept === 1 ? "" : "s"} created by friends stay with them.`
+          : "Your account and everything Billy stored for it are gone."
+      );
+      // AuthGate in _layout.tsx sends you to /login.
+    } catch (e) {
+      setDeleteError(friendlyAuthError(e, "Couldn't delete your account. Please check your internet and try again."));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    appAlert.alert(
+      "Delete account?",
+      "This permanently deletes your Billy account, your profile and UPI ID, your saved groups, " +
+        "and the bills you created (for everyone on them). Bills friends created stay with them. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: async () => {
+            const method = deletionMethod();
+            if (method === "password") {
+              setDeletePassword("");
+              setDeleteError(null);
+              setDeleteOpen(true);
+            } else if (method === "google") {
+              try {
+                const idToken = await getGoogleIdToken();
+                if (!idToken) return; // picker closed
+                setDeleteOpen(true);
+                await runDelete({ googleIdToken: idToken });
+              } catch (e) {
+                appAlert.alert("Couldn't confirm", friendlyAuthError(e, "Please try again."));
+              }
+            } else {
+              setDeleteOpen(true);
+              await runDelete(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = () => {
     appAlert.alert(
       "Log Out",
@@ -168,7 +235,8 @@ export default function ProfileScreen() {
     ? new Date(user.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })
     : null;
   const myBills = bills.filter((b) => myIdOn(b, user?.uid) !== null);
-  const settledCount = myBills.filter((b) => b.status === "settled").length;
+  // Done from my point of view (I don't see whether others on the bill paid)
+  const settledCount = myBills.filter((b) => statusForMe(b, user?.uid).status === "settled").length;
   const config = editing ? EDIT_CONFIG[editing] : null;
   const appVersion = Constants.expoConfig?.version ?? "—";
 
@@ -274,6 +342,10 @@ export default function ProfileScreen() {
           <Pressable onPress={handleLogout}>
             <Row icon="log-out-outline" label="Session" value="Log out" danger actionIcon="chevron-forward" />
           </Pressable>
+          <View style={s.divider} />
+          <Pressable onPress={handleDeleteAccount} accessibilityRole="button">
+            <Row icon="trash-outline" label="Delete account" value="Delete account and data" danger actionIcon="chevron-forward" />
+          </Pressable>
         </View>
 
         {/* ── Help ── */}
@@ -289,7 +361,9 @@ export default function ProfileScreen() {
         <View style={s.card}>
           <Row icon="information-circle-outline" label="Version" value={`Billy ${appVersion}`} />
           <View style={s.divider} />
-          <Row icon="shield-checkmark-outline" label="Privacy" value="Bills are shared only with the people on them. Billy never moves money." multiline />
+          <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} accessibilityRole="link">
+            <Row icon="shield-checkmark-outline" label="Privacy" value="Bills are shared only with the people on them. Billy never moves money. Read the privacy policy" multiline actionIcon="open-outline" />
+          </Pressable>
         </View>
 
         <Text style={s.tagline}>Every bill matters.</Text>
@@ -323,6 +397,47 @@ export default function ProfileScreen() {
                 <Text style={s.modalSaveText}>Save</Text>
               </Pressable>
             </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      {/* ── Delete account: confirm with password / progress ── */}
+      <Modal visible={deleteOpen} animationType="fade" transparent onRequestClose={() => !deleting && setDeleteOpen(false)}>
+        <KeyboardAvoidingView style={s.modalBackdrop} behavior="padding">
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Delete account</Text>
+            {deletionMethod() === "password" && !deleting && (
+              <>
+                <Text style={s.modalLabel}>Enter your password to confirm.</Text>
+                <TextInput
+                  style={[s.modalInput, deleteError && s.modalInputError]}
+                  value={deletePassword}
+                  onChangeText={(t) => { setDeletePassword(t); setDeleteError(null); }}
+                  placeholder="Password"
+                  placeholderTextColor={C.textSubtle}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoFocus
+                />
+              </>
+            )}
+            {deleting && <Text style={s.modalLabel}>Deleting your account…</Text>}
+            {deleteError && <Text style={s.modalError}>{deleteError}</Text>}
+            {!deleting && (
+              <View style={s.modalActions}>
+                <Pressable onPress={() => setDeleteOpen(false)} style={s.modalCancelBtn}>
+                  <Text style={s.modalCancelText}>Cancel</Text>
+                </Pressable>
+                {deletionMethod() === "password" && (
+                  <Pressable
+                    onPress={() => deletePassword && runDelete({ password: deletePassword })}
+                    style={[s.modalSaveBtn, { backgroundColor: C.danger }]}
+                  >
+                    <Text style={s.modalSaveText}>Delete forever</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         </KeyboardAvoidingView>
       </Modal>

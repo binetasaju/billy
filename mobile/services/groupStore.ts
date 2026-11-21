@@ -142,7 +142,9 @@ export const groupStore = {
     fromId: string,
     toId: string,
     /** How it was paid, when known. Omitted for a plain "received" confirmation. */
-    method?: "upi" | "cash" | "other"
+    method?: "upi" | "cash" | "other",
+    /** UPI transaction reference reported by the payment app. */
+    upiRef?: string
   ): Promise<void> {
     const group = _state.groups.find((g) => g.id === groupId);
     if (!group) return;
@@ -161,6 +163,7 @@ export const groupStore = {
           status: "paid" as const,
           paidAt: new Date().toISOString(),
           ...(method ? { paymentMethod: method } : {}),
+          ...(upiRef ? { upiRef } : {}),
         };
       }
       return tx;
@@ -171,7 +174,7 @@ export const groupStore = {
       status: deriveStatus(updatedSettlements),
     });
     await _toCloud("mark paid", async (r) => {
-      if (r.has(groupId)) await r.markPaid(groupId, fromId, toId, method);
+      if (r.has(groupId)) await r.markPaid(groupId, fromId, toId, method, upiRef);
     });
   },
 

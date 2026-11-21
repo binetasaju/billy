@@ -74,6 +74,11 @@ export interface FirebaseAuthInstance {
   signInWithGoogleIdToken(idToken: string): Promise<{ user: FirebaseAuthUser }>;
   /** Fetch a fresh sign-in token (so the server sees e.g. email_verified). */
   refreshToken(user: FirebaseAuthUser): Promise<void>;
+  // Account deletion
+  reauthenticateWithPassword(user: FirebaseAuthUser, password: string): Promise<void>;
+  reauthenticateWithGoogleIdToken(user: FirebaseAuthUser, idToken: string): Promise<void>;
+  deleteUser(user: FirebaseAuthUser): Promise<void>;
+  idToken(user: FirebaseAuthUser): Promise<string>;
 }
 
 function emailIdentity(user: FirebaseAuthUser): AuthIdentity {
@@ -211,6 +216,35 @@ export function createFirebaseAuthProvider(sdk: FirebaseAuthSdk): AuthProvider {
     async signOut(): Promise<void> {
       pending.clear();
       await sdk().signOut();
+    },
+
+    async reauthenticate(proof) {
+      const auth = sdk();
+      const user = auth.currentUser;
+      if (!user) throw new Error("Please sign in again first.");
+      if ("password" in proof) await auth.reauthenticateWithPassword(user, proof.password);
+      else await auth.reauthenticateWithGoogleIdToken(user, proof.googleIdToken);
+    },
+
+    async getIdToken() {
+      const user = sdk().currentUser;
+      return user ? sdk().idToken(user) : null;
+    },
+
+    signInMethods() {
+      const user = sdk().currentUser;
+      const ids = (user?.providerData ?? []).map((p) => p?.providerId);
+      const methods: ("password" | "google")[] = [];
+      if (ids.includes("password")) methods.push("password");
+      if (ids.includes("google.com")) methods.push("google");
+      return methods;
+    },
+
+    async deleteAccount() {
+      const auth = sdk();
+      const user = auth.currentUser;
+      if (!user) throw new Error("Please sign in again first.");
+      await auth.deleteUser(user);
     },
   };
 }

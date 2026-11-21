@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../hooks/useAuth";
 import { useGroups } from "../../hooks/useGroups";
 import { computeHomeSummary } from "../../services/homeSummary";
+import { statusForMe } from "../../services/viewerStatus";
 import { billStore } from "../../services/billStore";
 import { authStore } from "../../services/authStore";
 import type { ParsedBill } from "../../types/bill";
@@ -26,6 +27,8 @@ import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { T } from "@/constants/typography";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { rupeesExact } from "../../utils/formatRupees";
+import { scanReceipt } from "../../services/documentScanner";
+import { pickBillDocument } from "../../services/documentImport";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -51,6 +54,7 @@ export default function HomeScreen() {
   const addBillOptions = [
     { label: "Take Photo",          onPress: () => handleCameraPress() },
     { label: "Choose From Gallery", onPress: () => handleGalleryPress() },
+    { label: "Upload Bill File",    onPress: () => handleUploadPress() },
     { label: "Enter Manually",      onPress: () => handleManualEntry() },
   ];
 
@@ -72,7 +76,16 @@ export default function HomeScreen() {
   };
 
   // ── Camera ─────────────────────────────────────────────────────────────────
+  // Android: ML Kit Document Scanner (finds the edges, straightens and cleans
+  // the receipt). Falls back to the plain camera when it isn't available.
   const handleCameraPress = async () => {
+    const scan = await scanReceipt();
+    if (scan.status === "success") {
+      router.push({ pathname: "/preview", params: { uri: scan.uri } });
+      return;
+    }
+    if (scan.status === "cancel") return;
+
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       appAlert.alert("Permission Required", "Please allow camera access.");
@@ -105,6 +118,29 @@ export default function HomeScreen() {
 
     if (!result.canceled) {
       router.push({ pathname: "/preview", params: { uri: result.assets[0].uri } });
+    }
+  };
+
+  // ── Upload a bill file (PDF, image, email, text, Word/Excel…) ─────────────────────────────────
+  const handleUploadPress = async () => {
+    try {
+      const picked = await pickBillDocument();
+      if (!picked) return;
+      if (picked.kind === "image") {
+        router.push({ pathname: "/preview", params: { uri: picked.uri } });
+      } else {
+        router.push({
+          pathname: "/import-document" as any,
+          params: {
+            uri: picked.uri,
+            name: picked.name,
+            mimeType: picked.mimeType ?? "",
+            size: picked.size != null ? String(picked.size) : "",
+          },
+        });
+      }
+    } catch (e) {
+      appAlert.alert("Couldn't open that file", e instanceof Error ? e.message : "Please try another file.");
     }
   };
 
@@ -144,10 +180,11 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.hello}>Hello{firstName ? "," : ""}</Text>
-            <Text style={styles.name}>{firstName ?? "there"}</Text>
-          </View>
+          {/* One line: "Hello, Bineta" */}
+          <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+            <Text style={styles.hello}>Hello{firstName ? ", " : ""}</Text>
+            {firstName ? <Text style={styles.name}>{firstName}</Text> : null}
+          </Text>
           <Pressable
             onPress={() => router.push("/(tabs)/profile" as any)}
             style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
@@ -253,7 +290,7 @@ export default function HomeScreen() {
           <>
             <View style={styles.list}>
               {recent.map((g, i) => {
-                const open = g.settlements.filter((t) => t.status === "pending").length;
+                const st = statusForMe(g, user?.uid);
                 return (
                   <Pressable
                     key={g.id}
@@ -264,8 +301,8 @@ export default function HomeScreen() {
                       <Text style={styles.rowTitle} numberOfLines={1}>{g.title}</Text>
                       <Text style={styles.rowSub}>
                         {formatDate(g.createdAt)} ·{" "}
-                        <Text style={g.status === "active" ? styles.statusActive : styles.statusSettled}>
-                          {g.status === "settled" ? "Settled" : g.status === "closed" ? "Closed" : `${open} pending`}
+                        <Text style={st.status === "active" ? styles.statusActive : styles.statusSettled}>
+                          {st.label}
                         </Text>
                       </Text>
                     </View>
@@ -343,14 +380,16 @@ const styles = StyleSheet.create({
   },
   sheetCancelText: { ...T.body, color: C.textMuted, fontWeight: "600" },
 
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 28 },
-  hello: { ...T.subhead, color: C.textMuted },
-  name: { ...T.title1, color: C.ink },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 26 },
+  greeting: { flex: 1, fontSize: 24, lineHeight: 30, letterSpacing: -0.6 },
+  hello: { fontWeight: "500", color: C.textMuted },
+  name: { fontWeight: "800", color: C.ink },
+  // Photo inside a thin logo-green ring
   avatar: {
-    width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
-    backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.glassBorder, overflow: "hidden",
+    width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center",
+    backgroundColor: C.primarySoft, borderWidth: 2, borderColor: C.brand, overflow: "hidden",
   },
-  avatarText: { ...T.headline, color: C.primary },
+  avatarText: { fontSize: 17, fontWeight: "700", color: C.brand },
 
   heroCard: {
     backgroundColor: C.primaryDark, borderRadius: 28,
@@ -367,13 +406,13 @@ const styles = StyleSheet.create({
   balanceDivider: { width: 1, height: 56, backgroundColor: C.onDarkLine, marginHorizontal: 12 },
   balanceColSub: { fontSize: 11, lineHeight: 14, color: C.onDarkMuted, marginTop: 6, textAlign: "center" },
   positive: { color: C.successDark },
-  negative: { color: C.danger },
+  negative: { color: C.ink },
   // Brighter variants that stay readable on the black card
   // Status colours — amber = still owed, green = settled
   statusActive: { color: C.statusActiveText, fontWeight: "600" },
   statusSettled: { color: C.statusSettledText, fontWeight: "600" },
   positiveOnDark: { color: "#10B981" },
-  negativeOnDark: { color: "#FB7185" },
+  negativeOnDark: { color: C.onDark },
 
   primaryBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 17, alignItems: "center" },
   primaryBtnText: { ...T.headline, color: C.white },

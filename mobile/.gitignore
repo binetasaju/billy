@@ -82,3 +82,9 @@ debug-groups.js
 # Misc
 ###############################
 *.pem
+
+###############################
+# Local Expo modules (build output)
+###############################
+modules/*/android/build/
+modules/*/android/.gradle/

@@ -28,6 +28,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { authStore } from "../services/authStore";
 import { useAuth } from "../hooks/useAuth";
 import { C } from "@/constants/colors";
+import { BillyLogo } from "@/components/BillyLogo";
 import { isValidPhoneNumber, normalizePhoneNumber } from "../utils/normalizePhoneNumber";
 import { isValidUpiId } from "../services/upi";
 
@@ -90,9 +91,7 @@ export default function OnboardingScreen() {
 
           {/* ── Header ── */}
           <View style={s.header}>
-            <View style={s.iconWrap}>
-              <Ionicons name="wallet-outline" size={32} color={C.primary} />
-            </View>
+            <BillyLogo size={64} style={s.iconWrap} />
             <Text style={s.title}>
               {user?.name ? `Hey, ${user.name.split(" ")[0]}! 👋` : "One more thing"}
             </Text>
@@ -183,11 +182,7 @@ const s = StyleSheet.create({
   dotActive: { backgroundColor: C.primary, width: 24 },
 
   header: { alignItems: "center", marginBottom: 32 },
-  iconWrap: {
-    width: 64, height: 64, borderRadius: 18,
-    backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center",
-    marginBottom: 18,
-  },
+  iconWrap: { marginBottom: 18 },
   title: { fontSize: 19, fontWeight: "700", color: C.ink, textAlign: "center", letterSpacing: -0.4 },
   subtitle: { fontSize: 12, color: C.textMuted, textAlign: "center", marginTop: 8, lineHeight: 17, maxWidth: 300 },
 

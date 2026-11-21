@@ -26,7 +26,6 @@ export function webClientIdFrom(config: any): string | null {
 
 function loadWebClientId(): string | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return webClientIdFrom(require("../../google-services.json"));
   } catch {
     return null;
@@ -44,6 +43,17 @@ function loadLibrary(): any {
 
 let configured = false;
 
+/** Configure the Google library once (Web client ID from google-services.json). */
+export function ensureGoogleConfigured(): void {
+  if (configured) return;
+  const webClientId = loadWebClientId();
+  if (!webClientId) {
+    throw new Error("Google sign-in isn't switched on for Billy yet.");
+  }
+  loadLibrary().GoogleSignin.configure({ webClientId });
+  configured = true;
+}
+
 /**
  * Show the Google account picker. Returns the ID token, or null when the
  * person closes the picker.
@@ -52,14 +62,7 @@ export async function getGoogleIdToken(): Promise<string | null> {
   const lib = loadLibrary();
   const { GoogleSignin, statusCodes, isErrorWithCode, isSuccessResponse } = lib;
 
-  if (!configured) {
-    const webClientId = loadWebClientId();
-    if (!webClientId) {
-      throw new Error("Google sign-in isn't switched on for Billy yet.");
-    }
-    GoogleSignin.configure({ webClientId });
-    configured = true;
-  }
+  ensureGoogleConfigured();
 
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -76,6 +79,8 @@ export async function getGoogleIdToken(): Promise<string | null> {
     if (!token) throw new Error("Google didn't return a sign-in token. Please try again.");
     return token;
   } catch (e: any) {
+    // Raw error for debugging (shown in Metro / logcat as ReactNativeJS).
+    console.warn("[GoogleSignIn] failed:", e?.code, e?.message);
     if (isErrorWithCode(e)) {
       if (e.code === statusCodes.SIGN_IN_CANCELLED) return null;
       if (e.code === statusCodes.IN_PROGRESS) return null;

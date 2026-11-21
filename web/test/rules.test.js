@@ -139,6 +139,11 @@ test("members read payments; outsiders can't", async () => {
 test("the person who owes can mark it paid", async () => {
   await assertSucceeds(updateDoc(doc(ravi(), "bills/b1/payments/p_ravi__p_asha"), { status: "paid", paidAt: "2026-11-11T10:00:00Z", markedBy: "ravi" }));
 });
+test("the payer can save the UPI transaction reference when marking paid", async () => {
+  await assertSucceeds(updateDoc(doc(ravi(), "bills/b1/payments/p_ravi__p_asha"), {
+    status: "paid", paidAt: "2026-11-12T10:00:00Z", paymentMethod: "upi", markedBy: "ravi", upiRef: "AXI123",
+  }));
+});
 test("the person owed can mark it received", async () => {
   await assertSucceeds(updateDoc(doc(asha(), "bills/b1/payments/p_ravi__p_asha"), { status: "paid", paidAt: "2026-11-11T10:00:00Z", markedBy: "asha" }));
 });

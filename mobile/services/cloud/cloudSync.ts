@@ -19,6 +19,7 @@ import { type BillSync, startBillSync } from "./billSync";
 import { startGroupSync, type GroupSync } from "./groupSync";
 import { publishProfile } from "./profiles";
 import type { Me } from "./billMapping";
+import { devLog } from "../../utils/devLog";
 
 interface Session {
   me: Me;
@@ -118,7 +119,7 @@ function onSession(getDb: () => CloudDb | null) {
     void groupStore.applyCloud(cloudBills);
     if (!uploaded) {
       uploaded = true;
-      void uploadPhoneOnlyBills(bills, me).then((n) => n && console.log(`[cloud] uploaded ${n} bills`));
+      void uploadPhoneOnlyBills(bills, me).then((n) => n && devLog(`[cloud] uploaded ${n} bills`));
     }
   });
   const groups = startGroupSync(db, authUid);
@@ -146,6 +147,21 @@ export function initCloudSync(getDb: () => CloudDb | null = getCloudDb): () => v
     rerun = null;
     stop(false);
   };
+}
+
+/**
+ * Account deletion: stop syncing and keep it stopped (without saving the
+ * choice), so nothing is uploaded again while the account's data is deleted.
+ * resumeCloudSync() turns it back on for whoever signs in next.
+ */
+export function pauseCloudSync(): void {
+  enabled = false;
+  stop(false);
+}
+
+export function resumeCloudSync(): void {
+  enabled = true;
+  rerun?.();
 }
 
 /** The live cloud connection, for screens that need it (add by email, join). */

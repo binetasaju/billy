@@ -6,7 +6,7 @@
 
 **Scan a bill. Split by item. Pay your share.**
 
-[Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Roadmap](#-future-roadmap)
+[Demo](#-demo) · [Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Roadmap](#-future-roadmap)
 
 <br />
 
@@ -25,8 +25,17 @@ By combining AI-assisted receipt processing, flexible item-wise allocation, auto
 
 ---
 
+## 🎬 Demo
+
+**[▶ Watch the Billy demo video](https://drive.google.com/file/d/1MclNf752VtuSVBNFuuoakmtrRAYKszv6/view?usp=sharing)** (Google Drive)
+
+Or play the copy in this repo: [billy3.mp4](billy3.mp4) (MP4, about 21 MB).
+
+---
+
 ## 📌 Table of Contents
 
+- [Demo](#-demo)
 - [The Problem](#-the-problem)
 - [The Solution](#-the-solution)
 - [Features](#-features)
@@ -318,7 +327,7 @@ Create a `.env` file inside the `mobile/` directory and configure the API keys d
 
 Billy uses Firebase on the free (Spark) plan:
 
-1. Create or select a Firebase project and register the Android app (`com.anonymous.mobile`).
+1. Create or select a Firebase project and register the Android app (`com.billy.matters`).
 2. Add the **SHA-1 and SHA-256** fingerprints of your signing key (debug key for development, release key for store builds) in **Project settings → Your apps**.
 3. In **Authentication → Sign-in method**, enable **Email/Password** and **Google**.
 4. Download `google-services.json` and place it in **both** `mobile/google-services.json` and `mobile/android/app/google-services.json`. Download it again after enabling Google — the new file contains the Web client ID Google sign-in needs.

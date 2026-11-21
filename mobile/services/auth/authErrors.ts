@@ -29,6 +29,8 @@ const MESSAGES: Record<string, string> = {
   "auth/user-not-found": "No account with this email. Create one instead.",
   "auth/user-disabled": "This account has been disabled.",
   "auth/operation-not-allowed": "This sign-in method isn't switched on for Billy yet.",
+  "auth/user-mismatch": "That's a different Google account. Pick the one you use for Billy.",
+  "auth/requires-recent-login": "For your safety, please log out, sign in again and retry.",
   "auth/account-exists-with-different-credential":
     "This email already has a Billy account. Sign in with your email and password.",
 };

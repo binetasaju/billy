@@ -34,6 +34,9 @@ import type { GroupMember } from "../../types/group";
 import { C } from "@/constants/colors";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { T } from "@/constants/typography";
+import { MemberAvatar } from "@/components/ui/MemberAvatar";
+import { accountsFromBills } from "../../services/profilePhotos";
+import { statusForMe } from "../../services/viewerStatus";
 
 export default function ContactGroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,6 +44,8 @@ export default function ContactGroupDetailScreen() {
   const { groups } = useContactGroups();
   const { groups: billGroups } = useGroups();
   const { user } = useAuth();
+  // Billy accounts of members (for their profile photos)
+  const accounts = useMemo(() => accountsFromBills(billGroups), [billGroups]);
 
   const group = useMemo(() => groups.find((g) => g.id === id), [groups, id]);
   // Only the group admin (its creator) can remove members.
@@ -202,9 +207,14 @@ export default function ContactGroupDetailScreen() {
                 key={m.id}
                 style={[s.memberRow, idx < group.members.length - 1 && s.rowBorder]}
               >
-                <View style={[s.avatar, { backgroundColor: m.color ?? C.textMuted }]}>
-                  <Text style={s.avatarText}>{m.name.charAt(0).toUpperCase()}</Text>
-                </View>
+                <MemberAvatar
+                  name={m.name}
+                  color={m.color ?? C.textMuted}
+                  authUid={m.authUid ?? accounts[m.id]}
+                  isMe={isMe}
+                  size={36}
+                  style={s.avatarGap}
+                />
                 <View style={s.memberInfo}>
                   <Text style={s.memberName}>{isMe ? "You" : m.name}</Text>
                   {(group.createdBy ? m.id === group.createdBy : isMe) && (
@@ -254,9 +264,14 @@ export default function ContactGroupDetailScreen() {
                   key={b.personId}
                   style={[s.memberRow, idx < balances.members.length - 1 && s.rowBorder]}
                 >
-                  <View style={[s.avatar, { backgroundColor: member?.color ?? C.textSubtle }]}>
-                    <Text style={s.avatarText}>{b.name.charAt(0).toUpperCase()}</Text>
-                  </View>
+                  <MemberAvatar
+                    name={b.name}
+                    color={member?.color ?? C.textSubtle}
+                    authUid={member?.authUid ?? accounts[b.personId]}
+                    isMe={b.isViewer}
+                    size={36}
+                    style={s.avatarGap}
+                  />
                   <View style={s.memberInfo}>
                     <Text style={s.memberName}>{b.isViewer ? "You" : b.name}</Text>
                     {!b.isCurrentMember && (
@@ -333,18 +348,10 @@ export default function ContactGroupDetailScreen() {
                 </View>
                 <View style={s.billRight}>
                   <Text style={s.billAmount}>₹{bg.totalAmount.toFixed(2)}</Text>
-                  {bg.status === "settled" ? (
-                    <StatusBadge status="settled" size="sm" />
-                  ) : (
-                    <StatusBadge
-                      status="active"
-                      size="sm"
-                      label={(() => {
-                        const paid = bg.settlements.filter((t) => t.status === "paid").length;
-                        return paid > 0 ? `${paid} of ${bg.settlements.length} paid` : "Active";
-                      })()}
-                    />
-                  )}
+                  {(() => {
+                    const st = statusForMe(bg, user?.uid);
+                    return <StatusBadge status={st.status} label={st.label} size="sm" />;
+                  })()}
                 </View>
               </Pressable>
             ))}
@@ -424,8 +431,7 @@ const s = StyleSheet.create({
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.surfaceAlt },
 
   memberRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 },
-  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  avatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  avatarGap: { marginRight: 12 },
   memberInfo: { flex: 1, paddingRight: 10 },
   memberName: { fontSize: 14, fontWeight: "600", color: C.ink },
   adminLabel: { fontSize: 11, fontWeight: "700", color: C.primary, marginTop: 1 },

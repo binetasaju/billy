@@ -8,6 +8,7 @@
 export const C = {
   // Brand — emerald green, black & white
   primary: "#065F46",        // deep emerald — buttons, active tab, links, selected
+  brand: "#184D38",          // logo green — app icon, splash, logo tile
   primaryDark: "#0A0A0A",    // black — dark cards (login / summary)
   primarySoft: "#E3F0EA",    // light emerald highlights
   primaryMuted: "#047857",   // emerald accents / info icons

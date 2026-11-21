@@ -24,7 +24,8 @@ import {
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import { openNewBill } from "@/utils/openNewBill";
 import { billStore } from "../services/billStore";
 import { authStore } from "../services/authStore";
 import { saveSplit } from "../services/saveSplit";
@@ -41,9 +42,10 @@ import { T } from "@/constants/typography";
 // ---------------------------------------------------------------------------
 export default function ItemwiseSplitSummaryScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [rows, setRows] = useState<ParticipantTotal[]>([]);
   const [settlementLines, setSettlementLines] = useState<Record<string, string>>({});
-  const [itemNamesMap, setItemNamesMap] = useState<Record<string, string[]>>({});
+  const [, setItemNamesMap] = useState<Record<string, string[]>>({});
   const [itemObjectsMap, setItemObjectsMap] = useState<Record<string, BillItem[]>>({});
   const [billTotal, setBillTotal] = useState(0);
   const [restaurantName, setRestaurantName] = useState("");
@@ -178,8 +180,8 @@ export default function ItemwiseSplitSummaryScreen() {
     }
     setShowSaveModal(false);
     if (wasEditing) router.dismissTo(`/group/${savedId}` as any);
-    // Open the new bill (its invite card offers WhatsApp / Share link).
-    else router.replace(`/group/${savedId}` as any);
+    // Open the new bill on top of Home, so Back goes Home.
+    else openNewBill(navigation as any, router, savedId);
   };
 
   return (

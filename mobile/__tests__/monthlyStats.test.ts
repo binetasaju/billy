@@ -1,4 +1,4 @@
-import { browsableMonths, monthKey, monthLabel, shiftMonth, summarizeMonth } from "../services/monthlyStats";
+import { browsableMonths, historyAt, monthKey, monthLabel, shiftMonth, summarizeMonth } from "../services/monthlyStats";
 import type { BillGroup, GroupSettlement } from "../types/group";
 
 const me = { id: "me", name: "Me", color: "", itemIds: [], isCurrentUser: true };
@@ -43,7 +43,8 @@ describe("summarizeMonth", () => {
     expect(nov.received).toBe(300);
     expect(nov.spent).toBe(120);
     expect(nov.paymentCount).toBe(2);
-    expect(nov.settledBills.map((g) => g.id)).toEqual(["Dinner"]);
+    // Cab is still active (someone else owes), but I paid my part → in my History
+    expect(nov.settledBills.map((g) => g.id)).toEqual(["Cab", "Dinner"]);
   });
   it("recalculates for another month", () => {
     const oct = summarizeMonth(groups, "me", "2026-10");
@@ -55,5 +56,20 @@ describe("summarizeMonth", () => {
   });
   it("is empty for a month with no activity", () => {
     expect(summarizeMonth(groups, "me", "2026-08")).toEqual({ month: "2026-08", spent: 0, received: 0, paymentCount: 0, settledBills: [] });
+  });
+});
+
+describe("historyAt", () => {
+  it("lists an active bill once my own payment is paid, at that payment's date", () => {
+    expect(historyAt(groups[1], "me")).toBe("2026-11-05T20:00:00");
+  });
+  it("keeps an active bill out while I still owe or am still owed", () => {
+    const iOwe = bill("A", "2026-11-01T10:00:00", [tx("me", "ravi", 50), tx("x", "ravi", 20, "2026-11-02T10:00:00")], "active");
+    const owedToMe = bill("B", "2026-11-01T10:00:00", [tx("ravi", "me", 50), tx("x", "me", 20, "2026-11-02T10:00:00")], "active");
+    expect(historyAt(iOwe, "me")).toBeNull();
+    expect(historyAt(owedToMe, "me")).toBeNull();
+  });
+  it("keeps an active bill out when I have no payment on it", () => {
+    expect(historyAt(bill("C", "2026-11-01T10:00:00", [tx("x", "ravi", 20)], "active"), "me")).toBeNull();
   });
 });

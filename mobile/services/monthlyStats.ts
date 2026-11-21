@@ -9,8 +9,11 @@
 // A payment counts in the month it was marked paid (paidAt), falling back to
 // the bill's last update for older records without a paid date. Payments on
 // bills that aren't fully settled yet still count — money moved that month.
-// A bill appears in a month's list when it became settled that month (its
-// last payment). Read-only, derived from saved bills.
+// A bill appears in a month's list when it was done for you that month:
+//   • it became settled (its last payment) or was closed, or
+//   • your own part was paid — e.g. you paid your share — even while others
+//     on the bill still owe.
+// Read-only, derived from saved bills.
 // ---------------------------------------------------------------------------
 
 import type { BillGroup } from "../types/group";
@@ -42,7 +45,7 @@ export interface MonthSummary {
   spent: number;
   received: number;
   paymentCount: number;
-  /** Bills that became settled in this month, newest first. */
+  /** Bills that were done for you in this month (see historyAt), newest first. */
   settledBills: BillGroup[];
 }
 
@@ -55,6 +58,25 @@ export function settledAt(g: BillGroup): string {
   if (g.status === "closed" && g.closedAt) return g.closedAt;
   const times = g.settlements.filter((t) => t.status === "paid" && t.paidAt).map((t) => t.paidAt as string);
   if (times.length === 0) return g.updatedAt ?? g.createdAt;
+  return times.reduce((a, b) => (new Date(a) > new Date(b) ? a : b));
+}
+
+/**
+ * When a bill belongs in your History, or null if it doesn't yet:
+ *   closed → when it was closed;
+ *   otherwise → when your last payment on it (paying or being paid) was marked
+ *               paid, once none of yours is pending — based only on YOUR
+ *               payments, so it never reveals when others paid;
+ *   no payments of yours → a settled bill at settledAt, else not yet.
+ */
+export function historyAt(g: BillGroup, userId: string | undefined): string | null {
+  if (g.status === "closed") return settledAt(g);
+  const myId = myIdOn(g, userId);
+  const mine = myId ? g.settlements.filter((t) => t.fromUserId === myId || t.toUserId === myId) : [];
+  if (mine.length === 0) return g.status === "settled" ? settledAt(g) : null;
+  if (mine.some((t) => t.status === "pending")) return null;
+  const times = mine.filter((t) => t.status === "paid").map((t) => t.paidAt ?? g.updatedAt ?? g.createdAt);
+  if (times.length === 0) return null;
   return times.reduce((a, b) => (new Date(a) > new Date(b) ? a : b));
 }
 
@@ -74,8 +96,10 @@ export function summarizeMonth(groups: BillGroup[], userId: string | undefined, 
   }
 
   const settledBills = groups
-    .filter((g) => (g.status === "settled" || g.status === "closed") && monthKey(settledAt(g)) === month)
-    .sort((a, b) => new Date(settledAt(b)).getTime() - new Date(settledAt(a)).getTime());
+    .map((g) => ({ g, at: historyAt(g, userId) }))
+    .filter((x): x is { g: BillGroup; at: string } => x.at !== null && monthKey(x.at) === month)
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .map((x) => x.g);
 
   return { month, spent: round2(spent), received: round2(received), paymentCount, settledBills };
 }

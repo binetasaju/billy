@@ -2,7 +2,8 @@
 // services/billExtraction.ts — photo of a receipt → bill ready for Review
 //
 //   reading:   check file → compress → ML Kit text (+ optional Vision boxes)
-//   building:  Gemini / offline parser → match items to the photo → billStore
+//   building:  Gemini (photo + OCR text, one call) / offline parser
+//              → match items to the photo → billStore
 //
 // Used by the Preview screen's Continue button. `onStage` lets the screen show
 // "Extracting bill…" while reading and "Building bill details…" after.
@@ -16,6 +17,7 @@ import { extractBlocksWithVision } from "./visionOcr";
 import { matchItemsToBlocks, buildBlocksFromRawText } from "./matchItems";
 import { billStore } from "./billStore";
 import { authStore } from "./authStore";
+import { devLog, devTime, devTimeEnd } from "../utils/devLog";
 
 export type ExtractionStage = "reading" | "building";
 
@@ -40,20 +42,18 @@ export async function extractBill(
 ): Promise<void> {
   const { signal, onStage } = opts;
   try {
-    console.time("[PIPELINE] Total");
+    devTime("[PIPELINE] Total");
     onStage?.("reading");
 
     // 1. File
     const fileInfo = await FileSystem.getInfoAsync(uri);
     if (!fileInfo.exists) throw new ExtractionError("The photo couldn't be found. Please take it again.");
 
-    // 2. Compress (+ base64 only when the optional Vision API is set up)
+    // 2. Compress + base64 (sent to Gemini with the text, and to Vision if set up)
     const compressed = await compressImage(uri);
     const visionConfigured = !!process.env.EXPO_PUBLIC_VISION_API_KEY;
-    const base64 = visionConfigured
-      ? await FileSystem.readAsStringAsync(compressed.uri, { encoding: "base64" as FileSystem.EncodingType })
-      : "";
-    if (visionConfigured && base64.length === 0) {
+    const base64 = await FileSystem.readAsStringAsync(compressed.uri, { encoding: "base64" as FileSystem.EncodingType });
+    if (base64.length === 0) {
       throw new ExtractionError("The photo couldn't be read. Please take it again.");
     }
     if (signal?.aborted) throw abortError();
@@ -62,15 +62,15 @@ export async function extractBill(
     const ocrStart = Date.now();
     const [rawText, visionResult] = await Promise.all([
       extractTextWithMLKit(compressed.uri),
-      extractBlocksWithVision(base64, signal),
+      visionConfigured ? extractBlocksWithVision(base64, signal) : Promise.resolve(null),
     ]);
-    console.log(`[PIPELINE] OCR ${Date.now() - ocrStart}ms, ${rawText.length} chars`);
+    devLog(`[PIPELINE] OCR ${Date.now() - ocrStart}ms, ${rawText.length} chars`);
     if (signal?.aborted) throw abortError();
 
     // 4. Build the bill
     onStage?.("building");
-    const parsed = await parseBill(rawText);
-    console.log("[PIPELINE] Parsed:", parsed.items.length, "items");
+    const parsed = await parseBill(rawText, { imageBase64: base64 });
+    devLog("[PIPELINE] Parsed:", parsed.items.length, "items");
     if (parsed.isBill === false) throw new ExtractionError(NOT_A_BILL, true);
     if (signal?.aborted) throw abortError();
 
@@ -79,7 +79,7 @@ export async function extractBill(
     const items = matchItemsToBlocks(parsed.items as any[], blocks, rawText.split("\n").length);
     const bill = { ...parsed, items, imageWidth: visionResult?.imageWidth, imageHeight: visionResult?.imageHeight };
 
-    console.timeEnd("[PIPELINE] Total");
+    devTimeEnd("[PIPELINE] Total");
     billStore.set(bill, uri, visionResult?.blocks ?? null, authStore.get().user);
   } catch (err: any) {
     if (err?.name === "AbortError" || err?.message === "OCR cancelled.") throw abortError();

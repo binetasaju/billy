@@ -1,6 +1,20 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.billy.matters",
+      "sha256_cert_fingerprints": [
+        "DD:E3:69:D7:B6:2E:CA:38:74:DB:4C:AB:DE:31:61:D3:0C:CA:E3:17:BA:EF:7D:7E:B0:13:6D:4B:D4:3C:51:37"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.anonymous.mobile",

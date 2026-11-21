@@ -32,7 +32,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>mobile</string>
-          <string>com.anonymous.mobile</string>
+          <string>com.billy.matters</string>
         </array>
       </dict>
       <dict>

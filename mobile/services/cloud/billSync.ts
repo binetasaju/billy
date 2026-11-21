@@ -36,7 +36,7 @@ export interface BillSync {
   /** Is this bill stored in the cloud (known to the listener)? */
   has(billId: string): boolean;
   saveBill(local: BillGroup): Promise<void>;
-  markPaid(billId: string, fromLocalId: string, toLocalId: string, method?: "upi" | "cash" | "other"): Promise<void>;
+  markPaid(billId: string, fromLocalId: string, toLocalId: string, method?: "upi" | "cash" | "other", upiRef?: string): Promise<void>;
   closeBill(billId: string): Promise<void>;
   deleteBill(billId: string): Promise<void>;
 }
@@ -174,13 +174,14 @@ export function startBillSync(
       await db.batch(ops);
     },
 
-    async markPaid(billId, fromLocalId, toLocalId, method) {
+    async markPaid(billId, fromLocalId, toLocalId, method, upiRef) {
       const id = paymentId(toCloudPid(billId, fromLocalId), toCloudPid(billId, toLocalId));
       await db.update(`bills/${billId}/payments/${id}`, {
         status: "paid",
         paidAt: new Date().toISOString(),
         paymentMethod: method ?? null,
         markedBy: me.authUid,
+        ...(upiRef ? { upiRef } : {}),
       });
     },
 

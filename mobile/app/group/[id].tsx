@@ -1,8 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Share, ActivityIndicator, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ToastAndroid, Platform, Share, ActivityIndicator, Linking, useWindowDimensions } from "react-native";
 import { appAlert } from "@/components/ui/AppAlert";
 // Glass background behind every screen (see components/ui/glass.tsx)
 import { GlassScreen as SafeAreaView } from "@/components/ui/glass";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -14,16 +14,23 @@ import { authStore } from "../../services/authStore";
 import {
   billLink,
   buildBillShareMessage,
+  buildUpiUri,
   buildPersonInviteMessage,
   isValidUpiId,
   openUpiPayment,
   whatsappChatLink,
 } from "../../services/upi";
+import { upiIntent } from "../../modules/upi-intent";
+import { parseUpiResponse } from "../../services/upiResult";
 import { calculateSettlement } from "../../services/calculateSettlement";
 import type { Person, BillItem } from "../../types/bill";
 import { C } from "@/constants/colors";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { MemberAvatar } from "@/components/ui/MemberAvatar";
 import { T } from "@/constants/typography";
+import { QrCode } from "@/components/ui/QrCode";
+import { rupeesExact } from "../../utils/formatRupees";
+import { statusForMe } from "../../services/viewerStatus";
 
 /** One row of a person's share breakdown. */
 interface BreakdownLine {
@@ -53,6 +60,16 @@ export default function GroupDetailsScreen() {
     receiverName: string;
   } | null>(null);
 
+  // Payee-side "Show QR" — the person who owes scans it with any UPI app
+  const [qrTx, setQrTx] = useState<{
+    from: string;
+    to: string;
+    amount: number;
+    payerName: string;
+    uri: string;
+    upiId: string;
+  } | null>(null);
+
   // Payee-side "Mark as Received" state
   const [receiveTx, setReceiveTx] = useState<{
     from: string;
@@ -60,6 +77,17 @@ export default function GroupDetailsScreen() {
     amount: number;
     payerName: string;
   } | null>(null);
+
+  // "Not on Billy yet" chip → small pop-up anchored under it (WhatsApp / Invite)
+  const [inviteMenu, setInviteMenu] = useState<{
+    name: string;
+    message: string;
+    waLink: string | null;
+    x: number;
+    y: number;
+  } | null>(null);
+  const inviteChipRefs = useRef<Record<string, View | null>>({});
+  const { width: screenW } = useWindowDimensions();
 
   // Item breakdown modal state
   const [itemsModal, setItemsModal] = useState<{
@@ -79,6 +107,8 @@ export default function GroupDetailsScreen() {
   const { groups, isLoading: groupsLoading } = useGroups();
   const group = useMemo(() => groups.find((g) => g.id === id), [groups, id]);
   const currentUser = authStore.get().user;
+  // Shows the "scan to pay" QR when you are owed money and have a valid UPI ID.
+  const myUpiOk = !!currentUser?.upiId && isValidUpiId(currentUser.upiId);
   const isCreator = currentUser?.uid === group?.createdBy;
   // Creator can edit until the first payment is marked.
   const canEdit = canEditBill(group, currentUser?.uid);
@@ -203,13 +233,44 @@ export default function GroupDetailsScreen() {
     // The Pay action is only rendered when the receiver has a UPI ID; this is
     // just a safety net, and it stays silent rather than dead-ending.
     if (!receiver?.upiId) return;
-    setActiveTx({
+    const pending = {
       from: tx.fromUserId,
       to: tx.toUserId,
       amount: tx.amount,
       receiverName: receiver.name,
       receiverUpiId: receiver.upiId,
-    });
+    };
+
+    // Android with the UpiIntent module: open the UPI app for a result and
+    // mark the payment ourselves when it reports SUCCESS.
+    if (upiIntent && group) {
+      const url = buildUpiUri({ upiId: receiver.upiId, receiverName: receiver.name, amount: tx.amount, note: `Billy split for ${group.title}` });
+      try {
+        const reply = await upiIntent.pay(url, "Pay with");
+        if (!reply.launched) {
+          await Clipboard.setStringAsync(receiver.upiId);
+          appAlert.alert("No UPI app found", `Install GPay, PhonePe or Paytm. ${receiver.name}'s UPI ID has been copied.`);
+          return;
+        }
+        const result = parseUpiResponse(reply.response);
+        if (result.outcome === "success") {
+          await groupStore.markSettlementPaid(group.id, tx.fromUserId, tx.toUserId, "upi", result.reference);
+          if (Platform.OS === "android") ToastAndroid.show("✓ Paid via UPI", ToastAndroid.SHORT);
+          return;
+        }
+        if (result.outcome === "failure") {
+          appAlert.alert("Payment didn\u2019t go through", "The UPI app reported a failure. Nothing was marked as paid — you can try again.");
+          return;
+        }
+      } catch (e) {
+        console.warn("[UPI] intent failed:", e);
+      }
+      // No clear answer from the UPI app → ask (the existing pop-up).
+      setActiveTx(pending);
+      return;
+    }
+
+    setActiveTx(pending);
     await openUpiPayment({
       upiId: receiver.upiId,
       receiverName: receiver.name,
@@ -299,6 +360,28 @@ export default function GroupDetailsScreen() {
     });
   };
 
+  // Payee shows a UPI QR with the exact amount (in person, any UPI app).
+  const handleShowQrClick = (tx: any, sender: Person | undefined) => {
+    if (tx.toUserId !== currentUser?.uid || !group) return;
+    const upiId = currentUser?.upiId?.trim();
+    if (!upiId || !isValidUpiId(upiId)) return;
+    const uri = buildUpiUri({
+      upiId,
+      receiverName: currentUser?.name || "Billy user",
+      amount: tx.amount,
+      note: `Billy split for ${group.title}`,
+    });
+    setQrTx({ from: tx.fromUserId, to: tx.toUserId, amount: tx.amount, payerName: sender?.name ?? "They", uri, upiId });
+  };
+
+  // From the QR pop-up: once the money has arrived, mark it received.
+  const handleQrReceived = () => {
+    if (!qrTx) return;
+    const { from, to, amount, payerName } = qrTx;
+    setQrTx(null);
+    setReceiveTx({ from, to, amount, payerName });
+  };
+
   // Payee confirms once — no payment-method question.
   const handleConfirmReceived = async () => {
     // Re-check ownership at confirm time — never mark another pair's settlement.
@@ -368,160 +451,147 @@ export default function GroupDetailsScreen() {
   // Who paid the restaurant (everyone's settlement points at them).
   const payerId = payerOf(group);
 
+  // People who haven't joined this bill in Billy yet (they get an invite line in their row).
+  const notJoinedIds = new Set(
+    group.inCloud && group.status !== "closed"
+      ? group.participants.filter((p) => !p.authUid && p.id !== currentUser?.uid).map((p) => p.id)
+      : []
+  );
+
+  const creatorName = group.participants.find((p) => p.id === group.createdBy)?.name || "User";
+  const createdOn = new Date(group.createdAt).toLocaleDateString(undefined, {
+    day: "numeric", month: "short", year: "numeric",
+  });
+  // The amount actually split = everyone's shares (what the People list shows).
+  // If a receipt was read wrongly, that can differ from the saved total — then
+  // show what's being split, and say the receipt total doesn't match.
+  const sharesTotal = Math.round(
+    group.participants.reduce(
+      (sum, p) => sum + (group.customAmounts?.[p.id] ?? getPersonBreakdown(p.id).total),
+      0
+    ) * 100
+  ) / 100;
+  const totalMismatch = sharesTotal > 0.01 && Math.abs(sharesTotal - group.totalAmount) > 1;
+  const shownTotal = totalMismatch ? sharesTotal : group.totalAmount;
+
+  // Only the person who is owed sees everyone's progress; others see just their own part.
+  const mine = statusForMe(group, currentUser?.uid);
+  const paidCount = group.settlements.filter((t) => t.status === "paid").length;
+  const paidPct = group.settlements.length ? Math.round((paidCount / group.settlements.length) * 100) : 0;
+  const outstanding = group.settlements
+    .filter((t) => t.status === "pending")
+    .reduce((sum, t) => sum + t.amount, 0);
+
   return (
     <SafeAreaView style={s.safeArea}>
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={C.ink} />
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [s.iconBtn, pressed && s.pressedBtn]}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="arrow-back" size={22} color={C.ink} />
         </Pressable>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={s.headerActions}>
           {canEdit && (
-            <Pressable style={s.editBtn} onPress={handleEditBill} accessibilityRole="button">
-              <Ionicons name="create-outline" size={15} color={C.primary} />
-              <Text style={s.editBtnText}>Edit</Text>
+            <Pressable
+              style={({ pressed }) => [s.iconBtn, pressed && s.pressedBtn]}
+              onPress={handleEditBill}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Edit bill"
+            >
+              <Ionicons name="create-outline" size={19} color={C.ink} />
             </Pressable>
           )}
-          <StatusBadge status={group.status} />
           {group.status !== "closed" && (
-          <Pressable style={s.reportBtn} onPress={() => setShowReportModal(true)}>
-            <Ionicons name="flag-outline" size={15} color={C.danger} />
-            <Text style={s.reportBtnText}>Report Error</Text>
-          </Pressable>
+            <Pressable
+              style={({ pressed }) => [s.iconBtn, pressed && s.pressedBtn]}
+              onPress={() => setShowReportModal(true)}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Report a problem with this bill"
+            >
+              <Ionicons name="flag-outline" size={18} color={C.ink} />
+            </Pressable>
           )}
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll}>
-        <Text style={s.title}>{group.title}</Text>
-        <Text style={s.subtitle}>
-          Created by {group.participants.find((p) => p.id === group.createdBy)?.name || "User"}
-        </Text>
-        <Text style={s.date}>
-          {new Date(group.createdAt).toLocaleDateString(undefined, {
-            day: "numeric", month: "short", year: "numeric",
-          })}
-        </Text>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* ── Hero: what, who, when, how much, how far along ── */}
+        <View style={s.hero}>
+          <View style={s.heroTop}>
+            <View style={s.heroTitleWrap}>
+              <Text style={s.heroTitle}>{group.title}</Text>
+              <Text style={s.heroMeta}>
+                {creatorName} · {createdOn}
+              </Text>
+            </View>
+            <StatusBadge status={mine.status} label={mine.label} size="sm" />
+          </View>
 
-        <View style={s.summaryCard}>
-          <Text style={s.summaryLabel}>Total Bill Amount</Text>
-          <Text style={s.summaryValue}>₹{group.totalAmount.toFixed(2)}</Text>
-          <Text style={s.summarySubtext}>{group.participants.length} Participants</Text>
-          {group.settlements.length > 0 && (() => {
-            const paidCount = group.settlements.filter((t) => t.status === "paid").length;
-            const pct = Math.round((paidCount / group.settlements.length) * 100);
-            const outstanding = group.settlements
-              .filter((t) => t.status === "pending")
-              .reduce((sum, t) => sum + t.amount, 0);
-            return (
-              <View style={s.progressWrap}>
-                <View style={s.progressTrack}>
-                  <View style={[s.progressFill, { width: `${pct}%` as any }]} />
-                </View>
+          <Text style={s.heroCaption}>Total</Text>
+          <Text style={s.heroAmount}>{rupeesExact(shownTotal)}</Text>
+          <Text style={s.heroSub}>
+            Split between {group.participants.length} {group.participants.length === 1 ? "person" : "people"}
+          </Text>
+          {totalMismatch && (
+            <View style={s.mismatchNote}>
+              <Ionicons name="alert-circle-outline" size={13} color="#FCD34D" />
+              <Text style={s.mismatchText}>
+                Receipt total {rupeesExact(group.totalAmount)} doesn&apos;t match the items
+                {canEdit ? " — tap ✎ to fix" : ""}
+              </Text>
+            </View>
+          )}
+
+          {mine.seesEveryone && group.settlements.length > 0 && (
+            <View style={s.progressWrap}>
+              <View style={s.progressTrack}>
+                <View style={[s.progressFill, { width: `${paidPct}%` as any }]} />
+              </View>
+              <View style={s.progressRow}>
                 <Text style={s.progressText}>
                   {group.status === "closed"
-                    ? `Closed${group.closedAt ? ` on ${new Date(group.closedAt).toLocaleDateString()}` : ""} · ${paidCount} of ${group.settlements.length} had paid`
+                    ? `Closed${group.closedAt ? ` ${new Date(group.closedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}`
                     : paidCount === group.settlements.length
                     ? "Everyone has paid 🎉"
-                    : `${paidCount} of ${group.settlements.length} paid · ₹${outstanding.toFixed(2)} pending`}
+                    : `${paidCount} of ${group.settlements.length} paid`}
                 </Text>
+                {group.status === "closed" ? (
+                  <Text style={s.progressText}>{paidCount} of {group.settlements.length} had paid</Text>
+                ) : outstanding > 0 ? (
+                  <Text style={s.progressPending}>{rupeesExact(outstanding)} pending</Text>
+                ) : null}
               </View>
-            );
-          })()}
-        </View>
-
-        {/* ── Invite: people who haven't joined yet ── */}
-        {(() => {
-          const notJoined = group.inCloud && group.status !== "closed"
-            ? group.participants.filter((p) => !p.authUid && p.id !== currentUser?.uid)
-            : [];
-          if (notJoined.length === 0) {
-            return (
-              <Pressable
-                style={({ pressed }) => [s.shareBillBtn, pressed && s.pressedBtn]}
-                onPress={handleShareBill}
-                accessibilityRole="button"
-                accessibilityLabel="Share bill"
-              >
-                <Ionicons name="share-social-outline" size={17} color={C.primary} />
-                <Text style={s.shareBillText}>Share bill</Text>
-              </Pressable>
-            );
-          }
-          return (
-            <View style={s.inviteCard}>
-              <View style={s.inviteHead}>
-                <Ionicons name="link-outline" size={18} color={C.primary} />
-                <Text style={s.inviteTitle}>
-                  {notJoined.length === 1 ? "1 person hasn\u2019t joined yet" : `${notJoined.length} people haven\u2019t joined yet`}
-                </Text>
-              </View>
-              <Text style={s.inviteText}>
-                They join in Billy with the link (and sign up if they{"\u2019"}re new) to see their share and pay.
-              </Text>
-
-              {/* One row per person — WhatsApp straight to their number when we have it */}
-              {notJoined.map((p) => {
-                const share = group.settlements.find((t) => t.fromUserId === p.id)?.amount;
-                const waLink = group.inviteCode
-                  ? whatsappChatLink(
-                      p.phone,
-                      buildPersonInviteMessage({
-                        name: p.name,
-                        billTitle: group.title,
-                        share,
-                        link: billLink(group.id, group.inviteCode),
-                      })
-                    )
-                  : null;
-                return (
-                  <View key={p.id} style={s.inviteRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.inviteName}>{p.name}</Text>
-                      <Text style={s.inviteSub}>
-                        {share ? `₹${share.toFixed(2)}` : "Not paying"}
-                        {waLink ? "" : "  ·  no number — use Share link"}
-                      </Text>
-                    </View>
-                    {waLink && (
-                      <Pressable
-                        style={({ pressed }) => [s.waBtn, pressed && s.pressedBtn]}
-                        onPress={() =>
-                          Linking.openURL(waLink).catch(() =>
-                            appAlert.alert("WhatsApp not available", "Use Share link to send the invite another way.")
-                          )
-                        }
-                        accessibilityRole="button"
-                        accessibilityLabel={`Invite ${p.name} on WhatsApp`}
-                      >
-                        <Ionicons name="logo-whatsapp" size={16} color={C.white} />
-                        <Text style={s.waBtnText}>WhatsApp</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                );
-              })}
-
-              <Pressable
-                style={({ pressed }) => [s.inviteBtn, pressed && s.pressedBtn]}
-                onPress={handleShareBill}
-                accessibilityRole="button"
-                accessibilityLabel="Share bill link to everyone"
-              >
-                <Ionicons name="share-social" size={16} color={C.white} />
-                <Text style={s.inviteBtnText}>Share link to everyone</Text>
-              </Pressable>
             </View>
-          );
-        })()}
+          )}
+
+          <Pressable
+            style={({ pressed }) => [s.heroShare, pressed && s.pressedBtn]}
+            onPress={handleShareBill}
+            accessibilityRole="button"
+            accessibilityLabel={notJoinedIds.size ? "Share bill link to everyone" : "Share bill"}
+          >
+            <Ionicons name="share-social-outline" size={16} color={C.ink} />
+            <Text style={s.heroShareText}>{notJoinedIds.size ? "Share link to everyone" : "Share bill"}</Text>
+          </Pressable>
+        </View>
 
         {/* ── Closed bill ── */}
         {group.status === "closed" && (
           <View style={s.closedCard}>
             <View style={s.closedHead}>
-              <Ionicons name="lock-closed" size={16} color={C.textMuted} />
-              <Text style={s.closedTitle}>This bill is closed</Text>
+              <View style={s.closedIcon}>
+                <Ionicons name="lock-closed" size={14} color={C.textMuted} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.closedTitle}>This bill is closed</Text>
+                <Text style={s.closedText}>It was closed because of a mistake. Start a new bill with the correct details.</Text>
+              </View>
             </View>
-            <Text style={s.closedText}>It was closed because of a mistake. Start a new bill with the correct details.</Text>
             <Pressable
               style={({ pressed }) => [s.mainBtn, pressed && s.pressedBtn]}
               onPress={() => router.replace("/(tabs)" as any)}
@@ -534,9 +604,22 @@ export default function GroupDetailsScreen() {
         )}
 
         {/* ── People: who had what + their share + payments that involve you ── */}
-        <Text style={s.sectionTitle}>People ({group.participants.length})</Text>
+        <View style={s.sectionHead}>
+          <Text style={s.sectionTitle}>People</Text>
+          <Text style={s.sectionCount}>{group.participants.length}</Text>
+        </View>
+        {notJoinedIds.size > 0 && (
+          <View style={s.hintBanner}>
+            <Ionicons name="person-add-outline" size={14} color={C.primary} />
+            <Text style={s.hintText}>
+              {notJoinedIds.size === 1 ? "1 person hasn’t" : `${notJoinedIds.size} people haven’t`} joined yet — send
+              them the link to see their share and pay.
+            </Text>
+          </View>
+        )}
+
         <View style={s.listCard}>
-          {group.participants.map((p, idx) => {
+          {group.participants.map((p) => {
             const me = currentUser?.uid;
             const isMe = p.id === me;
             const isPayer = p.id === payerId;
@@ -557,95 +640,221 @@ export default function GroupDetailsScreen() {
               tx?.paymentMethod === "cash" ? " in cash"
               : tx?.paymentMethod === "upi" ? " via UPI"
               : "";
+            const whoLabel = isMe ? "Your" : `${p.name}'s`;
 
             return (
-              <View key={p.id} style={[s.personRow, idx < group.participants.length - 1 && s.txBorder]}>
-                {/* Two lines: name … share  /  status … buttons. Nothing is cut off. */}
-                <View style={[s.whoAvatar, s.personAvatar, { backgroundColor: p.color ?? C.textSubtle }]}>
-                  <Text style={s.whoAvatarText}>{p.name.charAt(0).toUpperCase()}</Text>
-                </View>
+              <View key={p.id} style={s.personCard}>
+                {/* Top: avatar · name + status · share. Tap to see their items. */}
+                <Pressable
+                  style={({ pressed }) => [s.personTop, pressed && s.pressedRow]}
+                  onPress={() => handleShowItems(p.id, whoLabel)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Review ${isMe ? "your" : `${p.name}'s`} items`}
+                >
+                  <MemberAvatar name={p.name} color={p.color} authUid={p.authUid} isMe={isMe} size={40} style={s.avatarGap} />
 
-                <View style={s.personBody}>
-                  <View style={s.personLine}>
-                    <Text style={[s.personName, s.txName]}>{isMe ? "You" : p.name}</Text>
-                    <Text style={s.personShare}>₹{share.toFixed(2)}</Text>
-                  </View>
+                  <View style={s.personBody}>
+                    {/* Name gets the full width on its own line — same size for everyone, never "…" */}
+                    <Text style={s.personName}>{isMe ? "You" : p.name}</Text>
 
-                  <View style={[s.personLine, s.personLineBottom]}>
-                    <Text style={s.personStatus}>
-                      {tx ? (
-                        <>
-                          {isMe ? `You owe ${counterpart?.name ?? "them"} · ` : "Owes you · "}
-                          {isPaid ? (
-                            <Text style={s.txPaidStatus}>
-                              ✓ Paid{paidVia}{tx.paidAt ? ` ${new Date(tx.paidAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}
+                    {/* Second line: status (left) · amount + Billy box (right) */}
+                    <View style={s.personLine2}>
+                      <View style={s.statusLine}>
+                        {tx ? (
+                          <>
+                            <Text style={s.personStatus}>
+                              {isMe ? `You owe ${counterpart?.name ?? "them"}` : "Owes you"}
                             </Text>
-                          ) : isCancelled ? (
-                            <Text style={s.txCancelledStatus}>Cancelled</Text>
-                          ) : (
-                            <Text style={s.txPendingStatus}>Pending</Text>
-                          )}
-                        </>
-                      ) : isPayer ? (
-                        "Paid the bill"
-                      ) : isMe ? (
-                        "Your share"
-                      ) : (
-                        "Share of the bill"
+                            <View
+                              style={[
+                                s.statusPill,
+                                isPaid ? s.pillPaid : isCancelled ? s.pillCancelled : s.pillPending,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  s.statusPillText,
+                                  isPaid ? s.pillPaidText : isCancelled ? s.pillCancelledText : s.pillPendingText,
+                                ]}
+                              >
+                                {isPaid
+                                  ? `Paid${paidVia}${tx.paidAt ? ` · ${new Date(tx.paidAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}`
+                                  : isCancelled
+                                  ? "Cancelled"
+                                  : "Pending"}
+                              </Text>
+                            </View>
+                          </>
+                        ) : (
+                          <Text style={s.personStatus}>
+                            {isPayer ? "Paid the bill" : isMe ? "Your share" : "Share of the bill"}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={s.shareCol}>
+                        <Text style={s.personShare}>{rupeesExact(share)}</Text>
+                        <View style={s.itemsLink}>
+                          <Ionicons name="receipt-outline" size={11} color={C.textMuted} />
+                          <Text style={s.itemsLinkText}>Items</Text>
+                        </View>
+                      </View>
+                      {/* Billy status box, right of the amount:
+                          green "On Billy" when they've joined · amber "Not on Billy yet?" dropdown otherwise */}
+                      {group.inCloud && (isMe || !!p.authUid) && (
+                        <View style={[s.billyBox, s.billyBoxOn]} accessibilityLabel={`${isMe ? "You are" : `${p.name} is`} on Billy`}>
+                          <Text style={[s.billyBoxText, s.billyBoxOnText]}>On{"\n"}Billy</Text>
+                          <Ionicons name="checkmark-circle" size={13} color={C.statusSettledText} />
+                        </View>
                       )}
-                    </Text>
-
-                    <View style={s.personActions}>
-                      <Pressable
-                        style={({ pressed }) => [s.itemsIconBtn, pressed && s.pressedBtn]}
-                        onPress={() => handleShowItems(p.id, isMe ? "Your" : `${p.name}'s`)}
-                        hitSlop={6}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Review ${isMe ? "your" : `${p.name}'s`} items`}
-                      >
-                        <Ionicons name="receipt-outline" size={16} color={C.primary} />
-                      </Pressable>
-
-                      {tx && isPending && !isMe && (
+                      {notJoinedIds.has(p.id) && group.inviteCode && (
                         <Pressable
-                          style={({ pressed }) => [s.actionPill, pressed && s.pressedBtn]}
-                          onPress={() => handleMarkReceivedClick(tx, p)}
+                          ref={(r) => { inviteChipRefs.current[p.id] = r; }}
+                          style={({ pressed }) => [s.billyBox, s.billyBoxOff, pressed && s.pressedBtn]}
+                          onPress={() => {
+                            const message = buildPersonInviteMessage({
+                              name: p.name,
+                              billTitle: group.title,
+                              share: group.settlements.find((t) => t.fromUserId === p.id)?.amount,
+                              link: billLink(group.id, group.inviteCode!),
+                            });
+                            const waLink = whatsappChatLink(p.phone, message);
+                            const chip = inviteChipRefs.current[p.id];
+                            if (!chip) return;
+                            chip.measureInWindow((x, y, w, h) =>
+                              setInviteMenu({ name: p.name, message, waLink, x: x + w, y: y + h + 6 })
+                            );
+                          }}
+                          hitSlop={6}
                           accessibilityRole="button"
-                          accessibilityLabel={`Mark ₹${tx.amount.toFixed(2)} from ${p.name} as received`}
+                          accessibilityLabel={`${p.name} is not on Billy yet. Invite them`}
                         >
-                          <Ionicons name="checkmark-done" size={14} color={C.white} />
-                          <Text style={s.actionPillText}>Received</Text>
-                        </Pressable>
-                      )}
-                      {tx && isPending && isMe && (
-                        <Pressable
-                          style={({ pressed }) => [s.actionPill, pressed && s.pressedBtn]}
-                          onPress={() => receiverHasUpi ? handlePayClick(tx, counterpart) : handleMarkPaidOtherClick(tx, counterpart)}
-                          accessibilityRole="button"
-                          accessibilityLabel={receiverHasUpi ? `Pay ₹${tx.amount.toFixed(2)} with UPI` : "Mark as paid"}
-                        >
-                          <Ionicons name={receiverHasUpi ? "flash" : "checkmark-done"} size={14} color={C.white} />
-                          <Text style={s.actionPillText}>{receiverHasUpi ? "Pay" : "Mark paid"}</Text>
+                          <Text style={[s.billyBoxText, s.billyBoxOffText]}>Not on{"\n"}Billy yet?</Text>
+                          <Ionicons name="chevron-down" size={11} color={C.statusActiveText} />
                         </Pressable>
                       )}
                     </View>
                   </View>
+                </Pressable>
 
-                  {/* You owe someone with no UPI ID on file */}
-                  {tx && isPending && isMe && !receiverHasUpi && (
-                    <View style={s.upiMissingRow}>
-                      <Ionicons name="information-circle-outline" size={15} color="#92400E" />
-                      <Text style={s.upiMissingText}>
-                        No UPI ID for {counterpart?.name ?? "this person"} — pay them directly, then tap Mark paid
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                {/* Actions: only while a payment is pending */}
+                {tx && isPending && (
+                  <View style={s.actionsRow}>
+                    {!isMe && myUpiOk && (
+                      <Pressable
+                        style={({ pressed }) => [s.btnGhost, pressed && s.pressedBtn]}
+                        onPress={() => handleShowQrClick(tx, p)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Show a UPI QR code for ${p.name} to pay ₹${tx.amount.toFixed(2)}`}
+                      >
+                        <Ionicons name="qr-code-outline" size={15} color={C.ink} />
+                        <Text style={s.btnGhostText}>Show QR</Text>
+                      </Pressable>
+                    )}
+                    {!isMe && (
+                      <Pressable
+                        style={({ pressed }) => [s.btnSolid, pressed && s.pressedBtn]}
+                        onPress={() => handleMarkReceivedClick(tx, p)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Mark ₹${tx.amount.toFixed(2)} from ${p.name} as received`}
+                      >
+                        <Ionicons name="checkmark-done" size={15} color={C.white} />
+                        <Text style={s.btnSolidText}>Received</Text>
+                      </Pressable>
+                    )}
+                    {/* Paid another way (cash, bank transfer…) — next to UPI Pay */}
+                    {isMe && receiverHasUpi && (
+                      <Pressable
+                        style={({ pressed }) => [s.btnGhost, pressed && s.pressedBtn]}
+                        onPress={() => handleMarkPaidOtherClick(tx, counterpart)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Mark ₹${tx.amount.toFixed(2)} as paid another way`}
+                      >
+                        <Ionicons name="checkmark-done" size={15} color={C.ink} />
+                        <Text style={s.btnGhostText}>Mark paid</Text>
+                      </Pressable>
+                    )}
+                    {isMe && (
+                      <Pressable
+                        style={({ pressed }) => [s.btnSolid, pressed && s.pressedBtn]}
+                        onPress={() => receiverHasUpi ? handlePayClick(tx, counterpart) : handleMarkPaidOtherClick(tx, counterpart)}
+                        accessibilityRole="button"
+                        accessibilityLabel={receiverHasUpi ? `Pay ₹${tx.amount.toFixed(2)} with UPI` : "Mark as paid"}
+                      >
+                        <Ionicons name={receiverHasUpi ? "flash" : "checkmark-done"} size={15} color={C.white} />
+                        <Text style={s.btnSolidText}>
+                          {receiverHasUpi ? `Pay ${rupeesExact(tx.amount)}` : "Mark paid"}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+
+                {/* You owe someone with no UPI ID on file */}
+                {tx && isPending && isMe && !receiverHasUpi && (
+                  <View style={s.noteRow}>
+                    <Ionicons name="information-circle-outline" size={14} color={C.warningDark} />
+                    <Text style={s.noteText}>
+                      No UPI ID for {counterpart?.name ?? "this person"} — pay them directly, then tap Mark paid.
+                    </Text>
+                  </View>
+                )}
+
               </View>
             );
           })}
         </View>
       </ScrollView>
+
+      {/* ── Invite pop-up (anchored under the "Not on Billy yet" chip) ── */}
+      <Modal visible={!!inviteMenu} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setInviteMenu(null)}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setInviteMenu(null)} accessibilityLabel="Close">
+          {inviteMenu && (
+            <View
+              onStartShouldSetResponder={() => true}
+              style={[
+                s.popover,
+                { top: inviteMenu.y, left: Math.max(16, Math.min(inviteMenu.x - POPOVER_W, screenW - POPOVER_W - 16)) },
+              ]}
+            >
+              <Text style={s.popoverTitle}>Invite {inviteMenu.name}</Text>
+              {inviteMenu.waLink && (
+                <Pressable
+                  style={({ pressed }) => [s.popoverRow, pressed && s.popoverRowPressed]}
+                  onPress={() => {
+                    const link = inviteMenu.waLink!;
+                    setInviteMenu(null);
+                    Linking.openURL(link).catch(() =>
+                      appAlert.alert("WhatsApp not available", "Use Send invite link to share it with another app.")
+                    );
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Invite ${inviteMenu.name} on WhatsApp`}
+                >
+                  <View style={[s.popoverIcon, { backgroundColor: "#25D366" }]}>
+                    <Ionicons name="logo-whatsapp" size={15} color={C.white} />
+                  </View>
+                  <Text style={s.popoverRowText}>WhatsApp</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={({ pressed }) => [s.popoverRow, pressed && s.popoverRowPressed]}
+                onPress={() => {
+                  const message = inviteMenu.message;
+                  setInviteMenu(null);
+                  void Share.share({ message }).catch(() => {});
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Send ${inviteMenu.name} their invite link`}
+              >
+                <View style={[s.popoverIcon, { backgroundColor: C.primarySoft }]}>
+                  <Ionicons name="paper-plane-outline" size={14} color={C.primary} />
+                </View>
+                <Text style={s.popoverRowText}>Send invite link</Text>
+              </Pressable>
+            </View>
+          )}
+        </Pressable>
+      </Modal>
 
       {/* ── Item Breakdown Modal ── */}
       <Modal visible={!!itemsModal?.visible} transparent animationType="fade" statusBarTranslucent>
@@ -804,7 +1013,7 @@ export default function GroupDetailsScreen() {
             <Text style={s.modalTitle}>Mark as paid?</Text>
             {payOtherTx && (
               <Text style={s.modalSubtitle}>
-                Confirm you paid ₹{payOtherTx.amount.toFixed(2)} to {payOtherTx.receiverName}. This can&apos;t be undone.
+                Confirm you paid ₹{payOtherTx.amount.toFixed(2)} to {payOtherTx.receiverName} (cash, bank transfer or any other way). This can&apos;t be undone.
               </Text>
             )}
             <View style={{ gap: 12, marginTop: 24 }}>
@@ -813,6 +1022,34 @@ export default function GroupDetailsScreen() {
               </Pressable>
               <Pressable style={s.modalBtnCancel} onPress={() => setPayOtherTx(null)}>
                 <Text style={s.modalBtnCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── UPI QR Modal (payee side) ── */}
+      <Modal visible={!!qrTx} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setQrTx(null)}>
+        <View style={s.modalBackdrop}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Scan to pay ₹{qrTx?.amount.toFixed(2)}</Text>
+            {qrTx && (
+              <Text style={s.modalSubtitle}>
+                Ask {qrTx.payerName} to scan this with GPay, PhonePe, Paytm or any UPI app.
+              </Text>
+            )}
+            {qrTx && (
+              <View style={s.qrWrap}>
+                <QrCode value={qrTx.uri} size={220} />
+                <Text style={s.qrUpiId}>{qrTx.upiId}</Text>
+              </View>
+            )}
+            <View style={{ gap: 12, marginTop: 20 }}>
+              <Pressable style={s.modalBtnConfirm} onPress={handleQrReceived}>
+                <Text style={s.modalBtnSuccessText}>I&apos;ve received it</Text>
+              </Pressable>
+              <Pressable style={s.modalBtnCancel} onPress={() => setQrTx(null)}>
+                <Text style={s.modalBtnCancelText}>Close</Text>
               </Pressable>
             </View>
           </View>
@@ -875,149 +1112,148 @@ export default function GroupDetailsScreen() {
   );
 }
 
+const POPOVER_W = 210;
+
 const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
-
-  editBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: C.primarySoft },
-  editBtnText: { fontSize: 12, fontWeight: "600", color: C.primary },
-  reportEditBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12 },
-  reportBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: C.dangerSoft, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16,
-    borderWidth: 1, borderColor: "#FECACA",
-  },
-  reportBtnText: { color: C.danger, fontSize: 12, fontWeight: "600" },
-
-  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
-  title: { ...T.largeTitle, color: C.ink, marginTop: 8, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: C.text, fontWeight: "500", marginBottom: 2 },
-  date: { fontSize: 13, color: C.textMuted, marginBottom: 32 },
-
-  summaryCard: { backgroundColor: C.primaryDark, borderRadius: 20, padding: 24, marginBottom: 32, alignItems: "center" },
-  summaryLabel: { fontSize: 12, color: C.onDarkMuted, fontWeight: "500", marginBottom: 8 },
-  summaryValue: { fontSize: 27, color: C.white, fontWeight: "800", letterSpacing: -1 },
-  summarySubtext: { fontSize: 12, color: C.onDarkMuted, marginTop: 8 },
-  progressWrap: { alignSelf: "stretch", marginTop: 16, gap: 8 },
-  progressTrack: { height: 6, borderRadius: 3, backgroundColor: C.onDarkLine, overflow: "hidden" },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: "#34D399" },
-  progressText: { fontSize: 12, color: C.onDarkMuted, textAlign: "center", fontWeight: "500" },
-
-  sectionTitle: { fontSize: 15, fontWeight: "700", color: C.ink, marginBottom: 16 },
-  listCard: { backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder, marginBottom: 32, overflow: "hidden" },
-  emptyTransactions: { padding: 20, color: C.textMuted, textAlign: "center" },
-
-  txRow: { paddingHorizontal: 16, paddingVertical: 14 },
-  txMain: { flexDirection: "row", alignItems: "center" },
-  txBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceAlt },
-  txIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  txTextContent: { flex: 1 },
-  txText: { fontSize: 13, color: C.text },
-  txName: { fontWeight: "600", color: C.ink },
-  whoRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
-  whoAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  whoAvatarText: { color: "#fff", fontWeight: "700", fontSize: 12 },
-  whoItems: { fontSize: 11, color: C.textMuted, marginTop: 2, lineHeight: 13 },
-  whoTotal: { fontSize: 13, fontWeight: "700", color: C.ink },
-  txPaidStatus: { fontSize: 11, color: C.statusSettledText, fontWeight: "600", marginTop: 2 },
-  txCancelledStatus: { fontSize: 11, color: C.textMuted, fontWeight: "600", marginTop: 2 },
-  closedCard: {
-    backgroundColor: C.surfaceAlt, borderRadius: 16, padding: 16, marginBottom: 20, gap: 10,
-    borderWidth: 1, borderColor: C.border,
-  },
-  closedHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-  closedTitle: { fontSize: 14, fontWeight: "700", color: C.ink },
-  closedText: { fontSize: 12, color: C.textMuted, lineHeight: 17 },
-  txPendingStatus: { fontSize: 11, color: C.statusActiveText, fontWeight: "600", marginTop: 2 },
-  txAmount: { fontSize: 14, fontWeight: "700", color: C.ink },
-  personRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
-  personAvatar: { width: 38, height: 38, borderRadius: 19, marginRight: 12 },
-  personBody: { flex: 1 },
-  // Each line: text on the left (wraps), fixed-width content on the right.
-  personLine: { flexDirection: "row", alignItems: "center", gap: 10 },
-  personLineBottom: { marginTop: 6 },
-  personName: { flex: 1, fontSize: 14, lineHeight: 19 },
-  personShare: { fontSize: 14, fontWeight: "700", color: C.ink, lineHeight: 19, fontVariant: ["tabular-nums"] },
-  personStatus: { flex: 1, fontSize: 12, color: C.textMuted, lineHeight: 16 },
-  personActions: { flexDirection: "row", alignItems: "center", gap: 6 },
-  txSub: { fontSize: 11, marginTop: 2 },
-  txAmountInline: { fontSize: 12, fontWeight: "700", color: C.ink },
-  itemsIconBtn: {
-    width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center",
-    backgroundColor: C.primarySoft,
-  },
-  actionPill: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: C.primary, paddingHorizontal: 12, height: 30, borderRadius: 15,
-  },
-  actionPillText: { color: C.white, fontSize: 12, fontWeight: "700" },
-
-  // Actions row below transaction info
-  txActions: { marginTop: 12, gap: 10 },
-  chipRow: { flexDirection: "row", gap: 8 },
-  shareBillBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    paddingVertical: 13, borderRadius: 14, marginTop: -16, marginBottom: 24,
-    backgroundColor: C.primarySoft, borderWidth: 1, borderColor: C.primary,
-  },
-  shareBillText: { fontSize: 14, fontWeight: "700", color: C.primary },
-  inviteCard: {
-    backgroundColor: C.primarySoft, borderRadius: 16, padding: 16, marginTop: -16, marginBottom: 24,
-    borderWidth: 1, borderColor: C.primary, gap: 8,
-  },
-  inviteHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-  inviteTitle: { fontSize: 14, fontWeight: "700", color: C.ink },
-  inviteText: { fontSize: 12, color: C.text, lineHeight: 17 },
-  inviteBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-    backgroundColor: C.primary, borderRadius: 12, paddingVertical: 11, marginTop: 4,
-  },
-  inviteBtnText: { color: C.white, fontSize: 14, fontWeight: "700" },
-  inviteRow: {
-    flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderStrong,
-  },
-  inviteName: { fontSize: 14, fontWeight: "600", color: C.ink },
-  inviteSub: { fontSize: 11, color: C.textMuted, marginTop: 2 },
-  waBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#25D366",
-    paddingHorizontal: 12, height: 32, borderRadius: 16,
-  },
-  waBtnText: { color: C.white, fontSize: 12, fontWeight: "700" },
-  chipBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  iconBtn: {
+    width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center",
     backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.border,
   },
-  chipBtnText: { color: C.primary, fontWeight: "600", fontSize: 12 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
+  pressedBtn: { opacity: 0.7 },
+  pressedRow: { opacity: 0.6 },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 48 },
+
+  // Hero card — black, like Home
+  hero: { backgroundColor: C.primaryDark, borderRadius: 28, padding: 22, marginBottom: 28 },
+  heroTop: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 26 },
+  heroTitleWrap: { flex: 1 },
+  heroTitle: { ...T.title2, color: C.onDark, letterSpacing: 0 },
+  heroMeta: { ...T.footnote, color: C.onDarkMuted, marginTop: 4 },
+  heroCaption: { ...T.caption, color: C.onDarkMuted, textTransform: "uppercase", letterSpacing: 0.8 },
+  heroAmount: {
+    fontSize: 34, lineHeight: 40, fontWeight: "800", color: C.onDark, letterSpacing: -1,
+    marginTop: 4, fontVariant: ["tabular-nums"],
+  },
+  heroSub: { ...T.footnote, color: C.onDarkMuted, marginTop: 4 },
+  mismatchNote: {
+    flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginTop: 10,
+    backgroundColor: "rgba(252,211,77,0.12)", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  mismatchText: { ...T.caption, color: "#FCD34D", fontWeight: "600", flexShrink: 1 },
+  progressWrap: { marginTop: 20, gap: 8 },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: C.onDarkLine, overflow: "hidden" },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: "#34D399" },
+  progressRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  progressText: { ...T.footnote, color: C.onDarkMuted, fontWeight: "500" },
+  progressPending: { ...T.footnote, color: "#FCD34D", fontWeight: "600", fontVariant: ["tabular-nums"] },
+  heroShare: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    marginTop: 22, height: 46, borderRadius: 23, backgroundColor: C.white,
+  },
+  heroShareText: { ...T.headline, color: C.ink, letterSpacing: 0 },
+
+  // Closed bill
+  closedCard: {
+    backgroundColor: C.glass, borderRadius: 20, padding: 16, marginBottom: 28, gap: 14,
+    borderWidth: 1, borderColor: C.glassBorder,
+  },
+  closedHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  closedIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.surfaceAlt, alignItems: "center", justifyContent: "center" },
+  closedTitle: { ...T.headline, color: C.ink },
+  closedText: { ...T.footnote, color: C.textMuted, marginTop: 3, lineHeight: 17 },
   mainBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: C.primary, paddingVertical: 13, borderRadius: 14,
+    backgroundColor: C.primary, height: 46, borderRadius: 23,
   },
-  mainBtnText: { color: C.white, fontSize: 13, fontWeight: "600" },
-  pressedBtn: { opacity: 0.75 },
-  waitingRow: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: C.statusActiveBg, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14,
-  },
-  waitingDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.statusActiveDot },
-  upiMissingRow: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: C.warningSoft, borderWidth: 1, borderColor: "#FDE68A",
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginTop: 10,
-  },
-  upiMissingText: { flex: 1, fontSize: 11, fontWeight: "500", color: "#92400E" },
-  waitingText: { color: C.statusActiveText, fontWeight: "600", fontSize: 12 },
+  mainBtnText: { ...T.headline, color: C.white, letterSpacing: 0 },
 
-  participantRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14 },
-  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  avatarText: { color: C.white, fontSize: 12, fontWeight: "700" },
-  participantInfo: { flex: 1 },
-  participantName: { fontSize: 13, fontWeight: "600", color: C.ink },
-  participantPhone: { fontSize: 12, color: C.textMuted, marginTop: 1 },
-  upiRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  participantUpi: { fontSize: 11, color: C.textSubtle, fontStyle: "italic" },
+  // People
+  sectionHead: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, paddingHorizontal: 4 },
+  sectionTitle: { ...T.title3, color: C.ink, letterSpacing: 0 },
+  sectionCount: {
+    ...T.caption, fontWeight: "700", color: C.textMuted, backgroundColor: C.surfaceAlt,
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: "hidden",
+  },
+  hintBanner: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    backgroundColor: C.primarySoft, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12,
+  },
+  hintText: { flex: 1, ...T.footnote, color: C.primary, lineHeight: 17 },
+
+  // One soft card per person, with breathing room between them
+  listCard: { gap: 10 },
+  personCard: {
+    backgroundColor: C.glass, borderRadius: 20, borderWidth: 1, borderColor: C.glassBorder,
+    paddingHorizontal: 16, paddingVertical: 16,
+  },
+  personTop: { flexDirection: "row", alignItems: "flex-start" },
+  avatarGap: { marginRight: 12 },
+  personBody: { flex: 1, minWidth: 0 },
+  personName: { ...T.callout, fontWeight: "600", color: C.ink },
+  personLine2: { flexDirection: "row", alignItems: "center", marginTop: 6 },
+  statusLine: { flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 6, rowGap: 4 },
+  personStatus: { ...T.footnote, color: C.textMuted, flexShrink: 1 },
+  statusPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, flexShrink: 0 },
+  statusPillText: { fontSize: 10.5, lineHeight: 14, fontWeight: "700" },
+  pillPending: { backgroundColor: C.statusActiveBg },
+  pillPendingText: { color: C.statusActiveText },
+  pillPaid: { backgroundColor: C.statusSettledBg },
+  pillPaidText: { color: C.statusSettledText },
+  pillCancelled: { backgroundColor: C.surfaceAlt },
+  pillCancelledText: { color: C.textMuted },
+  shareCol: { alignItems: "flex-end", marginLeft: 12 },
+  personShare: { ...T.callout, fontWeight: "700", color: C.ink, fontVariant: ["tabular-nums"] },
+  itemsLink: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
+  itemsLinkText: { ...T.caption, color: C.textMuted },
+
+  // Pending payment buttons — equal width, under the name
+  actionsRow: { flexDirection: "row", gap: 8, marginTop: 14, marginLeft: 52 },
+  btnSolid: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    height: 38, borderRadius: 19, backgroundColor: C.primary,
+  },
+  btnSolidText: { color: C.white, fontSize: 13, fontWeight: "700" },
+  btnGhost: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    height: 38, borderRadius: 19, backgroundColor: C.glassStrong, borderWidth: 1, borderColor: C.borderStrong,
+  },
+  btnGhostText: { color: C.ink, fontSize: 13, fontWeight: "600" },
+
+  noteRow: {
+    flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10, marginLeft: 52,
+    backgroundColor: C.warningSoft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8,
+  },
+  noteText: { flex: 1, fontSize: 11.5, lineHeight: 16, color: C.statusActiveText },
+
+  // Billy status box — two short lines, fixed width so amounts line up
+  billyBox: {
+    width: 72, marginLeft: 12, paddingVertical: 6, paddingHorizontal: 6,
+    borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4,
+  },
+  billyBoxText: { fontSize: 10, lineHeight: 12, fontWeight: "700", textAlign: "center" },
+  billyBoxOn: { backgroundColor: C.statusSettledBg, borderColor: "#A7D7C0" },
+  billyBoxOnText: { color: C.statusSettledText },
+  billyBoxOff: { backgroundColor: C.statusActiveBg, borderColor: "#FCD9A0" },
+  billyBoxOffText: { color: C.statusActiveText },
+  popover: {
+    position: "absolute", width: POPOVER_W, backgroundColor: C.surface, borderRadius: 16, padding: 6,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.border,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 20, elevation: 10,
+  },
+  popoverTitle: { ...T.caption, color: C.textMuted, fontWeight: "600", paddingHorizontal: 10, paddingTop: 6, paddingBottom: 4 },
+  popoverRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10 },
+  popoverRowPressed: { backgroundColor: C.surfaceAlt },
+  popoverIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  popoverRowText: { ...T.subhead, fontWeight: "600", color: C.ink },
+
+  qrWrap: { alignItems: "center", marginTop: 16, gap: 10 },
+  qrUpiId: { fontSize: 13, fontWeight: "600", color: C.textMuted },
+  reportEditBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12 },
 
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center" },
   errorText: { color: C.danger, fontSize: 14 },

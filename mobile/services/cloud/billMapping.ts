@@ -49,6 +49,7 @@ export interface CloudPayment {
   paidAt?: string | null;
   paymentMethod?: "upi" | "cash" | "other" | null;
   markedBy?: string | null;
+  upiRef?: string | null;
 }
 
 export const paymentId = (fromId: string, toId: string) => `${fromId}__${toId}`;
@@ -90,6 +91,7 @@ export function toLocalBill(id: string, cloud: CloudBill, payments: CloudPayment
       status: p.status,
       ...(p.paidAt ? { paidAt: p.paidAt } : {}),
       ...(p.paymentMethod ? { paymentMethod: p.paymentMethod } : {}),
+      ...(p.upiRef ? { upiRef: p.upiRef } : {}),
     }));
 
   return {
@@ -157,6 +159,7 @@ export function toCloudBill(
       paidAt: t.paidAt ?? null,
       paymentMethod: t.paymentMethod ?? null,
       markedBy: null,
+      upiRef: t.upiRef ?? null,
     };
   }
 
