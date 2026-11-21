@@ -6,7 +6,7 @@
 
 **Scan a bill. Split by item. Pay your share.**
 
-[Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Roadmap](#-future-roadmap)
+[Demo](#-demo) · [Features](#-features) · [Architecture](#-architecture) · [Setup](#-getting-started) · [Roadmap](#-future-roadmap)
 
 <br />
 
@@ -25,8 +25,15 @@ By combining AI-assisted receipt processing, flexible item-wise allocation, auto
 
 ---
 
+## 🎬 Demo
+
+**[▶ Watch the Billy demo video](billy3.mp4)** (MP4, about 21 MB). GitHub opens it in a video player.
+
+---
+
 ## 📌 Table of Contents
 
+- [Demo](#-demo)
 - [The Problem](#-the-problem)
 - [The Solution](#-the-solution)
 - [Features](#-features)
